@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.2.0 — Difficulty Ascension + seeded runs
+
+- Routed all run generation randomness (world size, theme, layout, platforms, loot,
+  guard/sentry placement) through the vault's one seeded `RandomNumberGenerator`;
+  replaced the global-RNG artifact shuffle with a seeded shuffle. A run can start from an
+  explicit seed (`start_run(contract, seed)`), defaults to random, and
+  `Vault.layout_signature()` fingerprints the generated layout for verification.
+- Added the `AscensionModifiers` autoload: a single editable table of dials for Ascension
+  1-10 (guard speed/detection multipliers, starting-Heat floor, Hunter threshold delta,
+  payout multiplier) with an explicit `HUNTER_FROM_START` sentinel for Ascension 10.
+- Ascension modifiers multiply into the existing formulas at their final computed values;
+  `Economy.final_total` applies the payout multiplier as one clean multiply at the end.
+- Persisted `ascension_level` (highest unlocked) and `best_by_ascension` in MetaSave;
+  old saves upgrade cleanly via the existing default-merge load.
+- Ascension 1 unlocks when the meta is fully maxed — the definition lives in one named
+  function, `Progression.is_meta_maxed()` (currently: every upgrade and every trophy at
+  max). Escaping Ascension N unlocks N+1.
+- Added an Ascension selector to the contracts board (capped at the unlocked level, with
+  a modifier summary and per-level best), an ascension tag on the run HUD, and the
+  ascension level / new-best line on the result screen.
+
 ## v0.1.3 — Godot 4.7 type-inference hotfix
 
 - Replaced the untyped `Node` vault parameter in guard and sentry AI with `GreedrunVault`.

@@ -133,6 +133,8 @@ const THEMES := {
 
 var rng := RandomNumberGenerator.new()
 var run_seed := 0
+var run_ascension := 0
+var ascension: Dictionary = {}
 var active_contract: Dictionary = {}
 var world_size := Vector2(2400, 1700)
 var world_bounds := Rect2()
@@ -189,8 +191,13 @@ func start_run(contract: Dictionary = {}, seed_value: int = 0) -> void:
 		theme_key = str(keys[rng.randi_range(0, keys.size() - 1)])
 	current_theme = THEMES[theme_key]
 	run_time_limit = float(active_contract.get("time_limit", 0.0))
+	run_ascension = clampi(GameState.ascension_level, 0, AscensionModifiers.MAX_LEVEL)
+	ascension = AscensionModifiers.modifiers_for(run_ascension)
 	heat_seed = clampi(floori(MetaSave.notoriety() / 2.0) - MetaSave.upgrade_level("cool"), 0, 3)
+	heat_seed = clampi(heat_seed + int(ascension.heat_floor_add), 0, 6)
 	_generate_world()
+	if AscensionModifiers.hunter_from_start(run_ascension):
+		_spawn_hunter()
 	_recompute_load()
 	_emit_hud()
 
@@ -378,7 +385,7 @@ func _spawn_loot() -> void:
 	if rng.randf() < 0.7:
 		_spawn_deep_loot("fragile", 0.35, occupied)
 	var artifacts := ARTIFACTS.duplicate(true)
-	artifacts.shuffle()
+	_seeded_shuffle(artifacts)
 	var artifact_count := 1 + int(rng.randf() < 0.6)
 	for i in range(artifact_count):
 		var point := _open_spot(14, occupied, 190, 0.40)
@@ -415,6 +422,15 @@ func _spawn_loot() -> void:
 			)
 		)
 		_spawn_standard_loot("idol" if rng.randf() < 0.5 else "gem", point, i, occupied)
+
+
+func _seeded_shuffle(items: Array) -> void:
+	# Array.shuffle() uses the global RNG; run generation must only draw from `rng`.
+	for i in range(items.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var swap: Variant = items[i]
+		items[i] = items[j]
+		items[j] = swap
 
 
 func _spawn_deep_loot(type: String, min_x_fraction: float, occupied: Array) -> void:
@@ -536,6 +552,27 @@ func los_clear(from: Vector2, to: Vector2) -> bool:
 	return true
 
 
+func layout_signature() -> int:
+	# Fingerprint of everything the seed decides. Two runs started from the same
+	# seed must return the same value; use it to verify seeded generation.
+	var parts: Array = [world_size, current_theme.name]
+	for wall: Rect2 in walls:
+		parts.append(wall)
+	for platform: Dictionary in platforms:
+		parts.append(platform.rect)
+		parts.append(platform.stair)
+	for item: GreedrunLoot in loot_items:
+		parts.append(item.loot_type)
+		parts.append(item.position)
+		parts.append(item.boon)
+	for guard: GreedrunGuard in guards:
+		parts.append(guard.position)
+	for sentry: GreedrunSentry in sentries:
+		parts.append(sentry.position)
+		parts.append(sentry.center_angle)
+	return hash(parts)
+
+
 func _process(delta: float) -> void:
 	if run_paused or finished or player == null:
 		return
@@ -638,17 +675,28 @@ func _recompute_load() -> void:
 	heat_tier = clampi(maxi(greed_heat, forced_heat_floor), 0, 6)
 	player.set_load(carried_weight)
 	peak_heat = maxi(peak_heat, heat_tier)
+	if hunter_spawned:
+		return
 	var hunter_at := maxi(2, 4 - floori(MetaSave.notoriety() / 3.0))
-	if not hunter_spawned and heat_tier >= hunter_at:
+	var hunter_delta := int(ascension.get("hunter_heat_delta", 0))
+	if hunter_delta != AscensionModifiers.HUNTER_FROM_START:
+		hunter_at = maxi(1, hunter_at - hunter_delta)
+	if heat_tier >= hunter_at:
 		_spawn_hunter()
 
 
 func _update_guards(delta: float) -> void:
 	var effective_noise := Progression.effective_noise(carried_noise, noise_muffled)
 	var detect_radius := (
-		(92.0 + effective_noise * 6.0 + heat_tier * 9.0) * Progression.detection_multiplier()
+		(92.0 + effective_noise * 6.0 + heat_tier * 9.0)
+		* Progression.detection_multiplier()
+		* float(ascension.get("guard_detr_mult", 1.0))
 	)
-	var guard_speed := (1.5 + heat_tier * 0.16 + carried_marked * 0.03) * 60.0
+	var guard_speed := (
+		(1.5 + heat_tier * 0.16 + carried_marked * 0.03)
+		* 60.0
+		* float(ascension.get("guard_speed_mult", 1.0))
+	)
 	for guard: GreedrunGuard in guards:
 		guard.update_ai(delta, player, self, detect_radius, guard_speed)
 		if (
@@ -857,6 +905,12 @@ func finish_run(escaped: bool) -> void:
 	set_run_paused(true)
 	MetaSave.data.runs = int(MetaSave.data.runs) + 1
 	MetaSave.data.best_haul = maxi(int(MetaSave.data.best_haul), carried_value if escaped else 0)
+	var ascension_new_best := false
+	if escaped and run_ascension >= 1:
+		ascension_new_best = MetaSave.record_ascension_best(run_ascension, carried_value)
+		MetaSave.set_ascension_level(
+			maxi(MetaSave.ascension_level(), mini(run_ascension + 1, AscensionModifiers.MAX_LEVEL))
+		)
 	var pending_haul: Array[Dictionary] = []
 	var bulk_value := 0
 	var bulk_count := 0
@@ -884,6 +938,9 @@ func finish_run(escaped: bool) -> void:
 		"total": loot_items.size(),
 		"perfect": escaped and vault_cleared,
 		"peak_heat": peak_heat,
+		"ascension": run_ascension,
+		"ascension_new_best": ascension_new_best,
+		"ascension_best": MetaSave.ascension_best(run_ascension),
 		"epithet": _epithet(escaped),
 		"pending_haul": pending_haul,
 		"bulk_value": bulk_value,
@@ -967,6 +1024,7 @@ func _emit_hud() -> void:
 			"extract_progress": extract_hold / 0.6,
 			"time_left": maxf(0.0, run_time_limit - run_clock) if run_time_limit > 0 else -1.0,
 			"contract": active_contract,
+			"ascension": run_ascension,
 			"elevation": player.elevation,
 			"weight_drop": carried_weight
 		}

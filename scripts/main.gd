@@ -41,6 +41,10 @@ var shop_grid: GridContainer
 var collection_bank: Label
 var collection_grid: GridContainer
 var contracts_box: VBoxContainer
+var ascension_title: Label
+var ascension_summary: Label
+var ascension_minus: Button
+var ascension_plus: Button
 var result_title: Label
 var result_amount: Label
 var result_body: Label
@@ -300,6 +304,19 @@ func _build_contracts() -> void:
 	var box := _new_screen("contracts", 720)
 	box.add_child(_title("CONTRACTS BOARD", 32))
 	box.add_child(_body("Three standing jobs and one no-questions-asked free run.", MUTED))
+	var ascension_row := HBoxContainer.new()
+	ascension_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	ascension_row.add_theme_constant_override("separation", 14)
+	ascension_minus = _button("−", _shift_ascension.bind(-1), 52)
+	ascension_row.add_child(ascension_minus)
+	ascension_title = _title("ASCENSION 0", 22)
+	ascension_title.custom_minimum_size = Vector2(220, 0)
+	ascension_row.add_child(ascension_title)
+	ascension_plus = _button("+", _shift_ascension.bind(1), 52)
+	ascension_row.add_child(ascension_plus)
+	box.add_child(ascension_row)
+	ascension_summary = _body("", MUTED)
+	box.add_child(ascension_summary)
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(660, 390)
 	box.add_child(scroll)
@@ -582,7 +599,36 @@ func _on_restore_pressed(id: String) -> void:
 		_rebuild_collection()
 
 
+func _shift_ascension(delta: int) -> void:
+	GameState.ascension_level = clampi(
+		GameState.ascension_level + delta, 0, AscensionModifiers.highest_unlocked()
+	)
+	_refresh_ascension_row()
+
+
+func _refresh_ascension_row() -> void:
+	var unlocked := AscensionModifiers.highest_unlocked()
+	GameState.ascension_level = clampi(GameState.ascension_level, 0, unlocked)
+	var level := GameState.ascension_level
+	ascension_title.text = "ASCENSION %d" % level
+	ascension_minus.disabled = level <= 0
+	ascension_plus.disabled = level >= unlocked
+	if unlocked == 0:
+		ascension_summary.text = "Ascension is locked — max every upgrade and trophy to open it."
+	elif level == 0:
+		ascension_summary.text = (
+			"Standard vault. Ascend up to %d for harder jobs and richer payouts." % unlocked
+		)
+	else:
+		var text := AscensionModifiers.summary(level)
+		var best := MetaSave.ascension_best(level)
+		if best > 0:
+			text += "\nBest haul at this level: $%s" % _money(best)
+		ascension_summary.text = text
+
+
 func _open_contracts() -> void:
+	_refresh_ascension_row()
 	_clear(contracts_box)
 	for contract: Dictionary in _generate_contracts(3):
 		var text := (
@@ -774,9 +820,17 @@ func _open_result(result: Dictionary) -> void:
 			else "FAILED"
 		)
 		contract_line = "\n%s: %s" % [result.contract.title, outcome]
+	var ascension_line := ""
+	var ascension_played := int(result.get("ascension", 0))
+	if ascension_played > 0:
+		ascension_line = "\nAscension %d" % ascension_played
+		if bool(result.get("ascension_new_best", false)):
+			ascension_line += " · NEW BEST"
+		elif bool(result.escaped) and int(result.get("ascension_best", 0)) > 0:
+			ascension_line += " · best $%s" % _money(int(result.ascension_best))
 	result_stats.text = (
-		"Secured %d/%d · Peak Heat T%d%s"
-		% [result.secured, result.total, result.peak_heat, contract_line]
+		"Secured %d/%d · Peak Heat T%d%s%s"
+		% [result.secured, result.total, result.peak_heat, contract_line, ascension_line]
 	)
 	result_continue.text = (
 		"TO THE FENCE"
@@ -941,6 +995,8 @@ func _update_hud(data: Dictionary) -> void:
 		hud_contract.text = "FREE RUN"
 	else:
 		hud_contract.text = "%s\n%s" % [contract.get("title", ""), contract.get("desc", "")]
+	if int(data.get("ascension", 0)) > 0:
+		hud_contract.text = "ASCENSION %d · %s" % [int(data.ascension), hud_contract.text]
 	if float(data.time_left) < 0.0:
 		hud_timer.text = ""
 	else:

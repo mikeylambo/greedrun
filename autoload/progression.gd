@@ -125,6 +125,18 @@ const KIND_TROPHY := {
 }
 
 
+## The Ascension unlock trigger. "Maxed" currently means every upgrade AND every
+## Collection trophy at max level — edit this function to change that definition.
+func is_meta_maxed() -> bool:
+	for upgrade: Dictionary in UPGRADES:
+		if MetaSave.upgrade_level(str(upgrade.id)) < int(upgrade.max):
+			return false
+	for trophy: Dictionary in TROPHIES:
+		if MetaSave.collection_level(str(trophy.id)) < int(trophy.max):
+			return false
+	return true
+
+
 func upgrade_by_id(id: String) -> Dictionary:
 	for upgrade: Dictionary in UPGRADES:
 		if upgrade.id == id:

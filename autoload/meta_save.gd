@@ -17,6 +17,8 @@ func default_data() -> Dictionary:
 		"runs": 0,
 		"best_haul": 0,
 		"notoriety": 0,
+		"ascension_level": 0,
+		"best_by_ascension": {},
 		"upgrades":
 		{
 			"straps": 0,
@@ -102,6 +104,25 @@ func notoriety() -> int:
 
 func add_notoriety(delta: int) -> void:
 	data["notoriety"] = clampi(notoriety() + delta, 0, 10)
+
+
+func ascension_level() -> int:
+	return int(data.get("ascension_level", 0))
+
+
+func set_ascension_level(level: int) -> void:
+	data["ascension_level"] = clampi(level, 0, AscensionModifiers.MAX_LEVEL)
+
+
+func ascension_best(level: int) -> int:
+	return int(data.get("best_by_ascension", {}).get(str(level), 0))
+
+
+func record_ascension_best(level: int, score: int) -> bool:
+	if level < 1 or score <= ascension_best(level):
+		return false
+	data["best_by_ascension"][str(level)] = score
+	return true
 
 
 func upgrade_level(id: String) -> int:
