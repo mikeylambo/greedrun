@@ -19,6 +19,13 @@ func default_data() -> Dictionary:
 		"notoriety": 0,
 		"ascension_level": 0,
 		"best_by_ascension": {},
+		"daily":
+		{
+			"last_played_key": "",
+			"last_score": 0,
+			"best_daily": 0,
+			"streak": 0,
+		},
 		"upgrades":
 		{
 			"straps": 0,

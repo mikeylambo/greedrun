@@ -8,6 +8,10 @@ var current := "menu"
 # selector, read by the vault at start_run and by Economy at payout.
 var ascension_level := 0
 
+# Whether the active run is today's seeded daily. Set when launching from the
+# daily entry, cleared when any other run starts.
+var daily_run := false
+
 
 func change(next_state: String) -> void:
 	if next_state == current:

@@ -36,6 +36,7 @@ var toast_timer: Timer
 var touch_overlay: GreedrunTouchOverlay
 var hideout_bank: Label
 var hideout_notoriety: Label
+var daily_button: Button
 var shop_bank: Label
 var shop_grid: GridContainer
 var collection_bank: Label
@@ -256,6 +257,9 @@ func _build_hideout() -> void:
 	box.add_child(hideout_bank)
 	hideout_notoriety = _body("")
 	box.add_child(hideout_notoriety)
+	daily_button = _button("DAILY HEIST", _start_daily, 460)
+	daily_button.custom_minimum_size.y = 72
+	box.add_child(daily_button)
 	box.add_child(_button("CONTRACTS BOARD", _open_contracts))
 	box.add_child(_button("UPGRADES", _open_shop))
 	box.add_child(_button("THE COLLECTION", _open_collection))
@@ -519,6 +523,7 @@ func _open_hideout() -> void:
 		hideout_notoriety.text = "Notoriety %d · return marked goods to cool the world." % notoriety
 	else:
 		hideout_notoriety.text = "Low profile. The vaults have not learned your name yet."
+	_refresh_daily_button()
 	_show_screen("hideout")
 
 
@@ -648,8 +653,22 @@ func _open_contracts() -> void:
 
 
 func _generate_contracts(count: int) -> Array[Dictionary]:
+	var pool := _contract_pool(contract_rng)
+	pool.shuffle()
+	var result: Array[Dictionary] = []
+	var theme_keys := GreedrunVault.THEMES.keys()
+	for i in range(count):
+		var contract: Dictionary = pool[i].duplicate(true)
+		var theme_key := str(theme_keys[contract_rng.randi_range(0, theme_keys.size() - 1)])
+		contract.theme_key = theme_key
+		contract.location = GreedrunVault.THEMES[theme_key].name
+		result.append(contract)
+	return result
+
+
+func _contract_pool(rng: RandomNumberGenerator) -> Array[Dictionary]:
 	var pool: Array[Dictionary] = []
-	var quota := roundi(contract_rng.randf_range(1400, 2400) / 50.0) * 50
+	var quota := roundi(rng.randf_range(1400, 2400) / 50.0) * 50
 	pool.append(
 		{
 			"type": "quota",
@@ -674,7 +693,7 @@ func _generate_contracts(count: int) -> Array[Dictionary]:
 		{"id": "mask", "name": "a Marked Relic"},
 		{"id": "living", "name": "the Skitterjewel"},
 	]
-	var target: Dictionary = targets[contract_rng.randi_range(0, targets.size() - 1)]
+	var target: Dictionary = targets[rng.randi_range(0, targets.size() - 1)]
 	pool.append(
 		{
 			"type": "steal",
@@ -694,7 +713,7 @@ func _generate_contracts(count: int) -> Array[Dictionary]:
 			"reward": 1100
 		}
 	)
-	var limit := contract_rng.randi_range(85, 120)
+	var limit := rng.randi_range(85, 120)
 	pool.append(
 		{
 			"type": "timed",
@@ -742,19 +761,57 @@ func _generate_contracts(count: int) -> Array[Dictionary]:
 			"reward": 1050
 		}
 	)
-	pool.shuffle()
-	var result: Array[Dictionary] = []
-	var theme_keys := GreedrunVault.THEMES.keys()
-	for i in range(count):
-		var contract: Dictionary = pool[i].duplicate(true)
-		var theme_key := str(theme_keys[contract_rng.randi_range(0, theme_keys.size() - 1)])
-		contract.theme_key = theme_key
-		contract.location = GreedrunVault.THEMES[theme_key].name
-		result.append(contract)
-	return result
+	return pool
 
 
-func _start_run(contract: Dictionary) -> void:
+func _daily_contract(config: Dictionary) -> Dictionary:
+	# The daily's contract parameters (quota, steal target, timer) must be identical
+	# on every install, so the pool is rolled from the date-derived seed.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(config.seed)
+	var pool := _contract_pool(rng)
+	var contract: Dictionary = pool[0].duplicate(true)
+	for candidate: Dictionary in pool:
+		if str(candidate.type) == str(config.contract_type):
+			contract = candidate.duplicate(true)
+			break
+	var theme_key := str(config.theme)
+	contract.theme_key = theme_key
+	contract.location = GreedrunVault.THEMES[theme_key].name
+	return contract
+
+
+func _refresh_daily_button() -> void:
+	var streak := Daily.streak()
+	if Daily.DAILY_ONE_ATTEMPT and Daily.played_today():
+		daily_button.text = (
+			"DAILY HEIST — DONE · $%s today\nStreak %d · come back tomorrow"
+			% [_money(Daily.last_score()), streak]
+		)
+		daily_button.disabled = true
+		return
+	var contract := _daily_contract(Daily.daily_config_for_today())
+	var second_line := "One seeded vault — the same for every thief today."
+	if streak > 0 or Daily.best() > 0:
+		second_line = "Streak %d · daily best $%s" % [streak, _money(Daily.best())]
+	daily_button.text = (
+		"DAILY HEIST — %s · %s\n%s" % [contract.title, contract.location, second_line]
+	)
+	daily_button.disabled = false
+
+
+func _start_daily() -> void:
+	if not Daily.can_play_today():
+		_toast("Today's daily is done — come back tomorrow.")
+		return
+	var config := Daily.daily_config_for_today()
+	var contract := _daily_contract(config)
+	Daily.register_attempt()
+	GameState.ascension_level = Daily.DAILY_ASCENSION
+	_start_run(contract, int(config.seed), true)
+
+
+func _start_run(contract: Dictionary, seed_value: int = 0, is_daily: bool = false) -> void:
 	if vault:
 		vault.queue_free()
 	vault = VAULT_SCENE.instantiate()
@@ -764,7 +821,8 @@ func _start_run(contract: Dictionary) -> void:
 	vault.one_more_requested.connect(_open_one_more)
 	vault.artifact_decision_requested.connect(_open_artifact)
 	vault.run_finished.connect(_open_result)
-	vault.start_run(contract)
+	GameState.daily_run = is_daily
+	vault.start_run(contract, seed_value)
 	touch_overlay.reset()
 	_show_screen("")
 
@@ -828,9 +886,25 @@ func _open_result(result: Dictionary) -> void:
 			ascension_line += " · NEW BEST"
 		elif bool(result.escaped) and int(result.get("ascension_best", 0)) > 0:
 			ascension_line += " · best $%s" % _money(int(result.ascension_best))
+	var daily_line := ""
+	if GameState.daily_run:
+		var new_daily_best := Daily.record_result(int(result.haul_value), bool(result.escaped))
+		result_title.text = "DAILY — " + result_title.text
+		daily_line = "\nDaily streak %d" % Daily.streak()
+		if new_daily_best:
+			daily_line += " · NEW DAILY BEST"
+		elif Daily.best() > 0:
+			daily_line += " · daily best $%s" % _money(Daily.best())
 	result_stats.text = (
-		"Secured %d/%d · Peak Heat T%d%s%s"
-		% [result.secured, result.total, result.peak_heat, contract_line, ascension_line]
+		"Secured %d/%d · Peak Heat T%d%s%s%s"
+		% [
+			result.secured,
+			result.total,
+			result.peak_heat,
+			contract_line,
+			ascension_line,
+			daily_line
+		]
 	)
 	result_continue.text = (
 		"TO THE FENCE"
@@ -997,6 +1071,8 @@ func _update_hud(data: Dictionary) -> void:
 		hud_contract.text = "%s\n%s" % [contract.get("title", ""), contract.get("desc", "")]
 	if int(data.get("ascension", 0)) > 0:
 		hud_contract.text = "ASCENSION %d · %s" % [int(data.ascension), hud_contract.text]
+	if GameState.daily_run:
+		hud_contract.text = "DAILY · " + hud_contract.text
 	if float(data.time_left) < 0.0:
 		hud_timer.text = ""
 	else:

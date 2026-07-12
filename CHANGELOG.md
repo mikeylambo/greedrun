@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.3.0 — Seeded Daily Runs
+
+- Added the `Daily` autoload: `daily_config_for_today()` derives everything — date key,
+  seed (`YYYYMMDD` as int), contract type and theme — from the UTC date, so every install
+  generates the identical daily vault with no server.
+- Decision constants in one place: `DAILY_ONE_ATTEMPT` (one scored attempt per day),
+  `DAILY_STREAK_ON_ATTEMPT` (streak advances on starting, not on escaping),
+  `DAILY_USE_META` (upgrades/trophies apply) and `DAILY_ASCENSION` (fixed difficulty 0).
+- Persisted a `daily` block in MetaSave (`last_played_key`, `last_score`, `best_daily`,
+  `streak`); old saves pick it up through the existing default-merge load. Consecutive
+  days build the streak, a missed day resets it.
+- The daily is a normal run with a fixed config: the launch path seeds the existing
+  contract pool from the date, pins the theme, sets `GameState.ascension_level` to
+  `DAILY_ASCENSION` and calls `start_run(contract, seed)` — no forked run loop.
+- Hideout gained a Daily Heist entry showing today's job, theme, streak and best (or
+  today's score and a locked "come back tomorrow" state once played). The run HUD tags
+  daily runs and the result screen shows the daily streak and NEW DAILY BEST.
+- Added `tests/daily_check.gd`, a headless check
+  (`godot --headless --path . -s tests/daily_check.gd`) verifying seed determinism via
+  `layout_signature()`, date-stable config rotation and the streak rules.
+
 ## v0.2.0 — Difficulty Ascension + seeded runs
 
 - Routed all run generation randomness (world size, theme, layout, platforms, loot,
