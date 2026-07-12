@@ -1,0 +1,10 @@
+[gd_resource type="Theme" load_steps=3 format=3]
+
+[ext_resource type="FontFile" path="res://assets/fonts/BarlowSemiCondensed-SemiBold.ttf" id="1_body"]
+[ext_resource type="FontFile" path="res://assets/fonts/BarlowSemiCondensed-Medium.ttf" id="2_med"]
+
+[resource]
+default_font = ExtResource("1_body")
+default_font_size = 15
+Label/fonts/font = ExtResource("2_med")
+Button/fonts/font = ExtResource("1_body")
