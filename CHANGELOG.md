@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.3.1 — Jo sprite body
+
+- Replaced Jo's procedural `_draw()` body (circles, scarf polygon, bag circle) with the
+  authored 3/4 turnaround sprites: 3 directions (front/side/back, side mirrored for
+  right) × 3 bag tiers (empty/light/heavy) driven by the existing HUD weight thresholds.
+- Added `tools/knockout_normalize_jo.py`: knocks the baked checkerboard out of the
+  source sheet (`art_source/jo_turnaround.png`), finds the 3×3 grid from alpha
+  projections, scales all nine figures by one shared factor (front/empty = 200 px) and
+  composites them onto 256×256 cells with feet locked to the y=240 baseline, writing
+  `assets/jo/jo_{front|side|back}_{empty|light|heavy}.png`.
+- The Sprite2D is built in code in `_ready()` (Player.tscn untouched), feet on the node
+  origin, with a speed-driven stride bob — heavy loads trudge automatically since
+  move_speed already drops with weight. I-frame flashing now drives the sprite's
+  `modulate.a`; the warm ground aura and Smoke Step glow still render under Jo.
+- Mipmaps enabled in the `.import` for all nine cells (200 px art drawn at 76 px).
+- Cherry-picked `ASSET_MANIFEST.md` from main (the branch forked before it landed) and
+  marked the orientation lock DECIDED: 3/4 top-down.
+
 ## v0.3.0 — Seeded Daily Runs
 
 - Added the `Daily` autoload: `daily_config_for_today()` derives everything — date key,
