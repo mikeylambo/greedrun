@@ -5,11 +5,45 @@ directional sprite art** instead of the old procedural vector shape. Built as a
 side-by-side reference for what the character should look and feel like before
 committing the full art pass in the engine.
 
+## Two builds in here
+
+- **`index.html`** — the 2D canvas prototype with Jo drawn as real directional
+  **sprite art**, procedurally animated (see below).
+- **`jo3d.html`** — a **true 3D character model** of Jo, rigged and animated in the
+  browser with Three.js. Built to answer "how far can web production go from the
+  reference art" — a real articulated model instead of a flat sprite, so it turns,
+  steps, and streams its scarf in actual 3D with no bob/weave and no directional
+  art needed.
+
 ## Run it
 
-Open `web/index.html` directly in a browser (double-click / `file://` works — no
-server needed). Drag anywhere (or WASD / arrows) to move; hold on the exit to
-extract.
+Open either file directly in a browser (double-click / `file://` works — no
+server needed). Drag anywhere (or WASD / arrows) to move. In `index.html`, hold on
+the exit to extract; in `jo3d.html`, walk over the gold to collect it and watch the
+bag grow.
+
+## `jo3d.html` — the 3D model
+
+A stylized 3D Jo assembled from primitives and rigged as a bone hierarchy
+(hips → torso → head, plus shoulder/elbow arms and hip/knee legs), matched to the
+reference: near-black outfit, gold scarf (neck wrap + a physics-y trailing tail),
+blue headband, spiky black hair, crossed leather bandolier, gloves, boots, and the
+loot bag on his back that **grows as you collect gold**.
+
+- **Real walk cycle** — thighs and shins swing and bend on opposite phase, arms
+  counter-swing, the body bobs twice per stride, leans into the walk, and rolls
+  slightly. The stride is distance-driven, so feet never skate.
+- **True 3D turning** — Jo rotates to face his heading; no sprite flipping, no
+  per-direction art, no mirror bugs. Idle eases back to a gentle breathing pose.
+- **Scarf** — a chain of ribbon segments that hangs at rest and streams out behind
+  him with speed, always fluttering.
+- **Scene** — 3/4 follow camera, warm key light with soft shadow maps, a cool rim
+  light, fog, a grid floor, and pillars for depth. Vendored `vendor/three.min.js`
+  (Three.js r128, MIT) so it runs offline with no CDN.
+
+This is the "reference target" build — it shows what the character can look like in
+motion when it's a model, not a sprite. The 2D build below is the same character as
+production-ready flat art.
 
 ## What changed vs. `docs/original_prototype.html`
 
