@@ -1,0 +1,1984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Jo: Greedrun</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --vault:#12100b;        /* warm near-black stone */
+    --vault-2:#1b1710;
+    --panel:#201b13;
+    --panel-line:#3a3020;
+    --gold:#f5c542;         /* Jo / loot / value */
+    --scarf:#ffcf3f;
+    --gold-deep:#b8892a;
+    --curse:#8b6bff;        /* curse escalation */
+    --curse-glow:#a98bff;
+    --heat:#e0503f;         /* pursuit */
+    --bone:#ece3cf;         /* text */
+    --muted:#928872;
+    --ok:#7fc98a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#0a0906;color:var(--bone);
+    font-family:"Barlow Semi Condensed",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;overflow:hidden;}
+  body{display:flex;align-items:center;justify-content:center;padding:12px;}
+
+  #stage{position:relative;width:min(96vw,960px);aspect-ratio:3/2;
+    background:var(--vault);border-radius:14px;overflow:hidden;
+    box-shadow:0 30px 80px rgba(0,0,0,.7), 0 0 0 1px var(--panel-line) inset;}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;}
+
+  /* ---------- HUD ---------- */
+  #hud{position:absolute;inset:0;pointer-events:none;
+    display:flex;flex-direction:column;justify-content:space-between;
+    padding:14px 16px;opacity:0;transition:opacity .35s;}
+  #hud.on{opacity:1;}
+  .hud-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+  .hearts{display:flex;gap:5px;font-size:20px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.6));}
+  #objective{margin-top:8px;font-size:12px;letter-spacing:.06em;color:var(--bone);max-width:280px;line-height:1.35;
+    text-shadow:0 1px 3px rgba(0,0,0,.7);}
+  #objective b{color:var(--scarf);font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:11px;}
+  #timer{margin-top:6px;font-family:"Cinzel",serif;font-weight:900;font-size:22px;color:var(--gold);
+    text-shadow:0 0 14px rgba(245,197,66,.4);}
+  #timer.urgent{color:var(--heat);text-shadow:0 0 16px rgba(224,80,63,.5);}
+  #dropRisk{display:none;margin-top:9px;font-family:"Cinzel",serif;font-weight:700;font-size:12.5px;
+    letter-spacing:.04em;padding:5px 12px;border-radius:20px;width:fit-content;
+    box-shadow:0 0 0 1px currentColor inset;text-shadow:0 1px 2px rgba(0,0,0,.6);}
+  #dropRisk.on{display:block;}
+  .heart{color:var(--heat);}
+  .heart.gone{color:#3a2b22;}
+  .value-tag{text-align:right;line-height:1;}
+  .value-tag .lbl{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);}
+  .value-tag .amt{font-family:"Cinzel",serif;font-weight:900;font-size:30px;color:var(--gold);
+    text-shadow:0 0 18px rgba(245,197,66,.35);}
+
+  .meters{position:absolute;left:16px;bottom:14px;width:min(320px,42%);
+    display:flex;flex-direction:column;gap:8px;}
+  .meter{}
+  .meter .row{display:flex;justify-content:space-between;font-size:11px;
+    letter-spacing:.14em;text-transform:uppercase;margin-bottom:3px;}
+  .meter .row b{font-weight:700;}
+  .meter .track{height:9px;border-radius:6px;background:#0c0a06;
+    box-shadow:0 0 0 1px rgba(255,255,255,.05) inset;overflow:hidden;}
+  .meter .fill{height:100%;width:0;border-radius:6px;transition:width .18s ease-out;}
+  #greedFill{background:linear-gradient(90deg,var(--ok),var(--gold),var(--heat));}
+  #noiseFill{background:linear-gradient(90deg,#6a7f9c,#c9d3e0);}
+
+  .heat-pips{position:absolute;right:16px;bottom:16px;text-align:right;}
+  .heat-pips .lbl{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+  .pips{display:flex;gap:5px;justify-content:flex-end;}
+  .pip{width:16px;height:6px;border-radius:2px;background:#2a2016;transition:background .2s;}
+  .pip.lit{background:var(--heat);box-shadow:0 0 10px var(--heat);}
+
+  .prompt{position:absolute;left:50%;bottom:64px;transform:translateX(-50%);
+    font-family:"Cinzel",serif;font-weight:700;font-size:15px;letter-spacing:.06em;
+    color:var(--vault);background:var(--scarf);padding:8px 18px;border-radius:30px;
+    box-shadow:0 6px 24px rgba(255,207,63,.4);opacity:0;transition:opacity .18s, transform .18s;}
+  .prompt.on{opacity:1;transform:translateX(-50%) translateY(-4px);}
+
+  /* ---------- Overlays ---------- */
+  .overlay{position:absolute;inset:0;display:none;flex-direction:column;
+    align-items:center;justify-content:center;text-align:center;padding:6% 8%;
+    background:radial-gradient(120% 90% at 50% 40%, rgba(20,16,9,.86), rgba(6,5,3,.96));
+    backdrop-filter:blur(3px);z-index:5;}
+  .overlay.on{display:flex;animation:fade .4s ease;}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+
+  .eyebrow{font-size:12px;letter-spacing:.42em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:10px;}
+  h1.title{font-family:"Cinzel",serif;font-weight:900;line-height:.92;
+    font-size:clamp(40px,9vw,84px);letter-spacing:.02em;
+    background:linear-gradient(180deg,#ffe9a8,var(--gold) 55%,var(--gold-deep));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    text-shadow:0 8px 40px rgba(245,197,66,.15);}
+  h1.title .sub{display:block;font-size:.26em;letter-spacing:.5em;color:var(--bone);
+    -webkit-text-fill-color:var(--bone);margin-top:8px;font-family:"Barlow Semi Condensed";font-weight:600;}
+  .tagline{max-width:38ch;color:var(--muted);font-size:16px;line-height:1.5;margin:18px 0 26px;}
+  .tagline em{color:var(--scarf);font-style:normal;font-weight:600;}
+
+  .btn{pointer-events:auto;cursor:pointer;border:none;font-family:"Cinzel",serif;font-weight:700;
+    letter-spacing:.05em;font-size:17px;color:var(--vault);
+    background:linear-gradient(180deg,var(--scarf),var(--gold-deep));
+    padding:14px 34px;border-radius:8px;box-shadow:0 8px 24px rgba(245,197,66,.28);
+    transition:transform .12s, box-shadow .12s;}
+  .btn:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(245,197,66,.4);}
+  .btn:active{transform:translateY(0);}
+  .btn.ghost{background:transparent;color:var(--bone);box-shadow:0 0 0 1px var(--panel-line) inset;}
+  .btn.ghost:hover{box-shadow:0 0 0 1px var(--gold-deep) inset;}
+  .btn.danger{background:linear-gradient(180deg,#ff7a5c,var(--heat));color:#fff;box-shadow:0 8px 24px rgba(224,80,63,.3);}
+  .btn-row{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;}
+
+  .controls-hint{margin-top:22px;font-size:12.5px;color:var(--muted);letter-spacing:.03em;line-height:1.7;}
+  .controls-hint kbd{font-family:"Barlow Semi Condensed";background:var(--panel);color:var(--bone);
+    border-radius:4px;padding:1px 7px;box-shadow:0 0 0 1px var(--panel-line) inset;font-weight:600;}
+
+  /* result */
+  .result-num{font-family:"Cinzel",serif;font-weight:900;font-size:clamp(38px,8vw,64px);}
+  .result-num.win{color:var(--gold);text-shadow:0 0 30px rgba(245,197,66,.3);}
+  .result-num.loss{color:var(--heat);}
+  .result-sub{color:var(--muted);margin:6px 0 24px;font-size:15px;}
+  .stat-line{display:flex;gap:26px;margin-bottom:24px;color:var(--muted);font-size:13px;letter-spacing:.05em;}
+  .stat-line b{display:block;color:var(--bone);font-family:"Cinzel",serif;font-size:22px;font-weight:700;margin-top:2px;}
+
+  /* shop / fence */
+  .shop-head{margin-bottom:6px;}
+  .bank{font-family:"Cinzel",serif;font-weight:900;color:var(--gold);font-size:34px;line-height:1;}
+  .bank .c{color:var(--muted);font-size:13px;font-family:"Barlow Semi Condensed";font-weight:600;letter-spacing:.14em;display:block;text-transform:uppercase;}
+  .fence-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;
+    width:min(560px,90%);margin:22px 0 24px;}
+  .fence{pointer-events:auto;text-align:left;background:var(--panel);border-radius:10px;
+    padding:14px 15px;box-shadow:0 0 0 1px var(--panel-line) inset;cursor:pointer;
+    transition:transform .12s, box-shadow .12s;position:relative;}
+  .fence:hover:not(.owned):not(.locked){transform:translateY(-2px);box-shadow:0 0 0 1px var(--gold-deep) inset;}
+  .fence .nm{font-family:"Cinzel",serif;font-weight:700;font-size:16px;color:var(--bone);}
+  .fence .ds{font-size:12.5px;color:var(--muted);margin:4px 0 10px;line-height:1.4;min-height:34px;}
+  .fence .cost{font-weight:700;letter-spacing:.04em;color:var(--gold);font-size:15px;}
+  .fence .eff{font-size:11.5px;color:var(--scarf);letter-spacing:.02em;margin:2px 0 8px;font-weight:600;}
+  .fence.owned{opacity:.55;cursor:default;}
+  .fence.owned .cost{color:var(--ok);}
+  .fence.locked{opacity:.4;cursor:not-allowed;}
+  .fence .tag{position:absolute;top:12px;right:12px;font-size:10px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--gold-deep);}
+
+  /* ONE MORE THING */
+  #onemore .omt{font-family:"Cinzel",serif;font-weight:900;font-size:clamp(34px,8vw,72px);
+    letter-spacing:.03em;color:var(--scarf);text-shadow:0 0 40px rgba(255,207,63,.5);
+    animation:breathe 1.4s ease-in-out infinite;}
+  @keyframes breathe{0%,100%{opacity:.82;transform:scale(1)}50%{opacity:1;transform:scale(1.03)}}
+  #onemore .omt-sub{color:var(--muted);max-width:34ch;margin:14px 0 8px;line-height:1.5;font-size:15px;}
+  #onemore .carrying{color:var(--gold);font-family:"Cinzel",serif;font-weight:700;font-size:20px;margin-bottom:26px;}
+
+  /* branching-loot decision */
+  .dec-title{font-family:"Cinzel",serif;font-weight:900;font-size:clamp(28px,6vw,48px);
+    color:var(--curse-glow);text-shadow:0 0 34px rgba(169,139,255,.32);line-height:1;}
+  .dec-flavor{color:var(--muted);font-style:italic;max-width:36ch;margin:12px 0 24px;line-height:1.5;font-size:15px;}
+  .dec-choices{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;max-width:660px;}
+  .choice{pointer-events:auto;cursor:pointer;width:196px;background:var(--panel);border-radius:12px;
+    padding:16px 16px 15px;box-shadow:0 0 0 1px var(--panel-line) inset;text-align:left;
+    transition:transform .12s, box-shadow .12s;border-top:3px solid var(--muted);}
+  .choice:hover{transform:translateY(-3px);box-shadow:0 0 0 1px currentColor inset;}
+  .choice.greed{border-top-color:var(--gold);}
+  .choice.safe{border-top-color:var(--ok);}
+  .choice.power{border-top-color:var(--curse-glow);}
+  .choice .ct{font-family:"Cinzel",serif;font-weight:700;font-size:16px;color:var(--bone);margin-bottom:6px;}
+  .choice .cd{font-size:12.5px;color:var(--muted);line-height:1.45;min-height:56px;}
+  .choice .cv{margin-top:8px;font-weight:700;font-size:13px;letter-spacing:.03em;}
+  .choice.greed .cv{color:var(--gold);}
+  .choice.safe .cv{color:var(--ok);}
+  .choice.power .cv{color:var(--curse-glow);}
+
+  /* pause button + how-to */
+  .iconbtn{pointer-events:auto;cursor:pointer;width:40px;height:40px;border-radius:9px;
+    background:rgba(20,16,9,.72);box-shadow:0 0 0 1px var(--panel-line) inset;
+    display:flex;align-items:center;justify-content:center;color:var(--bone);flex:0 0 auto;
+    transition:box-shadow .12s, transform .12s;}
+  .iconbtn:hover{box-shadow:0 0 0 1px var(--gold-deep) inset;transform:translateY(-1px);}
+  .iconbtn svg{width:15px;height:15px;fill:currentColor;}
+  .howto-grid{display:flex;flex-direction:column;gap:13px;width:min(560px,94%);margin:20px 0 26px;text-align:left;}
+  .ht-row{display:flex;gap:16px;align-items:flex-start;}
+  .ht-key{flex:0 0 96px;font-family:"Cinzel",serif;font-weight:700;font-size:14px;color:var(--gold);letter-spacing:.03em;padding-top:1px;}
+  .ht-txt{font-size:14px;color:var(--bone);line-height:1.5;}
+  .ht-txt em{color:var(--scarf);font-style:normal;font-weight:600;}
+  #paused .pause-word{font-family:"Cinzel",serif;font-weight:900;font-size:clamp(30px,7vw,52px);
+    color:var(--bone);letter-spacing:.06em;}
+  #statPanel{margin-top:16px;width:min(500px,92%);}
+  .stat-head{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-deep);
+    margin:12px 0 7px;text-align:left;}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px 14px;}
+  .stat-cell{display:flex;justify-content:space-between;align-items:baseline;background:var(--panel);
+    border-radius:7px;padding:7px 11px;box-shadow:0 0 0 1px var(--panel-line) inset;}
+  .stat-cell span{font-size:12px;color:var(--muted);letter-spacing:.03em;}
+  .stat-cell b{font-family:"Cinzel",serif;font-weight:700;color:var(--bone);font-size:14px;}
+
+  /* fence */
+  .fence-list{display:flex;flex-direction:column;gap:12px;width:min(600px,94%);margin:16px 0 20px;text-align:left;
+    max-height:46vh;overflow-y:auto;padding-right:4px;}
+  .fitem{background:var(--panel);border-radius:10px;padding:12px 14px;box-shadow:0 0 0 1px var(--panel-line) inset;}
+  .fitem .fnm{font-family:"Cinzel",serif;font-weight:700;font-size:15px;color:var(--bone);margin-bottom:9px;}
+  .buyers{display:flex;gap:8px;flex-wrap:wrap;}
+  .buyer{pointer-events:auto;cursor:pointer;flex:1 1 120px;background:#161209;border-radius:8px;padding:8px 10px;
+    box-shadow:0 0 0 1px var(--panel-line) inset;transition:box-shadow .12s, transform .1s;}
+  .buyer:hover{box-shadow:0 0 0 1px var(--gold-deep) inset;transform:translateY(-1px);}
+  .buyer.sel{box-shadow:0 0 0 2px var(--gold) inset;}
+  .buyer.baron.sel{box-shadow:0 0 0 2px var(--curse-glow) inset;}
+  .buyer.return.sel{box-shadow:0 0 0 2px var(--ok) inset;}
+  .buyer .bn{font-weight:700;font-size:12.5px;color:var(--bone);}
+  .buyer .bp{font-family:"Cinzel",serif;font-weight:700;font-size:15px;color:var(--gold);}
+  .buyer.baron .bp{color:var(--curse-glow);}
+  .buyer.return .bp{color:var(--ok);}
+  .buyer.keep{border-top:0;}
+  .buyer.keep .bp{color:var(--gold);font-size:12px;}
+  .buyer.keep.sel{box-shadow:0 0 0 2px var(--gold) inset;}
+
+  /* the collection */
+  .trophy-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;
+    width:min(620px,94%);margin:16px 0 20px;max-height:52vh;overflow-y:auto;padding-right:4px;}
+  .trophy{background:var(--panel);border-radius:11px;padding:14px 13px;text-align:center;
+    box-shadow:0 0 0 1px var(--panel-line) inset;position:relative;}
+  .trophy.locked{opacity:.5;}
+  .trophy .orb{width:44px;height:44px;margin:2px auto 8px;border-radius:50%;
+    background:radial-gradient(circle at 40% 35%, #ffe9a8, var(--gold) 55%, var(--gold-deep));
+    box-shadow:0 0 18px rgba(245,197,66,.35);}
+  .trophy.locked .orb{background:#2a2318;box-shadow:none;}
+  .trophy.relicClr .orb{background:radial-gradient(circle at 40% 35%,#c9b3ff,var(--curse-glow) 60%,#6a4fbf);box-shadow:0 0 18px rgba(169,139,255,.4);}
+  .trophy.jewelClr .orb{background:radial-gradient(circle at 40% 35%,#c8f5cf,#7fd88a 60%,#3f7a48);box-shadow:0 0 18px rgba(143,227,154,.4);}
+  .trophy .pn{font-family:"Cinzel",serif;font-weight:700;font-size:14px;color:var(--scarf);}
+  .trophy .tn{font-size:11px;color:var(--muted);margin-bottom:6px;}
+  .trophy .te{font-size:12px;color:var(--bone);min-height:32px;line-height:1.35;}
+  .trophy .lv{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-deep);margin-top:6px;}
+  .trophy .rbtn{pointer-events:auto;cursor:pointer;margin-top:9px;font-family:"Cinzel",serif;font-weight:700;
+    font-size:12.5px;color:var(--vault);background:linear-gradient(180deg,var(--scarf),var(--gold-deep));
+    border-radius:7px;padding:7px 8px;transition:transform .1s;}
+  .trophy .rbtn:hover{transform:translateY(-1px);}
+  .trophy .rbtn.dim{background:transparent;color:var(--muted);box-shadow:0 0 0 1px var(--panel-line) inset;cursor:default;}
+  .buyer .bf{font-size:10.5px;color:var(--muted);letter-spacing:.02em;}
+  #notoLine{margin-top:6px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;}
+  .fence-legend{display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:center;width:min(560px,94%);
+    margin:12px 0 2px;font-size:11.5px;color:var(--muted);line-height:1.4;}
+  .fence-legend span{white-space:nowrap;}
+  .fence-grid{max-height:52vh;overflow-y:auto;padding-right:4px;}
+
+  /* contracts / jobs board */
+  .job-grid{display:flex;flex-direction:column;gap:12px;width:min(560px,94%);margin:20px 0 22px;text-align:left;}
+  .job{pointer-events:auto;cursor:pointer;background:var(--panel);border-radius:11px;padding:15px 16px;
+    box-shadow:0 0 0 1px var(--panel-line) inset;border-left:3px solid var(--gold-deep);
+    transition:transform .12s, box-shadow .12s;}
+  .job:hover{transform:translateY(-2px);box-shadow:0 0 0 1px var(--gold) inset;}
+  .job .jt{font-family:"Cinzel",serif;font-weight:700;font-size:16px;color:var(--scarf);}
+  .job .jc{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:2px 0 8px;}
+  .job .jd{font-size:13px;color:var(--bone);line-height:1.45;}
+  .job .jr{margin-top:9px;font-family:"Cinzel",serif;font-weight:700;font-size:14px;color:var(--gold);}
+  .job .jr .loc{float:right;color:var(--muted);font-family:"Barlow Semi Condensed";font-weight:600;
+    font-size:12px;letter-spacing:.04em;text-transform:none;}
+
+  /* touch controls */
+  #touch{position:absolute;inset:0;display:none;pointer-events:none;z-index:4;}
+  #stick{position:absolute;width:120px;height:120px;border-radius:50%;
+    background:rgba(255,255,255,.04);box-shadow:0 0 0 1px rgba(255,255,255,.08) inset;
+    display:none;}
+  #stick .nub{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;
+    border-radius:50%;background:rgba(255,207,63,.55);box-shadow:0 4px 14px rgba(0,0,0,.4);}
+  #eBtn{position:absolute;right:22px;bottom:22px;width:74px;height:74px;border-radius:50%;
+    pointer-events:auto;background:linear-gradient(180deg,var(--scarf),var(--gold-deep));
+    color:var(--vault);font-family:"Cinzel",serif;font-weight:900;font-size:14px;
+    display:none;align-items:center;justify-content:center;letter-spacing:.04em;
+    box-shadow:0 8px 20px rgba(0,0,0,.4);}
+  .toast{position:absolute;top:52px;left:50%;transform:translateX(-50%);
+    font-family:"Cinzel",serif;font-weight:700;font-size:14px;letter-spacing:.04em;
+    padding:7px 16px;border-radius:20px;background:rgba(20,16,9,.9);
+    box-shadow:0 0 0 1px var(--panel-line) inset;opacity:0;transition:opacity .3s, transform .3s;z-index:6;}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(4px);}
+  .credit{position:absolute;left:16px;bottom:14px;font-size:11px;color:var(--muted);letter-spacing:.2em;opacity:.6;}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="c" width="960" height="640"></canvas>
+
+  <!-- In-run HUD -->
+  <div id="hud">
+    <div class="hud-top">
+      <div>
+        <div class="hearts" id="hearts"></div>
+        <div id="objective"></div>
+        <div id="timer"></div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <div class="value-tag">
+          <div class="lbl">Haul in bag</div>
+          <div class="amt" id="haul">$0</div>
+          <div class="lbl" id="secured" style="margin-top:4px">0 / 0 secured</div>
+        </div>
+        <div class="iconbtn" id="pauseBtn" title="Pause">
+          <svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+        </div>
+      </div>
+    </div>
+    <div class="meters">
+      <div class="meter">
+        <div class="row"><span>Greed Load</span><b id="greedTxt">Light</b></div>
+        <div class="track"><div class="fill" id="greedFill"></div></div>
+      </div>
+      <div class="meter">
+        <div class="row"><span>Noise</span><b id="noiseTxt">Silent</b></div>
+        <div class="track"><div class="fill" id="noiseFill"></div></div>
+      </div>
+      <div id="dropRisk"></div>
+    </div>
+    <div class="heat-pips">
+      <div class="lbl">Heat</div>
+      <div class="pips" id="pips"></div>
+    </div>
+    <div class="prompt" id="prompt">Hold <b>E</b> — Escape with your haul</div>
+  </div>
+
+  <!-- Title -->
+  <div class="overlay on" id="menu">
+    <div class="eyebrow">A Jo Spin-off · Vertical Slice</div>
+    <h1 class="title">Greedrun<span class="sub">HOW MUCH CAN YOU TAKE?</span></h1>
+    <p class="tagline">Jo doesn't clear the vault. He <em>robs</em> it. Every treasure makes him
+      richer — and heavier, louder, more marked, more hunted. The exit is where you started.
+      The question is whether you can carry it all the way back.</p>
+    <div class="btn-row">
+      <button class="btn" id="startBtn">Enter the Vault</button>
+      <button class="btn ghost" id="howtoBtn">How to Play</button>
+    </div>
+    <div class="controls-hint">
+      One finger. <em style="color:var(--scarf);font-style:normal">Drag anywhere to move.</em>
+      &nbsp;·&nbsp; Grab loot, then get back to the exit alive.<br>
+      On a keyboard: <kbd>W A S D</kbd> / arrows to move, hold <kbd>E</kbd> at the exit.
+    </div>
+  </div>
+
+  <!-- How to Play -->
+  <div class="overlay" id="howto">
+    <div class="eyebrow">The Job</div>
+    <h1 class="title" style="font-size:clamp(30px,7vw,54px)">How to Play</h1>
+    <div class="howto-grid">
+      <div class="ht-row"><div class="ht-key">Move</div><div class="ht-txt"><em>Drag anywhere</em> to steer Jo — press and hold, and he follows your thumb. (Keyboard: WASD or arrows.)</div></div>
+      <div class="ht-row"><div class="ht-key">Grab</div><div class="ht-txt">Walk over loot to pocket it. Everything you carry is <em>Greed Load</em> — it makes you richer, but slower, louder, more marked, and more hunted.</div></div>
+      <div class="ht-row"><div class="ht-key">Decide</div><div class="ht-txt">Glowing artifacts stop you for a choice: take it whole for gold, pry it for clean scraps, or spend it for <em>power</em> — a boon that bends the run.</div></div>
+      <div class="ht-row"><div class="ht-key">Watch</div><div class="ht-txt">Guards chase what they see and give up when they lose you. Swiveling <em>sentries</em> can't see through walls — use cover, read the sweep.</div></div>
+      <div class="ht-row"><div class="ht-key">Climb</div><div class="ht-txt">Walk up a <em>staircase</em> to reach high ground &mdash; guards can&rsquo;t follow you up. Step off a <em>ledge</em> to drop fast, but a loaded landing is loud and can cost a heart.</div></div>
+      <div class="ht-row"><div class="ht-key">Escape</div><div class="ht-txt">The glowing exit is where you started. Hold it to leave and <em>bank</em> your haul. Get caught and the vault keeps everything.</div></div>
+      <div class="ht-row"><div class="ht-key">Heat</div><div class="ht-txt">The more you carry, the hotter it gets &mdash; guards grow faster and sharper-eyed, and at high Heat a <em>Bounty Hunter</em> enters. But danger pays: a hotter run sells for more.</div></div>
+      <div class="ht-row"><div class="ht-key">Notoriety</div><div class="ht-txt">Selling hot goods to the Syndicate raises your Notoriety. High Notoriety makes every job <em>start</em> hotter and the Hunter come sooner. Returning goods cools it back down.</div></div>
+      <div class="ht-row"><div class="ht-key">Temptation</div><div class="ht-txt">Reach the exit rich and it whispers <em>one more thing</em> — a Vault Heart, deeper in. How greedy can you be before the vault owns you?</div></div>
+    </div>
+    <div class="btn-row"><button class="btn" id="howtoBack">Got it</button></div>
+  </div>
+
+  <!-- Pause -->
+  <div class="overlay" id="paused">
+    <div class="eyebrow">Job on hold</div>
+    <div class="pause-word">PAUSED</div>
+    <div id="statPanel"></div>
+    <div class="btn-row" style="margin-top:22px">
+      <button class="btn" id="resumeBtn">Resume</button>
+      <button class="btn ghost" id="pauseHowto">How to Play</button>
+      <button class="btn ghost" id="abandonBtn">Abandon Run</button>
+    </div>
+    <div class="controls-hint">Abandoning leaves the vault empty-handed — you keep nothing you were carrying.</div>
+  </div>
+
+  <!-- Fence / upgrades -->
+  <div class="overlay" id="shop">
+    <div class="shop-head eyebrow">The Hideout · Fence &amp; Prep</div>
+    <div class="bank"><span class="c">Banked gold</span><span id="bankAmt">$0</span></div>
+    <div id="notoLine"></div>
+    <div class="fence-grid" id="fenceGrid"></div>
+    <div class="btn-row">
+      <button class="btn" id="nextRunBtn">Choose Tonight&rsquo;s Job →</button>
+      <button class="btn ghost" id="collectionBtn">The Collection</button>
+    </div>
+    <div class="controls-hint">Spend banked gold on gear. Everything you fence here rides with you into the next run.
+      &nbsp;·&nbsp; <span id="resetBtn" style="pointer-events:auto;cursor:pointer;color:var(--muted);text-decoration:underline;text-underline-offset:2px">Reset progress</span></div>
+  </div>
+
+  <!-- The Collection: museum of greed -->
+  <div class="overlay" id="collection">
+    <div class="eyebrow">The Collection · Museum of Greed</div>
+    <h1 class="title" style="font-size:clamp(28px,6vw,48px)">Your Trophies</h1>
+    <div class="bank" style="font-size:22px"><span class="c">Banked gold</span><span id="collGold">$0</span></div>
+    <div class="trophy-grid" id="trophyGrid"></div>
+    <div class="btn-row"><button class="btn" id="collBack">Back to the Hideout</button></div>
+    <div class="controls-hint">Keep a treasure at the fence to claim its trophy. Restore trophies with gold to deepen their gifts.</div>
+  </div>
+
+  <!-- Contracts: the jobs board -->
+  <div class="overlay" id="contracts">
+    <div class="eyebrow">The Jobs Board · Pick a target</div>
+    <h1 class="title" style="font-size:clamp(28px,6vw,48px)">Tonight&rsquo;s Work</h1>
+    <div class="job-grid" id="jobGrid"></div>
+    <div class="btn-row"><button class="btn ghost" id="freeRunBtn">Free run — no contract</button></div>
+    <div class="controls-hint">A contract sets your target, your location, and your pay. Accepting one starts the job.</div>
+  </div>
+
+  <!-- Fence: move the goods -->
+  <div class="overlay" id="fence">
+    <div class="eyebrow">The Fence · Move the goods</div>
+    <div class="bank"><span class="c">This haul</span><span id="fenceTotal">$0</span></div>
+    <div class="fence-legend">
+      <span><b style="color:var(--bone)">Black Market</b> safe base rate, no strings</span>
+      <span><b style="color:var(--bone)">Noble</b> big premium &mdash; but one piece only</span>
+      <span><b style="color:var(--curse-glow)">Syndicate</b> top price, but raises notoriety</span>
+      <span><b style="color:var(--ok)">Return</b> less coin, cools notoriety</span>
+    </div>
+    <div id="fenceItems" class="fence-list"></div>
+    <div class="btn-row"><button class="btn" id="bankBtn">Bank it →</button></div>
+    <div class="controls-hint" id="fenceNote">Different buyers want different goods.</div>
+  </div>
+
+  <!-- One more thing -->
+  <div class="overlay" id="onemore">
+    <div class="omt">ONE MORE THING?</div>
+    <p class="omt-sub">You're standing on the exit. You could walk out rich right now.
+      But your <em>Greed Sense</em> just lit up something deeper in — a <b style="color:var(--curse-glow)">Vault Heart</b>.</p>
+    <div class="carrying" id="omtCarry">Carrying $0 · guaranteed if you leave now</div>
+    <div class="btn-row">
+      <button class="btn ghost" id="escapeNow">Escape — bank it</button>
+      <button class="btn danger" id="stayGreedy">Stay greedy →</button>
+    </div>
+  </div>
+
+  <!-- Branching loot decision -->
+  <div class="overlay" id="decision">
+    <div class="eyebrow">Artifact recovered</div>
+    <h2 class="dec-title" id="decTitle">The Gilded Debt</h2>
+    <p class="dec-flavor" id="decFlavor">Gold that remembers who owes it.</p>
+    <div class="dec-choices" id="decChoices"></div>
+  </div>
+
+  <!-- Result -->
+  <div class="overlay" id="result">
+    <div class="eyebrow" id="resEyebrow">Extraction</div>
+    <div class="result-num win" id="resNum">$0</div>
+    <div class="result-sub" id="resSub">Banked.</div>
+    <div class="stat-line" id="resStats"></div>
+    <div class="btn-row">
+      <button class="btn" id="continueBtn">To the Hideout</button>
+    </div>
+  </div>
+
+  <!-- Touch -->
+  <div id="touch">
+    <div id="stick"><div class="nub" id="nub"></div></div>
+    <div id="eBtn">HOLD<br>ESC</div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <div class="credit">GREEDRUN · MVP</div>
+</div>
+
+<script>
+(() => {
+"use strict";
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const VIEW = { w: 960, h: 640 };
+const WORLD = { w: 2000, h: 1400 };
+
+// ---------- persistent (session) meta ----------
+const meta = {
+  gold: 0, runs: 0, bestHaul: 0, curseDebt: 0,
+  upg: { straps:0, boots:0, feet:0, luck:0,
+         landing:0, scanner:0, pockets:0, contacts:0, cool:0, revive:0 },
+  collection: { idol:0, relic:0, jewel:0, relicart:0, heart:0 }
+};
+const UPGRADES = [
+  { id:'feet',    nm:'Quick Feet',       base:650,  max:5, ds:'+11% base movement speed per level.' },
+  { id:'straps',  nm:'Reinforced Straps',base:750,  max:5, ds:'Weight drags you down less with each level.' },
+  { id:'boots',   nm:'Muffled Boots',    base:650,  max:5, ds:'Loot makes less noise with each level.' },
+  { id:'pockets', nm:'Deep Pockets',     base:850,  max:4, ds:'Raise your speed floor under a heavy load.' },
+  { id:'contacts',nm:'Guild Contacts',   base:900,  max:5, ds:'+8% from every buyer, per level.' },
+  { id:'luck',    nm:'Thief\u2019s Luck', base:1200, max:3, ds:'+1 starting heart per level.' },
+  { id:'cool',    nm:'Cool Head',        base:1100, max:3, ds:'Start each job one Heat tier calmer, per level.' },
+  { id:'revive',  nm:'Second Wind',      base:2200, max:1, ds:'Once per run, a fatal hit leaves you at one heart instead of dead.' },
+  { id:'landing', nm:'Cat\u2019s Landing',base:1100, max:1, ds:'Land like a shadow \u2014 ledge drops are silent and never hurt.' },
+  { id:'scanner', nm:'Treasure Sense',   base:1500, max:1, ds:'The Vault Heart is revealed from the start of every run.' },
+];
+function upgLevel(id){ return meta.upg[id]|0; }                 // works for old boolean saves too
+function upgCost(u){ return Math.round(u.base * Math.pow(1.55, upgLevel(u.id))); }
+
+// ---------- The Collection (museum of greed) ----------
+// Keep a trophy at the fence (forgo the sale) to unlock its passive; then pour gold
+// into restoring it for a stronger passive. A permanent sink that never caps.
+const TROPHIES = [
+  { id:'idol',    kind:'loud',    nm:'Golden Idol',  passive:'Merchant\u2019s Eye', base:900,  max:5, eff:l=>`+${3*l}% from every buyer` },
+  { id:'relic',   kind:'cursed',  nm:'Marked Relic', passive:'Iron Nerve',        base:1000, max:5, eff:l=>`guards spot you ${6*l}% later` },
+  { id:'jewel',   kind:'living',  nm:'Skitterjewel', passive:'Quick Hands',       base:800,  max:5, eff:l=>`+${6*l} reach on loot` },
+  { id:'relicart',kind:'artifact',nm:'Bound Relic',  passive:'Fortune\u2019s Cache',base:1100, max:5, eff:l=>`+${4*l}% on all gold` },
+  { id:'heart',   kind:'mythic',  nm:'Vault Heart',  passive:'Vault-Sense',       base:1500, max:5, eff:l=>`+${5*l}% danger bonus` },
+];
+const KIND_TROPHY = { loud:'idol', cursed:'relic', living:'jewel', artifact:'relicart', mythic:'heart' };
+function collLevel(id){ return (meta.collection && meta.collection[id]) | 0; }
+function trophyById(id){ return TROPHIES.find(t=>t.id===id); }
+function restoreCost(t){ return Math.round(t.base * Math.pow(1.5, collLevel(t.id)-1)); } // level 1→2 costs base
+function collGoldMult(){ return 1 + 0.04*collLevel('relicart'); }
+function effLabel(id,l){
+  switch(id){
+    case 'feet': return `+${Math.round(11*l)}% speed`;
+    case 'straps': return `${Math.round(14*l)}% less drag`;
+    case 'boots': return `${Math.round(18*l)}% quieter`;
+    case 'pockets': return `floor ${Math.round((1-Math.max(0.34,0.66-0.07*l))*100)}% speed`;
+    case 'contacts': return `+${8*l}% from buyers`;
+    case 'luck': return `+${l} heart${l===1?'':'s'}`;
+    case 'cool': return `\u2212${l} starting Heat`;
+    case 'landing': return l>0?'silent, safe drops':'\u2014';
+    case 'scanner': return l>0?'Heart revealed':'\u2014';
+  }
+  return '';
+}
+
+// ---------- loot table ----------
+// value, weight, noise, curse, tier(color), name
+const LOOT_TYPES = {
+  coin:  { name:'Loose Coin',       value:60,   weight:1, noise:0, curse:0, kind:'common' },
+  gem:   { name:'Cut Gem',          value:170,  weight:2, noise:1, curse:0, kind:'valuable' },
+  idol:  { name:'Golden Idol',      value:460,  weight:5, noise:4, curse:0, kind:'loud' },
+  mask:  { name:'Marked Relic',     value:900,  weight:6, noise:2, curse:3, kind:'cursed' },
+  living:{ name:'Skitterjewel',     value:380,  weight:3, noise:2, curse:0, kind:'living' },
+  royal: { name:'Crown Jewels',     value:720,  weight:5, noise:3, curse:0, kind:'royal' },
+  fragile:{ name:'Porcelain Relic', value:560,  weight:2, noise:0, curse:0, kind:'fragile' },
+  heart: { name:'Vault Heart',      value:2600, weight:11,noise:6, curse:6, kind:'mythic' },
+};
+
+// ---------- decision artifacts (branching loot) ----------
+// Grabbing one freezes the run and offers a real choice: money vs. safety vs. power.
+const ARTIFACTS = [
+  { name:'The Gilded Debt',      flavor:'Gold that remembers who owes it.' },
+  { name:'The Baron\u2019s Ransom', flavor:'Paid once. Worth stealing twice.' },
+  { name:'Crown of Seven Debts', flavor:'Every jewel is a promise someone broke.' },
+  { name:'The Usurer\u2019s Lantern', flavor:'It only lights the way to what you owe.' },
+  { name:'The Empty Throne',     flavor:'Whoever sat here always wanted one more thing.' },
+];
+// the "leverage" option grants one of these run-altering boons
+const BOONS = {
+  sense:  { label:'Read its secrets',   effect:'Greed Sense \u2014 reveal the Vault Heart now' },
+  ghost:  { label:'Trade it for passage',effect:'Smoke Step \u2014 6s untouchable, guards lose you' },
+  muffle: { label:'Wrap it in silence',  effect:'Silence \u2014 your loot stops making noise' },
+};
+const BOON_KEYS = Object.keys(BOONS);
+
+// ---------- game state ----------
+let state = 'menu';   // menu | shop | playing | onemore | decision | result
+let walls = [], loot = [], guards = [], sentries = [], particles = [], floaters = [];
+let platforms = [];               // raised terrain (mesas): {x,y,w,h,stair}
+const ELEV = 12;                  // visual height cue for platforms
+let vertHintShown = false;
+let runLootTotal = 0, runLootCount = 0, vaultCleared = false, alarmFlash = 0, lowNoiseRun = true;
+let noiseMuffled = false;
+let hunterSpawned = false;
+let runHeatSeed = 0;
+let peakHeat = 0, pendingDangerMult = 1, runDamaged = false;
+let pendingHaul = [], pendingBulk = {val:0,n:0}, pendingPerfect = false;
+let player, portal, cam = {x:0,y:0};
+let carriedValue=0, carriedWeight=0, carriedNoise=0, carriedCurse=0, heatTier=0;
+let seenOneMore=false, heartRevealed=false, runOutcome=null, shake=0, tPrev=0;
+let flashCurse=0;
+
+// ---------- location themes (visual identity per job) ----------
+const THEMES = {
+  treasury: { name:'the Sunken Treasury',  floor:'#15120c', wall:'#241d13', top:'#2f2617', plat:'#3a2f1d', grid:'rgba(255,255,255,.03)' },
+  fortress: { name:'the Cliffside Fortress',floor:'#0f1418', wall:'#1e2830', top:'#2b3742', plat:'#354553', grid:'rgba(180,210,255,.045)' },
+  undercity:{ name:'the Undercity Vaults',  floor:'#130f0c', wall:'#2a2018', top:'#3a2c1e', plat:'#463525', grid:'rgba(255,190,140,.035)' },
+  mint:     { name:'the Old Mint',          floor:'#161510', wall:'#2c2a1c', top:'#3a3726', plat:'#48442e', grid:'rgba(245,220,120,.045)' },
+};
+const THEME_KEYS = Object.keys(THEMES);
+let currentTheme = THEMES.treasury;
+
+// ---------- contracts (standing jobs) ----------
+let activeContract=null, offeredContracts=[];
+let runSpotted=false, runClock=0, runTimeLimit=0;
+let pendingContractReward=0, pendingContractInfo=null, pendingNotoDown=0;
+
+// generators return a fresh job; check() reads live run globals at extraction time
+const CONTRACT_MAKERS = [
+  ()=>{ const t=Math.round(rand(1400,2400)/50)*50; return {type:'quota',
+    client:'the Merchant Guild', desc:`Smuggle out at least $${t.toLocaleString()} of goods.`,
+    reward:Math.round(t*0.35), target:t, check:()=>carriedValue>=t }; },
+  ()=>({type:'silent', client:'a Nervous Client',
+    desc:'Extract without being spotted once. No alarms, no chases.',
+    reward:750, check:()=>!runSpotted }),
+  ()=>{ const opts=[['idol','a Golden Idol'],['mask','a Marked Relic'],['living','the Skitterjewel']];
+    const [k,nm]=opts[Math.floor(Math.random()*opts.length)];
+    return {type:'steal', client:'a Noble Collector', targetKind:k,
+      desc:`Steal ${nm} and get it out alive.`, reward:700,
+      check:()=>loot.some(l=>l.kind===k && l.got) }; },
+  ()=>({type:'sweep', client:'a Rival Thief',
+    desc:'Clear the vault completely, then escape. Leave nothing.',
+    reward:1100, check:()=>vaultCleared }),
+  ()=>{ const tl=Math.round(rand(85,120)); return {type:'timed', client:'the Tollhouse Keeper',
+    desc:`The vault is set to collapse. Get out within ${tl}s.`,
+    reward:850, timeLimit:tl, check:()=>true }; },
+  ()=>({type:'recovery', client:'an Old Fence', notoDown:2,
+    desc:'Return marked goods instead of fencing them. Cools your notoriety.',
+    reward:400, check:()=>true }),
+  ()=>({type:'heart', client:'a Legend-Chaser',
+    desc:'Steal the Vault Heart itself and carry it out alive.',
+    reward:1700, check:()=>loot.some(l=>l.type==='heart'&&l.got) }),
+  ()=>({type:'untouched', client:'a Perfectionist',
+    desc:'Extract without taking a single hit \u2014 no shattered relics, no lost hearts.',
+    reward:950, check:()=>!runDamaged }),
+  ()=>({type:'hot', client:'a Thrill-Seeker',
+    desc:'Let it get dangerous \u2014 push the vault to Heat T4 or higher, then escape.',
+    reward:1050, check:()=>peakHeat>=4 }),
+];
+function genContracts(n){
+  const idx=[...CONTRACT_MAKERS.keys()].sort(()=>Math.random()-0.5).slice(0,n);
+  return idx.map(i=>{ const c=CONTRACT_MAKERS[i]();
+    const tk=THEME_KEYS[Math.floor(Math.random()*THEME_KEYS.length)];
+    c.themeKey=tk; c.location=THEMES[tk].name;
+    c.title=({quota:'Smuggling Run',silent:'Silent Job',steal:'Contract Theft',
+      sweep:'Clean Sweep',timed:'Timed Raid',recovery:'Recovery Job',
+      heart:'Legendary Heist',untouched:'Ghost Job',hot:'Bounty Run'})[c.type];
+    return c; });
+}
+
+const keys = new Set();
+const rand = (a,b)=>a+Math.random()*(b-a);
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+const dist2=(ax,ay,bx,by)=>{const dx=ax-bx,dy=ay-by;return dx*dx+dy*dy;};
+
+// ---------- collision ----------
+function isOpen(x,y,r){
+  if(x-r<0||y-r<0||x+r>WORLD.w||y+r>WORLD.h) return false;
+  for(const w of walls){
+    const cx=clamp(x,w.x,w.x+w.w), cy=clamp(y,w.y,w.y+w.h);
+    if(dist2(x,y,cx,cy) < r*r) return false;
+  }
+  return true;
+}
+// if an entity's center is embedded in a wall, spiral out to the nearest open point
+function unstick(e){
+  if(isOpen(e.x,e.y,e.r)) return;
+  for(let rad=4; rad<=160; rad+=4){
+    for(let a=0;a<6.2832;a+=0.35){
+      const x=e.x+Math.cos(a)*rad, y=e.y+Math.sin(a)*rad;
+      if(isOpen(x,y,e.r)){ e.x=x; e.y=y; return; }
+    }
+  }
+}
+// --- elevation ---
+function inRect(x,y,r){ return x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h; }
+function platAt(x,y){ for(let i=0;i<platforms.length;i++) if(inRect(x,y,platforms[i])) return i; return -1; }
+function stairAt(x,y){ for(let i=0;i<platforms.length;i++) if(inRect(x,y,platforms[i].stair)) return i; return -1; }
+// ground movement (guards): walls AND platform footprints are solid
+function isOpenGround(x,y,r){
+  if(!isOpen(x,y,r)) return false;
+  for(const p of platforms){ const cx=clamp(x,p.x,p.x+p.w),cy=clamp(y,p.y,p.y+p.h); if(dist2(x,y,cx,cy)<r*r) return false; }
+  return true;
+}
+function openSpot(r, minFromList, list, tries=200){
+  for(let i=0;i<tries;i++){
+    const x=rand(120,WORLD.w-120), y=rand(120,WORLD.h-120);
+    if(!isOpen(x,y,r+6)) continue;
+    if(platAt(x,y)!==-1) continue;   // ground entities stay off raised platforms
+    let ok=true;
+    if(list){ for(const o of list){ if(dist2(x,y,o.x,o.y)<minFromList*minFromList){ok=false;break;} } }
+    if(ok) return {x,y};
+  }
+  return {x:WORLD.w/2,y:WORLD.h/2};
+}
+
+// ---------- world generation ----------
+// ---------- procedural vault layouts ----------
+// Each theme scatters obstacles as separated blocks in open space, so the
+// arena stays fully connected (no sealed pockets) while feeling different.
+const LAYOUTS = ['pillars','corridors','chambers','warren'];
+let currentLayout = 'chambers';
+function genLayout(){
+  const theme = LAYOUTS[Math.floor(Math.random()*LAYOUTS.length)];
+  currentLayout = theme;
+  const b = []; // interior blocks [x,y,w,h]
+  const safeLeft = 340; // keep the entrance/return lane clear
+  const R = (a,z)=>a+Math.random()*(z-a);
+  const clear = (x,y,w,h)=> x>safeLeft || false; // only place right of the safe lane
+
+  if(theme==='pillars'){
+    // grid-ish field of square pillars, jittered
+    const cols=5, rows=4, cw=(WORLD.w-safeLeft-120)/cols, ch=(WORLD.h-240)/rows;
+    for(let cx=0;cx<cols;cx++)for(let cy=0;cy<rows;cy++){
+      if(Math.random()<0.28) continue;
+      const s=R(70,120);
+      const x=safeLeft+80+cx*cw+R(0,cw-s), y=140+cy*ch+R(0,ch-s);
+      b.push([x,y,s,s]);
+    }
+  } else if(theme==='corridors'){
+    // long thin walls forming loose lanes
+    for(let i=0;i<7;i++){
+      const horiz=Math.random()<0.5;
+      const len=R(280,520), th=56;
+      const x=R(safeLeft+40, WORLD.w-len-80), y=R(120, WORLD.h-th-120);
+      b.push(horiz?[x,y,len,th]:[x,y,th,len]);
+    }
+  } else if(theme==='chambers'){
+    // a few larger rectangular rooms/blocks (the original feel, randomized)
+    for(let i=0;i<6;i++){
+      const w=R(120,300), h=R(120,300);
+      const x=R(safeLeft+40, WORLD.w-w-80), y=R(120, WORLD.h-h-120);
+      b.push([x,y,w,h]);
+    }
+    // plus a couple of thin dividers
+    for(let i=0;i<3;i++){ const l=R(240,420); const x=R(safeLeft, WORLD.w-l-80), y=R(120,WORLD.h-180);
+      b.push(Math.random()<.5?[x,y,l,52]:[x,y,52,l]); }
+  } else { // warren: dense mix of small blocks + a few walls
+    for(let i=0;i<10;i++){ const s=R(70,150); const x=R(safeLeft+40,WORLD.w-s-80), y=R(120,WORLD.h-s-120); b.push([x,y,s,s]); }
+    for(let i=0;i<3;i++){ const l=R(300,480); const x=R(safeLeft,WORLD.w-l-80), y=R(120,WORLD.h-180);
+      b.push(Math.random()<.5?[x,y,l,54]:[x,y,54,l]); }
+  }
+  return b.filter(r=>clear(r[0],r[1],r[2],r[3]));
+}
+
+function buildWorld(){
+  // bigger, and a different size every job — some vaults are compact, some are sprawling estates
+  WORLD.w = 2300 + Math.round(rand(0,900));
+  WORLD.h = 1550 + Math.round(rand(0,650));
+  const areaScale = (WORLD.w*WORLD.h)/(2000*1400);
+  walls=[]; loot=[]; guards=[]; sentries=[]; particles=[]; floaters=[];
+  seenOneMore=false; heartRevealed=false; runOutcome=null; flashCurse=0;
+  carriedValue=carriedWeight=carriedNoise=carriedCurse=0; heatTier=0;
+  runLootTotal=0; runLootCount=0; vaultCleared=false; alarmFlash=0; lowNoiseRun=true;
+  noiseMuffled=false;
+  hunterSpawned=false; vertHintShown=false;
+  runHeatSeed = clamp(Math.floor(meta.curseDebt/2) - upgLevel('cool'), 0, 3);  // the world remembers your dealings
+  runSpotted=false; runClock=0; peakHeat=0; runDamaged=false;
+  runTimeLimit = activeContract && activeContract.type==='timed' ? activeContract.timeLimit : 0;
+  currentTheme = THEMES[(activeContract && activeContract.themeKey) || THEME_KEYS[Math.floor(Math.random()*THEME_KEYS.length)]];
+
+  const T=44; // wall thickness
+  walls.push({x:0,y:0,w:WORLD.w,h:T});
+  walls.push({x:0,y:WORLD.h-T,w:WORLD.w,h:T});
+  walls.push({x:0,y:0,w:T,h:WORLD.h});
+  walls.push({x:WORLD.w-T,y:0,w:T,h:WORLD.h});
+  for(const bk of genLayout()) walls.push({x:bk[0],y:bk[1],w:bk[2],h:bk[3]});
+
+  // raised platforms (mesas) with a staircase on one side — placed before loot so nothing spawns on them
+  platforms=[];
+  const platN = clamp(Math.round((2 + (Math.random()<0.6?1:0)) * areaScale), 2, 4);
+  for(let i=0;i<platN;i++){
+    for(let t=0;t<40;t++){
+      const w=Math.round(rand(180,300)), h=Math.round(rand(160,260));
+      const x=Math.round(rand(WORLD.w*0.32, WORLD.w-w-120)), y=Math.round(rand(150, WORLD.h-h-150));
+      const cand={x,y,w,h};
+      // keep clear of walls, the entrance lane, and other platforms
+      if(x<340) continue;
+      let bad=false;
+      for(const wl of walls){ if(x< wl.x+wl.w+40 && x+w> wl.x-40 && y< wl.y+wl.h+40 && y+h> wl.y-40){ bad=true; break; } }
+      if(bad) continue;
+      for(const p of platforms){ if(x< p.x+p.w+90 && x+w> p.x-90 && y< p.y+p.h+90 && y+h> p.y-90){ bad=true; break; } }
+      if(bad) continue;
+      // stair sits just OUTSIDE one edge, on the ground (never inside the footprint)
+      const side=Math.floor(Math.random()*4); const sw=72;
+      let st;
+      if(side===0) st={x:x+w/2-sw/2, y:y-46, w:sw, h:46};       // above top edge
+      else if(side===1) st={x:x+w/2-sw/2, y:y+h, w:sw, h:46};   // below bottom edge
+      else if(side===2) st={x:x-46, y:y+h/2-sw/2, w:46, h:sw};  // left of left edge
+      else st={x:x+w, y:y+h/2-sw/2, w:46, h:sw};                // right of right edge
+      cand.stair=st; platforms.push(cand); break;
+    }
+  }
+
+  // portal = the entrance, on the left. The good loot is deep right.
+  const pSpot = {x:150, y:WORLD.h/2};
+  portal = {x:pSpot.x, y:pSpot.y, r:46, spin:0};
+
+  player = {
+    x:pSpot.x, y:pSpot.y, r:14, vx:0, vy:0, face:0,
+    baseSpeed: 2.85 * (1 + 0.11*upgLevel('feet')),
+    maxHp: 3 + upgLevel('luck'), hp: 3 + upgLevel('luck'),
+    inv:0, bag:0, ghost:0, plat:-1, usedRevive:false
+  };
+
+  // scatter loot — quantity by tier, biased deeper (higher x) for the good stuff
+  const placed=[{x:portal.x,y:portal.y}];
+  const add=(type,x,y)=>{ loot.push(Object.assign({x,y,type,glow:Math.random()*6.28,got:false,plat:-1}, LOOT_TYPES[type])); placed.push({x,y}); };
+
+  for(let i=0;i<Math.round(7*areaScale);i++){ const s=openSpot(14,140,placed); add('coin',s.x,s.y); }
+  for(let i=0;i<Math.round(5*areaScale);i++){ const s=openSpot(14,150,placed); add('gem', s.x,s.y); }
+  for(let i=0;i<2;i++){ let s; do{ s=openSpot(14,180,placed);}while(s.x<WORLD.w*0.5); add('idol',s.x,s.y); }
+  { let s; do{ s=openSpot(14,180,placed);}while(s.x<WORLD.w*0.55); add('mask',s.x,s.y); }
+
+  // elevated loot — the reward for climbing. One good item on each platform.
+  platforms.forEach((p,pi)=>{
+    const kind = Math.random()<0.5?'idol':'gem';
+    const lx=p.x+p.w/2+rand(-p.w*0.25,p.w*0.25), ly=p.y+p.h/2+rand(-p.h*0.25,p.h*0.25);
+    loot.push(Object.assign({x:lx,y:ly,type:kind,glow:Math.random()*6.28,got:false,plat:pi}, LOOT_TYPES[kind]));
+    placed.push({x:lx,y:ly});
+  });
+
+  // Living Loot: a Skitterjewel that flees — corner it against a wall to bag it
+  { let s; do{ s=openSpot(14,170,placed);}while(s.x<WORLD.w*0.28||s.x>WORLD.w*0.82); add('living',s.x,s.y); }
+
+  // Royal Loot: worth a fortune, but touching it turns out the elite guard
+  if(Math.random()<0.7){ let s; do{ s=openSpot(14,180,placed);}while(s.x<WORLD.w*0.5); add('royal',s.x,s.y); }
+  // Fragile Loot: valuable, but it shatters if a guard lands a hit on you
+  if(Math.random()<0.7){ let s; do{ s=openSpot(14,170,placed);}while(s.x<WORLD.w*0.35); add('fragile',s.x,s.y); }
+
+  // NEW: 1-2 decision artifacts (branching loot) in the mid-deep vault
+  const artCount = 1 + (Math.random()<0.6?1:0);
+  const artPool = [...ARTIFACTS].sort(()=>Math.random()-0.5);
+  for(let i=0;i<artCount;i++){
+    let s; do{ s=openSpot(14,190,placed);}while(s.x<WORLD.w*0.4);
+    const cfg=artPool[i%artPool.length];
+    const base=700+Math.floor(Math.random()*450);
+    const boon=BOON_KEYS[Math.floor(Math.random()*BOON_KEYS.length)];
+    loot.push({x:s.x,y:s.y,type:'artifact',kind:'artifact',name:cfg.name,flavor:cfg.flavor,
+      value:base, base, boon, weight:0,noise:0,curse:0, glow:Math.random()*6.28, got:false, plat:-1});
+    placed.push({x:s.x,y:s.y});
+  }
+
+  // Vault Heart pre-placed deep-right but hidden until "one more thing"
+  const hSpot={x:WORLD.w-150, y: Math.random()<.5 ? 180 : WORLD.h-180};
+  add('heart', hSpot.x, hSpot.y);
+  if(upgLevel('scanner')>0){ heartRevealed=true; } else { loot[loot.length-1].hidden=true; }
+
+  // total value/count in the vault (for the 100% payoff)
+  runLootTotal = loot.reduce((a,l)=>a+l.value,0);
+  runLootCount = loot.length;
+
+  // patrolling guards
+  const gCount=clamp(Math.round(5*areaScale),5,8);
+  for(let i=0;i<gCount;i++){
+    const a=openSpot(14,240,placed.concat(guards));
+    const wps=[{x:a.x,y:a.y}];
+    for(let k=0;k<2;k++){ const b=openSpot(14,60,null); wps.push({x:b.x,y:b.y}); }
+    guards.push({x:a.x,y:a.y,r:14,wps,wi:0,state:'patrol',alert:0,face:0,hitCd:0,lkp:null,searchT:0});
+  }
+
+  // NEW: stationary sentries with swiveling vision cones (guard the deep loot)
+  const senCount=2+Math.floor(Math.random()*2); // 2-3
+  for(let i=0;i<senCount;i++){
+    let s; do{ s=openSpot(14,200,placed.concat(sentries)); }while(s.x<WORLD.w*0.42);
+    const center=Math.random()*6.28;
+    sentries.push({x:s.x,y:s.y,r:12, ang:center, center, sweep:0.9+Math.random()*0.5,
+      dir:Math.random()<.5?1:-1, coneHalf:0.42, view:250, cd:0, hot:0});
+  }
+
+  cam.x = clamp(player.x-VIEW.w/2,0,WORLD.w-VIEW.w);
+  cam.y = clamp(player.y-VIEW.h/2,0,WORLD.h-VIEW.h);
+}
+
+// line-of-sight: sample the segment; blocked if it crosses a wall
+function losClear(ax,ay,bx,by){
+  const d=Math.hypot(bx-ax,by-ay), steps=Math.max(2,d/18|0);
+  for(let i=1;i<steps;i++){ const t=i/steps, x=ax+(bx-ax)*t, y=ay+(by-ay)*t;
+    for(const w of walls){ if(x>w.x&&x<w.x+w.w&&y>w.y&&y<w.y+w.h) return false; } }
+  return true;
+}
+
+// sentry sees the player? (range + cone + line of sight)
+function sentrySees(s){
+  const dx=player.x-s.x, dy=player.y-s.y, d=Math.hypot(dx,dy);
+  if(d>s.view) return false;
+  let da=Math.atan2(dy,dx)-s.ang;
+  while(da>Math.PI)da-=6.283; while(da<-Math.PI)da+=6.283;
+  if(Math.abs(da)>s.coneHalf) return false;
+  return losClear(s.x,s.y,player.x,player.y);
+}
+
+// A bounty hunter enters at high heat: faster, sharper-eyed, and it remembers you longer.
+// Royal loot turns out the elite guard: fast, sharp, already hunting you.
+function summonElites(x,y){
+  for(let i=0;i<2;i++){
+    let sp=openSpot(14,120,null);
+    // spawn near the crown so they converge on you
+    sp={x:x+rand(-140,140), y:y+rand(-140,140)};
+    if(!isOpenGround(sp.x,sp.y,14)) sp=openSpot(14,120,null);
+    guards.push({x:sp.x,y:sp.y,r:14,elite:true,wps:[{x:sp.x,y:sp.y}],wi:0,
+      state:'chase',alert:1,face:0,hitCd:0,lkp:{x:player.x,y:player.y},searchT:3});
+  }
+  shake=Math.max(shake,10); alarmFlash=1;
+}
+
+function spawnHunter(){
+  hunterSpawned=true;
+  // enter from a far corner, away from the player
+  const corners=[{x:WORLD.w-120,y:120},{x:WORLD.w-120,y:WORLD.h-120},{x:120,y:120},{x:120,y:WORLD.h-120}];
+  corners.sort((a,b)=>dist2(b.x,b.y,player.x,player.y)-dist2(a.x,a.y,player.x,player.y));
+  let sp=corners[0]; if(!isOpenGround(sp.x,sp.y,14)){ sp=openSpot(14,0,null); }
+  guards.push({x:sp.x,y:sp.y,r:15,hunter:true,wps:[{x:sp.x,y:sp.y}],wi:0,
+    state:'investigate',alert:1,face:0,hitCd:0,lkp:{x:player.x,y:player.y},searchT:5});
+  alarmFlash=1; shake=Math.max(shake,12);
+  toast('A BOUNTY HUNTER has entered the vault.',2200);
+}
+
+// contextual elevation: staircases climb/descend, ledges drop you (louder & harder when loaded)
+function attemptMove(tx,ty){
+  if(!isOpen(tx,ty,player.r)) return;         // walls always block
+  const cur=player.plat, tp=platAt(tx,ty);
+  if(cur===-1){                                // on the ground
+    if(tp===-1){ player.x=tx; player.y=ty; }   // free ground move
+    else if(stairAt(player.x,player.y)===tp){  // standing on the stair, stepping up
+      player.plat=tp; player.x=tx; player.y=ty; vertHint('Up top. Ledges drop you \u2014 loud if you\u2019re loaded.'); }
+    // else: base of a cliff — blocked (use the stairs)
+  } else {                                     // up on platform 'cur'
+    if(tp===cur){ player.x=tx; player.y=ty; }  // still on the platform
+    else if(tp===-1){                          // stepping off the platform
+      player.plat=-1; player.x=tx; player.y=ty;
+      if(stairAt(tx,ty)!==cur) landDrop();     // not the stairs => it's a ledge drop
+    }
+    // else: another platform — can't leap across
+  }
+}
+function landDrop(){
+  shake=Math.max(shake,7);
+  for(let i=0;i<8;i++)particles.push(mkP(player.x,player.y+6,'#6b5a3a'));
+  if(upgLevel('landing')>0) return;                 // Cat's Landing: silent, no damage
+  const w=carriedWeight;
+  // landing noise: nearby ground guards come to investigate
+  const heard=200 + w*9; let any=false;
+  for(const g of guards){ if(dist2(g.x,g.y,player.x,player.y) < heard*heard){
+    if(g.state!=='chase'){ g.state='investigate'; g.lkp={x:player.x,y:player.y}; g.searchT=g.hunter?3:2.2; any=true; } } }
+  if(w>=8) toast(any?'Heavy landing \u2014 heard!':'You hit hard.',1000);
+  // fall damage when very loaded
+  if(w>=20 && player.inv<=0){ player.hp--; player.inv=1.1; runDamaged=true;
+    floaters.push({x:player.x,y:player.y-20,txt:'\u2212\u2665 hard landing',life:1,col:'#e0503f'});
+    if(player.hp<=0){
+      if(upgLevel('revive')>0 && !player.usedRevive){ player.usedRevive=true; player.hp=1; player.inv=2; toast('Second wind \u2014 back on your feet.',1500); }
+      else endRun(false);
+    } }
+}
+let vertHintT=0;
+function vertHint(msg){ if(vertHintShown) return; vertHintShown=true; toast(msg,2200); }
+
+// ---------- greed recompute ----------
+function recompute(){
+  carriedValue=carriedWeight=carriedNoise=carriedCurse=0;
+  for(const l of loot){ if(l.got){ carriedValue+=l.value; carriedWeight+=l.weight; carriedNoise+=l.noise; carriedCurse+=l.curse; } }
+  heatTier = clamp(Math.floor(carriedValue/650) + Math.floor(carriedCurse/3) + runHeatSeed, 0, 6);
+  meta.bestHaul = Math.max(meta.bestHaul, carriedValue);
+}
+
+// derived stats
+function speedNow(){
+  const strapMul = 0.011 * Math.max(0.32, 1 - 0.14*upgLevel('straps'));
+  const capPen = Math.max(0.34, 0.66 - 0.07*upgLevel('pockets'));
+  const pen = clamp(carriedWeight*strapMul, 0, capPen);
+  return player.baseSpeed*(1-pen);
+}
+function noiseNow(){ return noiseMuffled ? 0 : carriedNoise * Math.max(0.2, 1 - 0.18*upgLevel('boots')); }
+function detectRadius(){ return (92 + noiseNow()*6 + heatTier*9) * Math.max(0.55, 1 - 0.06*collLevel('relic')); }
+function guardSpeed(){ return 1.5 + heatTier*0.16 + carriedCurse*0.03; }
+
+// ---------- input ----------
+addEventListener('keydown', e=>{
+  const k=e.key.toLowerCase();
+  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase())) e.preventDefault();
+  keys.add(k);
+});
+addEventListener('keyup', e=>keys.delete(e.key.toLowerCase()));
+
+// touch
+const touchWrap=document.getElementById('touch');
+const stickEl=document.getElementById('stick'), nubEl=document.getElementById('nub');
+const eBtn=document.getElementById('eBtn');
+let touchVec={x:0,y:0}, stickId=null, stickOrig={x:0,y:0}, eHeld=false;
+const isTouch = matchMedia('(pointer:coarse)').matches;
+
+function stagePt(ev){
+  const r=canvas.getBoundingClientRect();
+  return { x:(ev.clientX-r.left)/r.width*VIEW.w, y:(ev.clientY-r.top)/r.height*VIEW.h,
+           px:ev.clientX-r.left, py:ev.clientY-r.top };
+}
+canvas.addEventListener('pointerdown', ev=>{
+  if(state!=='playing') return;
+  const p=stagePt(ev);
+  if(p.x < VIEW.w*0.55){ // left = joystick
+    stickId=ev.pointerId; stickOrig={x:p.px,y:p.py};
+    const r=canvas.getBoundingClientRect();
+    stickEl.style.display='block';
+    stickEl.style.left=(ev.clientX-r.left-60)+'px';
+    stickEl.style.top=(ev.clientY-r.top-60)+'px';
+    nubEl.style.left='50%'; nubEl.style.top='50%';
+  }
+});
+canvas.addEventListener('pointermove', ev=>{
+  if(ev.pointerId!==stickId) return;
+  const p=stagePt(ev);
+  let dx=p.px-stickOrig.x, dy=p.py-stickOrig.y;
+  const m=Math.hypot(dx,dy)||1, cap=Math.min(m,52);
+  const nx=dx/m, ny=dy/m;
+  touchVec={x:nx*(cap/52), y:ny*(cap/52)};
+  nubEl.style.left=(50+nx*cap/1.2)+'%';
+  nubEl.style.top=(50+ny*cap/1.2)+'%';
+});
+function endStick(ev){ if(ev.pointerId===stickId){ stickId=null; touchVec={x:0,y:0}; stickEl.style.display='none'; } }
+canvas.addEventListener('pointerup', endStick);
+canvas.addEventListener('pointercancel', endStick);
+eBtn.addEventListener('pointerdown', ()=>{eHeld=true;});
+eBtn.addEventListener('pointerup', ()=>{eHeld=false;});
+eBtn.addEventListener('pointerleave', ()=>{eHeld=false;});
+
+// ---------- update ----------
+let extractHold=0;
+function update(dt){
+  if(state!=='playing') return;
+  runClock+=dt;
+  if(heatTier>peakHeat) peakHeat=heatTier;
+  if(runTimeLimit>0 && runClock>=runTimeLimit){ toast('The vault collapsed!',1600); shake=20; endRun(false); return; }
+  // input vector
+  let ix=0, iy=0;
+  if(keys.has('w')||keys.has('arrowup'))iy-=1;
+  if(keys.has('s')||keys.has('arrowdown'))iy+=1;
+  if(keys.has('a')||keys.has('arrowleft'))ix-=1;
+  if(keys.has('d')||keys.has('arrowright'))ix+=1;
+  if(touchVec.x||touchVec.y){ ix+=touchVec.x; iy+=touchVec.y; }
+  const m=Math.hypot(ix,iy);
+  if(m>0.05){ ix/=m; iy/=m; if(m<1){ix*=m;iy*=m;} player.face=Math.atan2(iy,ix); }
+
+  const sp=speedNow()*dt*60;
+  unstick(player);                       // safety: never stay embedded in a wall
+  attemptMove(player.x+ix*sp, player.y);  // x axis (handles climb/drop)
+  attemptMove(player.x, player.y+iy*sp);  // y axis
+  player.vx=ix*sp; player.vy=iy*sp;
+  if(player.inv>0) player.inv-=dt;
+  if(player.ghost>0) player.ghost-=dt;
+
+  // camera
+  cam.x += (clamp(player.x-VIEW.w/2,0,WORLD.w-VIEW.w)-cam.x)*0.12;
+  cam.y += (clamp(player.y-VIEW.h/2,0,WORLD.h-VIEW.h)-cam.y)*0.12;
+
+  // Living Loot: flees directly away, sliding along walls until it's cornered
+  for(const l of loot){
+    if(l.kind!=='living'||l.got||l.hidden) continue;
+    const dx=l.x-player.x, dy=l.y-player.y, d=Math.hypot(dx,dy)||1;
+    if(d<155){
+      const flee=2.35*dt*60, mx=dx/d, my=dy/d;
+      l.scurry=(l.scurry||0)+dt*22; l.fx=mx; l.fy=my;
+      if(isOpenGround(l.x+mx*flee,l.y,10)) l.x+=mx*flee;
+      else if(isOpenGround(l.x,l.y+(my>=0?flee:-flee),10)) l.y+=(my>=0?flee:-flee); // slide along wall
+      if(isOpenGround(l.x,l.y+my*flee,10)) l.y+=my*flee;
+      else if(isOpenGround(l.x+(mx>=0?flee:-flee),l.y,10)) l.x+=(mx>=0?flee:-flee);
+    }
+  }
+
+  // loot pickup
+  for(const l of loot){
+    if(l.got||l.hidden) continue;
+    if((l.plat!==undefined?l.plat:-1)!==player.plat) continue;   // must be on the same level
+    l.glow+=dt*4;
+    if(dist2(player.x,player.y,l.x,l.y) < (player.r+16+6*collLevel('jewel'))**2){
+      if(l.kind==='artifact'){ openDecision(l); return; }  // branching loot: pause & choose
+      l.got=true; recompute();
+      if(l.kind==='living'){ toast('Cornered the Skitterjewel!', 1100);
+        for(let i=0;i<10;i++)particles.push(mkP(l.x,l.y,'#8fe39a')); }
+      if(l.kind==='royal'){ summonElites(l.x,l.y); flashCurse=1;
+        toast('You touched the crown \u2014 the elite guard turns out!', 1600); }
+      floaters.push({x:l.x,y:l.y,txt:'+$'+l.value,life:1.1,col:'#f5c542'});
+      for(let i=0;i<10;i++)particles.push(mkP(l.x,l.y, l.kind==='cursed'||l.kind==='mythic'?'#a98bff':'#f5c542'));
+      if(l.noise>=3){ toast('The vault heard that.', 900); lowNoiseRun=false; }
+      if(l.curse>0){ flashCurse=1; toast('Marked goods \u2014 the vault turns hostile.', 1100); }
+      // 100% payoff: everything (including the revealed Heart) is now in the bag
+      if(!vaultCleared && loot.every(x=>x.got)){
+        vaultCleared=true; alarmFlash=1;
+        toast('VAULT EMPTY \u00b7 every last coin. Now RUN.', 2000);
+        for(const g of guards){ g.state='chase'; g.alert=1; }
+      }
+    }
+  }
+
+  // one-more-thing trigger
+  if(!seenOneMore && carriedValue>=200 && dist2(player.x,player.y,portal.x,portal.y) < (portal.r+34)**2){
+    seenOneMore=true; openOneMore();
+    return;
+  }
+
+  // guards (and the bounty Hunter, which is just a guard with g.hunter)
+  const detR=detectRadius(), gSpd=guardSpeed();
+  const ghosting = player.ghost>0;
+  for(const g of guards){
+    if(g.hitCd>0) g.hitCd-=dt;
+    const gDet = g.hunter ? detR*1.25 : g.elite ? detR*1.2 : detR;
+    const gBase = g.hunter ? gSpd*1.10 : g.elite ? gSpd*1.12 : gSpd;
+    if(ghosting){ g.state='patrol'; g.alert=0; }
+    const seeing = !ghosting && dist2(g.x,g.y,player.x,player.y) < gDet*gDet;
+    if(seeing){
+      g.state='chase'; g.alert=Math.min(1,g.alert+dt*3);
+      g.lkp={x:player.x,y:player.y}; runSpotted=true;   // no longer a silent job
+    } else if(g.state==='chase'){
+      g.state='investigate'; g.searchT = g.hunter?3.5:2.4;  // lost sight → go look
+    } else if(g.alert>0){ g.alert=Math.max(0,g.alert-dt*0.5); }
+
+    // choose a target by state
+    let tx,ty,spd,searching=false;
+    if(g.state==='chase'){ tx=player.x; ty=player.y; spd=gBase*1.35; }
+    else if(g.state==='investigate' && g.lkp){
+      tx=g.lkp.x; ty=g.lkp.y; spd=gBase*1.05;
+      if(dist2(g.x,g.y,tx,ty) < 30*30){        // reached last-known spot: look around
+        searching=true; g.searchT-=dt; g.face += dt*3.4;
+        if(g.searchT<=0){ g.state='patrol'; }
+      }
+    } else { g.state='patrol'; const wp=g.wps[g.wi]; tx=wp.x; ty=wp.y; spd=gBase;
+      if(dist2(g.x,g.y,tx,ty)<32*32) g.wi=(g.wi+1)%g.wps.length; }
+
+    if(!searching){
+      let dx=tx-g.x, dy=ty-g.y; const d=Math.hypot(dx,dy)||1;
+      dx/=d; dy/=d; g.face=Math.atan2(dy,dx);
+      const step=spd*dt*60;
+      const passable = g.hunter ? isOpen : isOpenGround;   // the Hunter can climb; grunts can't
+      if(passable(g.x+dx*step,g.y,g.r)) g.x+=dx*step;
+      else if(passable(g.x, g.y+ (dy>0?step:-step), g.r)) g.y+= (dy>0?step:-step);
+      if(passable(g.x,g.y+dy*step,g.r)) g.y+=dy*step;
+      else if(passable(g.x+(dx>0?step:-step), g.y, g.r)) g.x+=(dx>0?step:-step);
+    }
+
+    // contact — grunts only reach ground-level Jo; the Hunter reaches you anywhere
+    if(g.hitCd<=0 && player.inv<=0 && !ghosting && (player.plat===-1 || g.hunter) && dist2(g.x,g.y,player.x,player.y) < (g.r+player.r)**2){
+      player.hp-- ; player.inv=1.1; g.hitCd=0.8; shake=14; runDamaged=true;
+      const kx=player.x-g.x, ky=player.y-g.y, km=Math.hypot(kx,ky)||1, push=26;
+      if(isOpen(player.x+kx/km*push, player.y, player.r)) player.x+=kx/km*push;
+      if(isOpen(player.x, player.y+ky/km*push, player.r)) player.y+=ky/km*push;
+      unstick(player);
+      // Fragile loot shatters when you take a hit
+      const frag=loot.find(l=>l.kind==='fragile'&&l.got);
+      if(frag){ frag.got=false; recompute();
+        for(let i=0;i<12;i++)particles.push(mkP(player.x,player.y,'#dfeaf5'));
+        floaters.push({x:player.x,y:player.y-20,txt:'shattered!',life:1,col:'#dfeaf5'});
+        toast('The Porcelain Relic shattered.',1100);
+      } else floaters.push({x:player.x,y:player.y-20,txt:'CAUGHT!',life:0.9,col:'#e0503f'});
+      if(player.hp<=0){
+        if(upgLevel('revive')>0 && !player.usedRevive){ player.usedRevive=true; player.hp=1; player.inv=2; shake=18;
+          alarmFlash=1; toast('Second wind \u2014 back on your feet.',1500); }
+        else { endRun(false); return; }
+      }
+    }
+  }
+
+  // GDD Heat ladder: at high heat, a Bounty Hunter enters — and notoriety brings it sooner
+  const hunterAt = Math.max(2, 4 - Math.floor(meta.curseDebt/3));
+  if(!hunterSpawned && heatTier>=hunterAt){ spawnHunter(); }
+
+  // NEW: swivel sentries — stationary eyes that sweep a vision cone
+  for(const s of sentries){
+    if(s.cd>0) s.cd-=dt;
+    if(s.hot>0) s.hot-=dt;
+    // sweep back and forth around the sentry's mounting angle
+    s.ang += s.dir*1.1*dt;
+    if(s.ang > s.center + s.sweep){ s.ang=s.center+s.sweep; s.dir=-1; }
+    if(s.ang < s.center - s.sweep){ s.ang=s.center-s.sweep; s.dir=1; }
+    if(!ghosting && sentrySees(s)){
+      s.hot=0.6;
+      if(s.cd<=0){ // trip the alarm
+        s.cd=2.2; alarmFlash=1; shake=Math.max(shake,10); runSpotted=true;
+        heatTier=clamp(heatTier+1,0,6);
+        toast('SPOTTED \u2014 alarm!', 1200);
+        // wake the two nearest patrol guards toward you
+        [...guards].sort((a,b)=>dist2(a.x,a.y,player.x,player.y)-dist2(b.x,b.y,player.x,player.y))
+          .slice(0,2).forEach(g=>{ g.state='chase'; g.alert=1; });
+      }
+    }
+  }
+
+  // extraction hold
+  const nearPortal = dist2(player.x,player.y,portal.x,portal.y) < (portal.r+30)**2;
+  const wantEsc = keys.has('e')||eHeld;
+  document.getElementById('prompt').classList.toggle('on', nearPortal && seenOneMore);
+  if(nearPortal && wantEsc && seenOneMore){
+    extractHold+=dt; shake=Math.max(shake,3);
+    if(extractHold>=0.6){ endRun(true); return; }
+  } else extractHold=Math.max(0,extractHold-dt*2);
+
+  // fx decay
+  if(shake>0) shake*=Math.pow(0.001,dt);
+  if(flashCurse>0) flashCurse=Math.max(0,flashCurse-dt*0.8);
+  if(alarmFlash>0) alarmFlash=Math.max(0,alarmFlash-dt*1.6);
+  for(const p of particles){ p.x+=p.vx*dt*60; p.y+=p.vy*dt*60; p.vy+=0.15*dt*60; p.life-=dt*1.4; }
+  particles=particles.filter(p=>p.life>0);
+  for(const f of floaters){ f.y-=24*dt; f.life-=dt; }
+  floaters=floaters.filter(f=>f.life>0);
+  portal.spin+=dt*1.6;
+
+  syncHud();
+}
+function mkP(x,y,col){ return {x,y,vx:rand(-2.4,2.4),vy:rand(-3.2,-0.4),life:rand(.5,1),col}; }
+
+// ---------- render ----------
+function draw(){
+  ctx.clearRect(0,0,VIEW.w,VIEW.h);
+  if(!player || !portal) return;   // no world yet (title / hideout) — overlay covers the canvas
+  const sx = shake? rand(-shake,shake):0, sy = shake? rand(-shake,shake):0;
+  ctx.save();
+  ctx.translate(-cam.x+sx, -cam.y+sy);
+
+  drawFloor();
+  drawPlatforms();
+  // portal
+  drawPortal();
+  // loot
+  for(const l of loot){ if(!l.got && !l.hidden) drawLoot(l); }
+  // sentries (draw cones under the mobile guards)
+  for(const s of sentries) drawSentry(s);
+  // guards
+  for(const g of guards) drawGuard(g);
+  // player
+  if(state==='playing'||state==='onemore'||state==='decision'||state==='paused') drawJo();
+  // particles / floaters
+  for(const p of particles){ ctx.globalAlpha=clamp(p.life,0,1); ctx.fillStyle=p.col;
+    ctx.beginPath();ctx.arc(p.x,p.y,3,0,6.28);ctx.fill(); }
+  ctx.globalAlpha=1;
+  ctx.font='700 16px "Cinzel", serif'; ctx.textAlign='center';
+  for(const f of floaters){ ctx.globalAlpha=clamp(f.life,0,1); ctx.fillStyle=f.col;
+    ctx.fillText(f.txt,f.x,f.y); }
+  ctx.globalAlpha=1;
+  ctx.restore();
+
+  // curse vignette (screen space)
+  const cv = Math.min(1, carriedCurse/12) + flashCurse*0.5;
+  if(cv>0.02){
+    const g=ctx.createRadialGradient(VIEW.w/2,VIEW.h/2,VIEW.h*0.3, VIEW.w/2,VIEW.h/2,VIEW.h*0.8);
+    g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,`rgba(70,40,130,${clamp(cv*0.7,0,0.7)})`);
+    ctx.fillStyle=g; ctx.fillRect(0,0,VIEW.w,VIEW.h);
+  }
+  // heat edge glow
+  if(heatTier>=3){
+    ctx.fillStyle=`rgba(224,80,63,${(heatTier-2)*0.05})`;
+    ctx.fillRect(0,0,VIEW.w,VIEW.h);
+  }
+  // alarm flash (sentry trip / vault cleared)
+  if(alarmFlash>0.02){
+    ctx.fillStyle=`rgba(224,80,63,${alarmFlash*0.28})`;
+    ctx.fillRect(0,0,VIEW.w,VIEW.h);
+  }
+}
+
+function drawSentry(s){
+  const seeing=s.hot>0;
+  // vision cone
+  ctx.save();
+  ctx.translate(s.x,s.y);
+  const grd=ctx.createRadialGradient(0,0,10,0,0,s.view);
+  const col= seeing?'224,80,63':'240,180,70';
+  grd.addColorStop(0,`rgba(${col},${seeing?0.22:0.12})`);
+  grd.addColorStop(1,`rgba(${col},0)`);
+  ctx.fillStyle=grd;
+  ctx.beginPath(); ctx.moveTo(0,0);
+  ctx.arc(0,0,s.view,s.ang-s.coneHalf,s.ang+s.coneHalf); ctx.closePath(); ctx.fill();
+  // cone edge line
+  ctx.strokeStyle=`rgba(${col},${seeing?0.5:0.25})`; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(s.ang)*s.view,Math.sin(s.ang)*s.view); ctx.stroke();
+  // housing
+  ctx.fillStyle='#0c0a06'; ctx.beginPath(); ctx.arc(0,0,s.r+4,0,6.28); ctx.fill();
+  ctx.fillStyle= seeing?'#e0503f':'#caa24a';
+  ctx.beginPath(); ctx.arc(0,0,s.r,0,6.28); ctx.fill();
+  // pupil looks along the cone
+  ctx.fillStyle='#0c0a06';
+  ctx.beginPath(); ctx.arc(Math.cos(s.ang)*4,Math.sin(s.ang)*4,s.r*0.5,0,6.28); ctx.fill();
+  ctx.restore();
+  if(seeing){ ctx.fillStyle='#ffdf5a'; ctx.font='900 18px "Cinzel"'; ctx.textAlign='center';
+    ctx.fillText('!',s.x,s.y-s.r-10); }
+}
+
+function drawPlatforms(){
+  const T=currentTheme;
+  for(const p of platforms){
+    if(p.x+p.w<cam.x-40||p.x>cam.x+VIEW.w+40||p.y+p.h<cam.y-40||p.y>cam.y+VIEW.h+40) continue;
+    // cast shadow on the ground below
+    ctx.fillStyle='rgba(0,0,0,.32)';
+    ctx.fillRect(p.x+7, p.y+9, p.w, p.h);
+    // south cliff face (implies height)
+    ctx.fillStyle='rgba(0,0,0,.45)';
+    ctx.fillRect(p.x, p.y+p.h, p.w, ELEV);
+    // raised top surface
+    ctx.fillStyle=T.plat;
+    ctx.fillRect(p.x, p.y, p.w, p.h);
+    // top-left highlight, edges
+    ctx.fillStyle='rgba(255,255,255,.07)'; ctx.fillRect(p.x,p.y,p.w,3); ctx.fillRect(p.x,p.y,3,p.h);
+    ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.lineWidth=2; ctx.strokeRect(p.x,p.y,p.w,p.h);
+    // ledge warning line (warm dashes) — reads as "drop here"
+    ctx.strokeStyle='rgba(245,197,66,.28)'; ctx.lineWidth=2; ctx.setLineDash([9,7]);
+    ctx.strokeRect(p.x+4,p.y+4,p.w-8,p.h-8); ctx.setLineDash([]);
+    // staircase ramp
+    const s=p.stair, horiz=s.w>s.h;
+    ctx.fillStyle='rgba(255,255,255,.05)'; ctx.fillRect(s.x,s.y,s.w,s.h);
+    ctx.strokeStyle='rgba(245,197,66,.5)'; ctx.lineWidth=2;
+    ctx.strokeRect(s.x,s.y,s.w,s.h);
+    ctx.strokeStyle='rgba(255,255,255,.18)'; ctx.lineWidth=1.5;
+    for(let k=1;k<4;k++){ ctx.beginPath();
+      if(horiz){ ctx.moveTo(s.x+s.w*k/4,s.y); ctx.lineTo(s.x+s.w*k/4,s.y+s.h); }
+      else { ctx.moveTo(s.x,s.y+s.h*k/4); ctx.lineTo(s.x+s.w,s.y+s.h*k/4); }
+      ctx.stroke(); }
+  }
+}
+
+function drawFloor(){
+  const T=currentTheme;
+  const x0=Math.floor(cam.x/80)*80, y0=Math.floor(cam.y/80)*80;
+  ctx.fillStyle=T.floor;
+  ctx.fillRect(cam.x,cam.y,VIEW.w,VIEW.h);
+  ctx.strokeStyle=T.grid; ctx.lineWidth=1;
+  ctx.beginPath();
+  for(let x=x0;x<cam.x+VIEW.w;x+=80){ ctx.moveTo(x,cam.y); ctx.lineTo(x,cam.y+VIEW.h); }
+  for(let y=y0;y<cam.y+VIEW.h;y+=80){ ctx.moveTo(cam.x,y); ctx.lineTo(cam.x+VIEW.w,y); }
+  ctx.stroke();
+  // walls
+  for(const w of walls){
+    if(w.x+w.w<cam.x||w.x>cam.x+VIEW.w||w.y+w.h<cam.y||w.y>cam.y+VIEW.h) continue;
+    ctx.fillStyle=T.wall;
+    ctx.fillRect(w.x,w.y,w.w,w.h);
+    ctx.fillStyle=T.top;
+    ctx.fillRect(w.x,w.y,w.w,4);
+    ctx.strokeStyle='rgba(0,0,0,.4)'; ctx.lineWidth=2;
+    ctx.strokeRect(w.x,w.y,w.w,w.h);
+  }
+}
+
+function drawPortal(){
+  const {x,y}=portal;
+  const active = seenOneMore;
+  for(let i=3;i>=0;i--){
+    ctx.beginPath();
+    ctx.strokeStyle = `rgba(255,207,63,${0.12+i*0.05})`;
+    ctx.lineWidth=3;
+    const rr=portal.r - i*7 + Math.sin(portal.spin+i)*3;
+    ctx.arc(x,y,rr,portal.spin*(i%2?1:-1), portal.spin*(i%2?1:-1)+4.4);
+    ctx.stroke();
+  }
+  const g=ctx.createRadialGradient(x,y,4,x,y,portal.r);
+  g.addColorStop(0,'rgba(255,231,168,.5)'); g.addColorStop(1,'rgba(245,197,66,0)');
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,portal.r,0,6.28); ctx.fill();
+  ctx.fillStyle='#ffe7a8'; ctx.font='600 12px "Barlow Semi Condensed"'; ctx.textAlign='center';
+  ctx.fillText('EXIT', x, y-portal.r-8);
+}
+
+function lootColor(kind){
+  return kind==='common'?'#e9c15a':kind==='valuable'?'#7fe3d0':
+         kind==='loud'?'#f5c542':kind==='cursed'?'#a98bff':
+         kind==='royal'?'#ff5da8':kind==='fragile'?'#dfeaf5':'#ff6b8a';
+}
+function drawLoot(l){
+  const c=lootColor(l.kind), pulse=1+Math.sin(l.glow)*0.12;
+  ctx.save(); ctx.translate(l.x,l.y);
+  if(l.plat>=0){ ctx.fillStyle='rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(0,6,7,3,0,0,6.28); ctx.fill(); ctx.translate(0,-7); }
+  // artifact: unmistakable rotating gold-violet relic with a halo ring
+  if(l.kind==='artifact'){
+    const gr=ctx.createRadialGradient(0,0,1,0,0,30*pulse);
+    gr.addColorStop(0,'rgba(169,139,255,.75)'); gr.addColorStop(0.5,'rgba(245,197,66,.35)'); gr.addColorStop(1,'rgba(169,139,255,0)');
+    ctx.fillStyle=gr; ctx.beginPath(); ctx.arc(0,0,30*pulse,0,6.28); ctx.fill();
+    ctx.rotate(l.glow*0.6);
+    ctx.strokeStyle='rgba(169,139,255,.7)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(0,0,14,0.6,4.2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0,0,14,3.8,6.9); ctx.stroke();
+    // faceted gem
+    const g2=ctx.createLinearGradient(-8,-8,8,8); g2.addColorStop(0,'#ffe9a8'); g2.addColorStop(1,'#a98bff');
+    ctx.fillStyle=g2; ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(0,-9);ctx.lineTo(7,-2);ctx.lineTo(4,8);ctx.lineTo(-4,8);ctx.lineTo(-7,-2);ctx.closePath();
+    ctx.fill();ctx.stroke();
+    ctx.restore(); return;
+  }
+  // living loot: a jittery little creature with eyes that looks where it's fleeing
+  if(l.kind==='living'){
+    const j=Math.sin((l.scurry||0))*1.6, bob=Math.cos((l.scurry||0)*1.3)*1.2;
+    const gr2=ctx.createRadialGradient(0,0,1,0,0,18*pulse);
+    gr2.addColorStop(0,'rgba(143,227,154,.7)'); gr2.addColorStop(1,'rgba(143,227,154,0)');
+    ctx.fillStyle=gr2; ctx.beginPath(); ctx.arc(0,0,18*pulse,0,6.28); ctx.fill();
+    ctx.translate(j,bob);
+    // little legs
+    ctx.strokeStyle='#3f7a48'; ctx.lineWidth=1.5;
+    for(const sgn of [-1,1]){ ctx.beginPath(); ctx.moveTo(sgn*4,4);
+      ctx.lineTo(sgn*8,7+Math.sin((l.scurry||0)*2)*1.5); ctx.stroke(); }
+    // body
+    ctx.fillStyle='#7fd88a'; ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.ellipse(0,0,8,6.5,0,0,6.28); ctx.fill(); ctx.stroke();
+    // eyes look along flee direction
+    const ex=(l.fx||0)*2.2, ey=(l.fy||-1)*1.4;
+    for(const sgn of [-1,1]){
+      ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(sgn*3,-1.5,2.4,0,6.28); ctx.fill();
+      ctx.fillStyle='#122'; ctx.beginPath(); ctx.arc(sgn*3+ex,-1.5+ey,1.2,0,6.28); ctx.fill();
+    }
+    // a glint of value on its back
+    ctx.fillStyle='#ffe7a8'; ctx.beginPath(); ctx.arc(0,-2,1.6,0,6.28); ctx.fill();
+    ctx.restore(); return;
+  }
+  // glow
+  const gr=ctx.createRadialGradient(0,0,1,0,0,20*pulse);
+  gr.addColorStop(0, c+'88'); gr.addColorStop(1, c+'00');
+  ctx.fillStyle=gr; ctx.beginPath(); ctx.arc(0,0,20*pulse,0,6.28); ctx.fill();
+  ctx.fillStyle=c; ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.lineWidth=1.5;
+  const s=l.kind==='mythic'?9:l.kind==='loud'?7:l.kind==='cursed'?7:5;
+  if(l.kind==='valuable'){ // diamond
+    ctx.beginPath();ctx.moveTo(0,-s);ctx.lineTo(s,0);ctx.lineTo(0,s);ctx.lineTo(-s,0);ctx.closePath();
+    ctx.fill();ctx.stroke();
+  } else if(l.kind==='common'){
+    ctx.beginPath();ctx.arc(0,0,s,0,6.28);ctx.fill();ctx.stroke();
+  } else { // idols/mask/heart — little icon
+    ctx.beginPath();ctx.arc(0,-s*0.5,s*0.7,0,6.28);ctx.fill();
+    ctx.fillRect(-s*0.7,-s*0.2,s*1.4,s*1.3); ctx.stroke();
+    ctx.strokeRect(-s*0.7,-s*0.2,s*1.4,s*1.3);
+    if(l.kind==='mythic'){ ctx.fillStyle='#fff2c6'; ctx.beginPath();ctx.arc(0,0,3,0,6.28);ctx.fill(); }
+  }
+  ctx.restore();
+}
+
+function drawGuard(g){
+  const chasing=g.state==='chase', looking=g.state==='investigate';
+  const detR=(g.hunter?detectRadius()*1.25:detectRadius());
+  // vision
+  ctx.save();
+  const vg=ctx.createRadialGradient(g.x,g.y,10,g.x,g.y,detR);
+  const col = chasing?'224,80,63': looking?'224,150,60': g.alert>0.2?'224,150,60':'150,140,120';
+  vg.addColorStop(0,`rgba(${col},${chasing?0.15:looking?0.10:0.07})`);
+  vg.addColorStop(1,`rgba(${col},0)`);
+  ctx.fillStyle=vg; ctx.beginPath(); ctx.arc(g.x,g.y,detR,0,6.28); ctx.fill();
+  ctx.restore();
+  // body
+  ctx.save(); ctx.translate(g.x,g.y);
+  ctx.fillStyle='rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(0,g.r*0.7,g.r,g.r*0.4,0,0,6.28); ctx.fill();
+  if(g.hunter && platAt(g.x,g.y)!==-1) ctx.translate(0,-7);   // it climbed up after you
+  if(g.hunter){
+    // bounty hunter: dark iron body, red eye, spiked silhouette
+    ctx.fillStyle=chasing?'#2a1420':'#1c1420';
+    ctx.beginPath();ctx.arc(0,0,g.r,0,6.28);ctx.fill();
+    ctx.strokeStyle='#e0503f'; ctx.lineWidth=2; ctx.beginPath();ctx.arc(0,0,g.r,0,6.28);ctx.stroke();
+    ctx.fillStyle='#ff5240';
+    ctx.beginPath();ctx.arc(Math.cos(g.face)*4,Math.sin(g.face)*4,g.r*0.42,0,6.28);ctx.fill();
+  } else if(g.elite){
+    ctx.fillStyle=chasing?'#7a2a4a':'#5a2038';
+    ctx.beginPath();ctx.arc(0,0,g.r,0,6.28);ctx.fill();
+    ctx.strokeStyle='#ff5da8'; ctx.lineWidth=2; ctx.beginPath();ctx.arc(0,0,g.r,0,6.28);ctx.stroke();
+    ctx.fillStyle='#ff7ab8';
+    ctx.beginPath();ctx.arc(Math.cos(g.face)*4,Math.sin(g.face)*4,g.r*0.5,0,6.28);ctx.fill();
+  } else {
+    ctx.fillStyle=chasing?'#a83a30':looking?'#8a6a3a':'#6f4a3a';
+    ctx.beginPath();ctx.arc(0,0,g.r,0,6.28);ctx.fill();
+    ctx.fillStyle=chasing?'#e0503f':looking?'#caa24a':'#8a5c46';
+    ctx.beginPath();ctx.arc(Math.cos(g.face)*4,Math.sin(g.face)*4,g.r*0.55,0,6.28);ctx.fill();
+  }
+  ctx.restore();
+  if(chasing){ ctx.fillStyle='#ffdf5a'; ctx.font='900 18px "Cinzel"'; ctx.textAlign='center';
+    ctx.fillText('!',g.x,g.y-g.r-6); }
+  else if(looking){ ctx.fillStyle='#e6b84a'; ctx.font='900 17px "Cinzel"'; ctx.textAlign='center';
+    ctx.fillText('?',g.x,g.y-g.r-6); }
+}
+
+// ---------- Jo: real directional sprites ----------
+// Nine game-ready cells (front/side/back x empty/light/heavy bag). Every 256x256
+// cell is normalized: figure horizontally centered at x=128, feet locked to the
+// baseline at y=239. One shared scale keeps the load tiers' relative heights, so
+// the bag visibly grows with weight. We only have static directional art (no frame
+// sheets), so the walk cycle is faked procedurally: a vertical bob, an idle
+// breathe, and a shadow squash. Falls back to the vector Jo until art has loaded.
+const JO_CELL=256, JO_FEET=239, JO_CX=128, JO_SCALE=0.28;
+const joImg={};
+(function loadJo(){
+  for(const d of ['front','side','back']) for(const t of ['empty','light','heavy']){
+    const im=new Image(); im.src=`assets/jo/jo_${d}_${t}.png`; joImg[d+'_'+t]=im;
+  }
+})();
+function joDir(face){
+  // canvas angle: 0 = +x (right), +y = down. Collapse to the 3 drawn views,
+  // mirroring the side art for left-facing.
+  let a=face; while(a<-Math.PI)a+=6.28318; while(a>Math.PI)a-=6.28318;
+  const q=Math.PI/4;
+  if(a>-q && a<=q)      return {key:'side',  flip:false}; // facing right
+  if(a>q  && a<=3*q)    return {key:'front', flip:false}; // facing down / toward camera
+  if(a<=-q && a>-3*q)   return {key:'back',  flip:false}; // facing up / away
+  return {key:'side', flip:true};                          // facing left
+}
+function joTier(w){ return w<=0 ? 'empty' : w<16 ? 'light' : 'heavy'; }
+function drawJo(){
+  const dir=joDir(player.face), img=joImg[dir.key+'_'+joTier(carriedWeight)];
+  if(!img || !img.complete || !img.naturalWidth){ drawJoVector(); return; } // art not ready yet
+  const {x,y}=player;
+  const blink = player.inv>0 && Math.floor(player.inv*12)%2===0;
+  const eoff = player.plat>=0 ? -7 : 0;                 // height cue on a platform
+  const moving = Math.hypot(player.vx||0, player.vy||0) > 0.35;
+  const clk = tPrev/1000;                               // shared animation clock (ms->s)
+  ctx.save(); ctx.translate(x,y);
+  if(blink) ctx.globalAlpha=0.4;
+  // Smoke Step: shimmer aura + translucency
+  if(player.ghost>0){
+    ctx.globalAlpha=0.6+Math.sin(player.ghost*10)*0.1;
+    const ga=ctx.createRadialGradient(0,0,4,0,0,32);
+    ga.addColorStop(0,'rgba(169,139,255,.5)'); ga.addColorStop(1,'rgba(169,139,255,0)');
+    ctx.fillStyle=ga; ctx.beginPath(); ctx.arc(0,0,32,0,6.28); ctx.fill();
+  }
+  // ground shadow (pulses subtly on the walk cycle)
+  const sq = moving ? 1+Math.sin(clk*11)*0.06 : 1;
+  ctx.fillStyle='rgba(0,0,0,.4)';
+  ctx.beginPath(); ctx.ellipse(0, player.r*0.82, player.r*1.02*sq, player.r*0.4, 0,0,6.28); ctx.fill();
+  ctx.translate(0,eoff);
+  // faked life: bob while walking, gentle breathe while idle
+  const bob     = moving ? -Math.abs(Math.sin(clk*11))*2.6 : Math.sin(clk*2.3)*-0.7;
+  const breathe = moving ? 0 : Math.sin(clk*2.3)*0.012;
+  const S = JO_SCALE*(1+breathe);
+  ctx.translate(0,bob);
+  if(dir.flip) ctx.scale(-1,1);                          // centered figure -> mirror stays centered
+  const footY = player.r*0.9;                            // plant feet just under the collision point
+  ctx.imageSmoothingEnabled=true;
+  ctx.drawImage(img, -JO_CX*S, footY-JO_FEET*S, JO_CELL*S, JO_CELL*S);
+  ctx.restore();
+  ctx.globalAlpha=1;
+}
+function drawJoVector(){
+  const {x,y}=player, blink = player.inv>0 && Math.floor(player.inv*12)%2===0;
+  const eoff = player.plat>=0 ? -7 : 0;   // height cue when up on a platform
+  ctx.save(); ctx.translate(x,y);
+  if(blink) ctx.globalAlpha=0.4;
+  // Smoke Step: shimmer aura + translucency
+  if(player.ghost>0){
+    ctx.globalAlpha=0.55+Math.sin(player.ghost*10)*0.1;
+    const ga=ctx.createRadialGradient(0,0,4,0,0,30);
+    ga.addColorStop(0,'rgba(169,139,255,.5)'); ga.addColorStop(1,'rgba(169,139,255,0)');
+    ctx.fillStyle=ga; ctx.beginPath(); ctx.arc(0,0,30,0,6.28); ctx.fill();
+  }
+  // shadow (stays on the surface below Jo)
+  ctx.fillStyle='rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(0,player.r*0.75,player.r,player.r*0.42,0,0,6.28); ctx.fill();
+  ctx.translate(0,eoff);
+  // loot bag (grows with weight) — behind body
+  const bag = clamp(carriedWeight,0,40);
+  if(bag>0){
+    const bs=6+bag*0.35;
+    ctx.fillStyle='#3a2c16';
+    ctx.beginPath();ctx.ellipse(-Math.cos(player.face)*8,-Math.sin(player.face)*8+2,bs,bs*0.9,0,0,6.28);ctx.fill();
+    ctx.fillStyle='#5a4322';
+    ctx.beginPath();ctx.ellipse(-Math.cos(player.face)*8,-Math.sin(player.face)*8,bs*0.5,bs*0.4,0,0,6.28);ctx.fill();
+  }
+  // scarf (signature) — trails opposite movement
+  const sd=player.face+Math.PI;
+  ctx.fillStyle='#ffcf3f';
+  ctx.beginPath();
+  ctx.moveTo(0,0);
+  ctx.quadraticCurveTo(Math.cos(sd)*14-6, Math.sin(sd)*14, Math.cos(sd)*26, Math.sin(sd)*22-4);
+  ctx.quadraticCurveTo(Math.cos(sd)*18, Math.sin(sd)*10+6, 0,4);
+  ctx.closePath(); ctx.fill();
+  // body
+  ctx.fillStyle='#1e1c1a'; ctx.strokeStyle='#000'; ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.arc(0,0,player.r,0,6.28);ctx.fill();ctx.stroke();
+  // head/hair
+  ctx.fillStyle='#20180f';
+  ctx.beginPath();ctx.arc(Math.cos(player.face)*3,Math.sin(player.face)*3,player.r*0.62,0,6.28);ctx.fill();
+  // scarf collar
+  ctx.fillStyle='#ffcf3f';
+  ctx.beginPath();ctx.arc(0,0,player.r*0.45,0,6.28);ctx.fill();
+  ctx.restore();
+  ctx.globalAlpha=1;
+}
+
+// ---------- HUD ----------
+const $=id=>document.getElementById(id);
+function syncHud(){
+  // hearts
+  const hEl=$('hearts'); hEl.innerHTML='';
+  for(let i=0;i<player.maxHp;i++){ const s=document.createElement('span');
+    s.className='heart'+(i<player.hp?'':' gone'); s.textContent=i<player.hp?'\u2665':'\u2661'; hEl.appendChild(s); }
+  $('haul').textContent='$'+carriedValue.toLocaleString();
+  const got=loot.filter(l=>l.got).length;
+  const secEl=$('secured');
+  secEl.textContent = vaultCleared ? 'VAULT CLEARED \u2014 run!' : got+' / '+runLootCount+' secured';
+  secEl.style.color = vaultCleared ? 'var(--ok)' : 'var(--muted)';
+  // greed load
+  const gp=clamp(carriedWeight/40,0,1);
+  $('greedFill').style.width=(gp*100)+'%';
+  $('greedTxt').textContent = carriedWeight<6?'Light': carriedWeight<16?'Laden': carriedWeight<28?'Heavy':'Backbreaking';
+  const np=clamp(noiseNow()/14,0,1);
+  $('noiseFill').style.width=(np*100)+'%';
+  $('noiseTxt').textContent = noiseNow()<1?'Silent': noiseNow()<5?'Clinking': noiseNow()<9?'Loud':'Deafening';
+  // heat pips
+  const pEl=$('pips'); if(pEl.children.length!==7){ pEl.innerHTML=''; for(let i=0;i<7;i++){const d=document.createElement('div');d.className='pip';pEl.appendChild(d);} }
+  [...pEl.children].forEach((d,i)=>d.classList.toggle('lit', i<=heatTier && (carriedValue>0||i===0)? i<=heatTier:false));
+  // contract objective + timer
+  const objEl=$('objective'), tEl=$('timer');
+  if(activeContract){
+    let ok=false; try{ ok=activeContract.check(); }catch(e){}
+    objEl.innerHTML=`<b>Job \u00b7 ${activeContract.title}</b><br>${activeContract.desc}`
+      + (ok?` <span style="color:var(--ok)">\u2713</span>`:'');
+  } else objEl.innerHTML='';
+  if(runTimeLimit>0){
+    const left=Math.max(0,runTimeLimit-runClock);
+    tEl.textContent=`${Math.floor(left/60)}:${String(Math.floor(left%60)).padStart(2,'0')}`;
+    tEl.classList.toggle('urgent', left<20);
+  } else tEl.textContent='';
+  // drop-risk indicator — only while up on a platform, tells you what a drop costs now
+  const dr=$('dropRisk');
+  if(player.plat>=0){
+    dr.classList.add('on');
+    if(upgLevel('landing')>0){ dr.textContent='DROP: Silent'; dr.style.color='var(--ok)'; }
+    else if(carriedWeight>=20){ dr.textContent='DROP: Hard \u2014 costs a heart'; dr.style.color='var(--heat)'; }
+    else if(carriedWeight>=8){ dr.textContent='DROP: Loud \u2014 you\u2019ll be heard'; dr.style.color='var(--gold)'; }
+    else { dr.textContent='DROP: Silent'; dr.style.color='var(--ok)'; }
+  } else dr.classList.remove('on');
+}
+
+let toastT=0;
+function toast(msg,ms=1200){ const t=$('toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),ms); }
+
+// ---------- flow ----------
+function show(id){ ['menu','howto','paused','shop','collection','contracts','fence','onemore','decision','result'].forEach(o=>$(o).classList.toggle('on', o===id)); }
+function startRun(){
+  buildWorld(); recompute(); state='playing';
+  show(null); $('hud').classList.add('on');
+  if(isTouch){ touchWrap.style.display='block'; eBtn.style.display='flex'; }
+}
+function openOneMore(){
+  state='onemore'; $('hud').classList.remove('on');
+  $('omtCarry').textContent='Carrying $'+carriedValue.toLocaleString()+' \u00b7 yours for certain if you leave now';
+  show('onemore');
+}
+function resumeGreedy(){
+  // reveal the vault heart, wake the vault
+  const h=loot.find(l=>l.type==='heart'); if(h){ h.hidden=false;
+    floaters.push({x:h.x,y:h.y,txt:'VAULT HEART',life:2,col:'#a98bff'}); heartRevealed=true; }
+  heatTier=Math.max(heatTier,4);
+  for(const g of guards){ g.state='chase'; g.alert=1; }
+  flashCurse=1; toast('The vault wakes \u2014 every eye turns to you.',1600);
+  state='playing'; $('hud').classList.add('on'); show(null);
+}
+
+// ---------- branching loot ----------
+let pendingArtifact=null;function openDecision(l){
+  pendingArtifact=l; state='decision'; $('hud').classList.remove('on');
+  eHeld=false; touchVec={x:0,y:0};
+  $('decTitle').textContent=l.name;
+  $('decFlavor').textContent=l.flavor;
+  const boon=BOONS[l.boon];
+  const pry=Math.round(l.base*0.4);
+  const choices=[
+    { cls:'greed', t:'Pocket it whole', d:'Take every ounce. It\u2019s heavy, loud, and marked \u2014 the vault will feel it.',
+      v:'+$'+l.base.toLocaleString()+' \u00b7 +weight +curse', pick:0 },
+    { cls:'safe',  t:'Pry it apart',    d:'Snap out the gems, leave the frame. Less coin, but light and silent.',
+      v:'+$'+pry.toLocaleString()+' \u00b7 clean', pick:1 },
+    { cls:'power', t:boon.label,        d:'Forget the money. Bend the artifact\u2019s power to your escape instead.',
+      v:boon.effect, pick:2 },
+  ];
+  const wrap=$('decChoices'); wrap.innerHTML='';
+  for(const c of choices){
+    const el=document.createElement('div');
+    el.className='choice '+c.cls;
+    el.innerHTML=`<div class="ct">${c.t}</div><div class="cd">${c.d}</div><div class="cv">${c.v}</div>`;
+    el.onclick=()=>resolveArtifact(c.pick);
+    wrap.appendChild(el);
+  }
+  show('decision');
+}
+function resolveArtifact(pick){
+  const l=pendingArtifact; if(!l) return;
+  if(pick===0){ l.value=l.base; l.weight=6; l.noise=3; l.curse=3;
+    flashCurse=1; toast('The vault feels its absence.',1200); lowNoiseRun=false; }
+  else if(pick===1){ l.value=Math.round(l.base*0.4); l.weight=2; l.noise=0; l.curse=0; }
+  else { l.value=0; l.weight=0; l.noise=0; l.curse=0; applyBoon(l.boon); }
+  l.got=true; recompute();
+  if(l.value>0) floaters.push({x:l.x,y:l.y,txt:'+$'+l.value,life:1.2,col:'#f5c542'});
+  for(let i=0;i<14;i++)particles.push(mkP(l.x,l.y,'#a98bff'));
+  if(!vaultCleared && loot.every(x=>x.got)){
+    vaultCleared=true; alarmFlash=1; toast('VAULT EMPTY \u00b7 every last coin. Now RUN.',2000);
+    for(const g of guards){ g.state='chase'; g.alert=1; }
+  }
+  pendingArtifact=null; state='playing'; $('hud').classList.add('on'); show(null);
+}
+function applyBoon(key){
+  if(key==='sense'){
+    const h=loot.find(l=>l.type==='heart'); if(h&&h.hidden){ h.hidden=false;
+      floaters.push({x:h.x,y:h.y,txt:'VAULT HEART',life:2,col:'#a98bff'}); heartRevealed=true; }
+    toast('Greed Sense \u2014 you feel the Heart beating deep in the vault.',2000);
+  } else if(key==='ghost'){
+    player.ghost=6; player.inv=Math.max(player.inv,6);
+    for(const g of guards){ g.state='patrol'; g.alert=0; }
+    toast('Smoke Step \u2014 6 seconds. Walk through them.',1800);
+  } else if(key==='muffle'){
+    noiseMuffled=true;
+    toast('Silence \u2014 your haul makes no sound for the rest of the run.',2000);
+  }
+}
+// earn a reputation title from how the run actually played out
+function epithet(escaped){
+  if(!escaped) return vaultCleared ? 'BURIED WITH IT' : 'TOO GREEDY';
+  if(vaultCleared)  return 'TOMB RAIDER';        // left nothing behind
+  if(heartRevealed) return 'PHANTOM BURGLAR';    // took the Heart and lived
+  if(lowNoiseRun && carriedValue>0) return 'GENTLEMAN THIEF'; // never made a sound
+  if(carriedValue>=1500) return 'MASTER LOOTER';
+  return 'OPPORTUNIST';
+}
+function endRun(escaped){
+  runOutcome=escaped; state='result';
+  $('hud').classList.remove('on'); document.getElementById('prompt').classList.remove('on');
+  touchWrap.style.display='none';
+  meta.runs++;
+  const perfect = escaped && vaultCleared;
+  pendingPerfect = perfect;
+
+  // capture what came out — notable items get fenced individually, bulk is auto-sold
+  pendingHaul=[]; pendingBulk={val:0,n:0};
+  const notable=['loud','cursed','artifact','living','mythic','royal','fragile'];
+  if(escaped){
+    for(const l of loot){ if(!l.got) continue;
+      if(notable.includes(l.kind)) pendingHaul.push({kind:l.kind,name:l.name,value:l.value,saleIdx:0,buyers:buyersFor(l.kind,l.value)});
+      else { pendingBulk.val+=l.value; pendingBulk.n++; }
+    }
+  }
+  const haulVal = carriedValue;
+  // Danger pays: the hotter the run got, the more everything is worth (risk = reward)
+  pendingDangerMult = 1 + peakHeat*0.09 + 0.05*collLevel('heart');
+
+  // evaluate the active contract
+  pendingContractReward=0; pendingNotoDown=0; pendingContractInfo=null;
+  if(activeContract){
+    let done=false; if(escaped){ try{ done=activeContract.check(); }catch(e){} }
+    pendingContractInfo={title:activeContract.title, done, reward:activeContract.reward};
+    if(done){ pendingContractReward=activeContract.reward; pendingNotoDown=activeContract.notoDown||0; }
+  }
+
+  $('resEyebrow').textContent = perfect ? 'Perfect Heist \u00b7 Vault Cleared'
+    : escaped ? (heartRevealed?'Extraction \u00b7 Vault Heart secured':'Extraction') : 'Caught';
+  $('resNum').textContent = (escaped?'$':'$')+ (escaped?haulVal:0).toLocaleString();
+  $('resNum').className = 'result-num '+(escaped?'win':'loss');
+  $('resSub').innerHTML = (escaped
+    ? (perfect ? `You took <em>everything</em> and still made the door \u2014 take it to the fence.`
+      : heartRevealed?'You dragged it all to the door. Now move the goods.':'Clean job. Time to fence the haul.')
+    : 'The vault kept everything you were carrying. Greed has a price.')
+    + ` &nbsp;<span style="color:var(--gold-deep);letter-spacing:.14em">\u2014 "${epithet(escaped)}"</span>`;
+  let contractLine='';
+  if(pendingContractInfo){
+    contractLine = pendingContractInfo.done
+      ? `<div>${pendingContractInfo.title}<b style="color:var(--ok)">\u2713 +$${pendingContractInfo.reward.toLocaleString()}</b></div>`
+      : `<div>${pendingContractInfo.title}<b style="color:var(--heat)">failed</b></div>`;
+  }
+  $('resStats').innerHTML =
+    `<div>Haul<b>$${haulVal.toLocaleString()}</b></div>`
+    + (peakHeat>0?`<div>Danger (T${peakHeat})<b style="color:var(--heat)">+${Math.round((pendingDangerMult-1)*100)}%</b></div>`:'')
+    + (perfect?`<div>Clean bonus<b style="color:var(--ok)">+40%</b></div>`:'')
+    + contractLine
+    + `<div>Secured<b>${loot.filter(l=>l.got).length}/${runLootCount}</b></div>`;
+  $('continueBtn').textContent = (escaped && pendingHaul.length) ? 'To the Fence' : 'To the Hideout';
+  show('result');
+}
+function applyContractRewards(){
+  if(pendingContractReward>0){ meta.gold+=pendingContractReward; }
+  if(pendingNotoDown>0){ meta.curseDebt=clamp(meta.curseDebt-pendingNotoDown,0,10); }
+  pendingContractReward=0; pendingNotoDown=0;
+}
+function sellMult(){ return 1 + 0.08*upgLevel('contacts') + 0.03*collLevel('idol'); }
+// which buyers want a given loot kind, and what they pay / cost
+function buyersFor(kind,value){
+  const b=[{id:'black',nm:'Black Market',mult:1.0,fx:null,cls:''}];
+  if(kind==='loud'||kind==='living'||kind==='mythic'||kind==='royal'||kind==='fragile') b.push({id:'noble',nm:'Noble Collector',mult:1.7,fx:null,cls:''});
+  if(kind==='cursed'||kind==='artifact'||kind==='mythic'){
+    b.push({id:'cult',nm:'The Syndicate',mult:2.2,fx:'curse+',cls:'baron'});
+    b.push({id:'hist',nm:'Return it',mult:0.4,fx:'curse-',cls:'return'});
+  }
+  const sm=sellMult();
+  const out=b.map(x=>({...x, payout:Math.round(value*x.mult*sm)}));
+  // Keep it: forgo the sale, add it to the Collection for a permanent passive (only if not owned yet)
+  const tid=KIND_TROPHY[kind];
+  if(tid && collLevel(tid)===0){ const t=trophyById(tid);
+    out.push({id:'keep', nm:'Keep it', fx:'keep', cls:'keep', payout:0, passive:t.passive}); }
+  return out;
+}
+function routeAfterResult(){
+  if(runOutcome && pendingHaul.length){ openFence(); return; }
+  // no items to haggle over — bank any loose bulk directly, then to the hideout
+  if(runOutcome && pendingBulk.n>0){
+    let t=Math.round(pendingBulk.val*sellMult()); if(pendingPerfect) t=Math.round(t*1.4); t=Math.round(t*pendingDangerMult*collGoldMult()); meta.gold+=t;
+  }
+  applyContractRewards();
+  pendingHaul=[]; pendingBulk={val:0,n:0};
+  saveMeta(); openShop();
+}
+function openFence(){ state='fence'; renderFence(); show('fence'); }
+function renderFence(){
+  let total=Math.round(pendingBulk.val*sellMult()), curseD=0;
+  const list=$('fenceItems'); list.innerHTML='';
+  if(pendingBulk.n>0){
+    const row=document.createElement('div'); row.className='fitem';
+    row.innerHTML=`<div class="fnm">Loose coin & gems \u00d7${pendingBulk.n}
+      <span style="float:right;color:var(--gold);font-weight:700">$${pendingBulk.val.toLocaleString()}</span></div>
+      <div class="bf" style="font-size:11px;color:var(--muted)">Auto-sold to the Black Market \u2014 no one haggles over pocket change.</div>`;
+    list.appendChild(row);
+  }
+  pendingHaul.forEach((it,i)=>{
+    const chosen=it.buyers[it.saleIdx];
+    total+=chosen.payout; if(chosen.fx==='curse+')curseD++; else if(chosen.fx==='curse-')curseD--;
+    const row=document.createElement('div'); row.className='fitem';
+    let chips='';
+    it.buyers.forEach((b,bi)=>{
+      const fx=b.fx==='curse+'?'+notoriety':b.fx==='curse-'?'\u2212notoriety':b.fx==='keep'?'to Collection':'';
+      const pay = b.fx==='keep' ? b.passive : '$'+b.payout.toLocaleString();
+      chips+=`<div class="buyer ${b.cls} ${bi===it.saleIdx?'sel':''}" data-i="${i}" data-b="${bi}">
+        <div class="bn">${b.nm}</div><div class="bp">${pay}</div>
+        <div class="bf">${fx||'&nbsp;'}</div></div>`;
+    });
+    row.innerHTML=`<div class="fnm">${it.name}</div><div class="buyers">${chips}</div>`;
+    list.appendChild(row);
+  });
+  list.querySelectorAll('.buyer').forEach(el=>el.onclick=()=>{
+    const i=+el.dataset.i, bi=+el.dataset.b;
+    const picked=pendingHaul[i].buyers[bi];
+    if(picked && picked.id==='noble'){        // the Noble takes a single piece per visit
+      pendingHaul.forEach((o,oi)=>{ if(oi!==i){ const cur=o.buyers[o.saleIdx]; if(cur&&cur.id==='noble') o.saleIdx=0; } });
+    }
+    pendingHaul[i].saleIdx=bi; renderFence(); });
+  if(pendingPerfect) total=Math.round(total*1.4); total=Math.round(total*pendingDangerMult*collGoldMult());
+  $('fenceTotal').textContent='$'+total.toLocaleString();
+  const noto = curseD>0?`The syndicate\u2019s coin raises your notoriety.`
+    : curseD<0?`Returning goods cools the world down.`
+    : `Different buyers want different goods.`;
+  $('fenceNote').innerHTML = noto
+    + (peakHeat>0?` <span style="color:var(--heat)">Danger +${Math.round((pendingDangerMult-1)*100)}% (peaked Heat T${peakHeat}).</span>`:'')
+    + (pendingPerfect?` <span style="color:var(--ok)">Perfect-heist +40%.</span>`:'');
+}
+function bankHaul(){
+  let total=Math.round(pendingBulk.val*sellMult()), curseD=0;
+  for(const it of pendingHaul){ const b=it.buyers[it.saleIdx]; total+=b.payout;
+    if(b.fx==='curse+')curseD++; else if(b.fx==='curse-')curseD--;
+    if(b.fx==='keep'){ const tid=KIND_TROPHY[it.kind]; if(tid && collLevel(tid)===0){ meta.collection[tid]=1;
+      toast(trophyById(tid).passive+' \u2014 added to the Collection.',1600); } } }
+  if(pendingPerfect) total=Math.round(total*1.4); total=Math.round(total*pendingDangerMult*collGoldMult());
+  meta.gold+=total; meta.curseDebt=clamp(meta.curseDebt+curseD,0,10);
+  applyContractRewards();
+  pendingHaul=[]; pendingBulk={val:0,n:0};
+  saveMeta();
+  openShop();
+}
+function openShop(){ state='shop'; renderShop(); show('shop'); }
+
+// ---------- The Collection room ----------
+function openCollection(){ state='collection'; renderCollection(); show('collection'); }
+function renderCollection(){
+  $('collGold').textContent='$'+meta.gold.toLocaleString();
+  const g=$('trophyGrid'); g.innerHTML='';
+  for(const t of TROPHIES){
+    const lvl=collLevel(t.id), owned=lvl>0, maxed=lvl>=t.max, cost=restoreCost(t);
+    const clr = t.id==='relic'?'relicClr': t.id==='jewel'?'jewelClr':'';
+    const el=document.createElement('div');
+    el.className='trophy '+clr+(owned?'':' locked');
+    let action;
+    if(!owned) action=`<div class="lv">Not yet claimed</div>`;
+    else if(maxed) action=`<div class="rbtn dim">Fully restored</div>`;
+    else action=`<div class="rbtn" data-t="${t.id}">Restore $${cost.toLocaleString()}</div>`;
+    el.innerHTML=`<div class="orb"></div>
+      <div class="pn">${t.passive}</div><div class="tn">${owned?t.nm:'\u2014 empty pedestal \u2014'}</div>
+      <div class="te">${owned?t.eff(lvl):'Keep a '+t.nm+' at the fence.'}</div>
+      ${owned?`<div class="lv">Lv ${lvl} / ${t.max}</div>`:''}
+      ${action}`;
+    g.appendChild(el);
+  }
+  g.querySelectorAll('.rbtn[data-t]').forEach(el=>el.onclick=()=>{
+    const t=trophyById(el.dataset.t), cost=restoreCost(t);
+    if(meta.gold>=cost && collLevel(t.id)<t.max){ meta.gold-=cost; meta.collection[t.id]=collLevel(t.id)+1;
+      toast(t.passive+' restored \u2014 Lv '+collLevel(t.id),1200); saveMeta(); renderCollection(); }
+  });
+}
+
+// ---------- contracts board ----------
+function openContracts(){ state='contracts'; offeredContracts=genContracts(3); renderContracts(); show('contracts'); }
+function renderContracts(){
+  const g=$('jobGrid'); g.innerHTML='';
+  offeredContracts.forEach((c,i)=>{
+    const el=document.createElement('div'); el.className='job';
+    el.innerHTML=`<div class="jt">${c.title}</div><div class="jc">${c.client}</div>
+      <div class="jd">${c.desc}</div>
+      <div class="jr">Reward +$${c.reward.toLocaleString()}${c.notoDown?` \u00b7 \u2212${c.notoDown} notoriety`:''}
+        <span class="loc">${c.location}</span></div>`;
+    el.onclick=()=>{ activeContract=c; startRun(); };
+    g.appendChild(el);
+  });
+}
+
+// ---------- persistence (survives reloads via artifact storage; safe if unavailable) ----------
+const SAVE_KEY='greedrun_meta_v1';
+async function loadMeta(){
+  try{
+    if(window.storage){
+      const r=await window.storage.get(SAVE_KEY);
+      if(r && r.value){ const d=JSON.parse(r.value);
+        meta.gold=d.gold||0; meta.runs=d.runs||0; meta.bestHaul=d.bestHaul||0;
+        meta.curseDebt=d.curseDebt||0; if(d.upg) Object.assign(meta.upg,d.upg);
+        if(d.collection) Object.assign(meta.collection,d.collection);
+      }
+    }
+  }catch(e){/* first run or storage unavailable — play in-memory */}
+  if(state==='shop') renderShop();
+}
+async function saveMeta(){
+  try{ if(window.storage) await window.storage.set(SAVE_KEY, JSON.stringify({
+    gold:meta.gold, runs:meta.runs, bestHaul:meta.bestHaul, curseDebt:meta.curseDebt, upg:meta.upg, collection:meta.collection })); }
+  catch(e){}
+}
+async function wipeMeta(){
+  try{ if(window.storage) await window.storage.delete(SAVE_KEY); }catch(e){}
+  meta.gold=0; meta.runs=0; meta.bestHaul=0; meta.curseDebt=0;
+  meta.upg={straps:0,boots:0,feet:0,luck:0,landing:0,scanner:0,pockets:0,contacts:0,cool:0,revive:0};
+  meta.collection={idol:0,relic:0,jewel:0,relicart:0,heart:0};
+  renderShop();
+}
+function renderShop(){
+  $('bankAmt').textContent='$'+meta.gold.toLocaleString();
+  const nl=$('notoLine');
+  if(meta.curseDebt>0){
+    const seed=clamp(Math.floor(meta.curseDebt/2)-upgLevel('cool'),0,3);
+    const hunterAt=Math.max(2,4-Math.floor(meta.curseDebt/3));
+    nl.style.color='var(--curse-glow)';
+    nl.innerHTML=`Notoriety ${meta.curseDebt}`+(seed>0?` \u00b7 jobs start at Heat T${seed}`:'')
+      +` \u00b7 Hunter enters at Heat T${hunterAt} \u2014 return goods to cool it`;
+  } else { nl.innerHTML=''; }
+  const grid=$('fenceGrid'); grid.innerHTML='';
+  for(const u of UPGRADES){
+    const lvl=upgLevel(u.id), maxed=lvl>=u.max, cost=upgCost(u), afford=meta.gold>=cost;
+    const el=document.createElement('div');
+    el.className='fence'+(maxed?' owned':'')+(!maxed&&!afford?' locked':'');
+    const lvlTag = lvl>0 ? `<div class="tag">Lv ${lvl}${u.max>1?' / '+u.max:''}</div>` : '';
+    let effLine='';
+    if(u.max>1){ effLine = lvl>0 ? `<div class="eff">Now ${effLabel(u.id,lvl)}${maxed?'':` \u2192 ${effLabel(u.id,lvl+1)}`}</div>`
+                                 : `<div class="eff">Next ${effLabel(u.id,1)}</div>`; }
+    el.innerHTML=`<div class="nm">${u.nm}</div><div class="ds">${u.ds}</div>${effLine}
+      <div class="cost">${maxed?'\u2713 MAX':'$'+cost.toLocaleString()}</div>${lvlTag}`;
+    if(!maxed&&afford){ el.onclick=()=>{ meta.gold-=cost; meta.upg[u.id]=lvl+1;
+      toast(u.nm+(u.max>1?` \u2014 Lv ${lvl+1}`:' acquired')+'.',1100); saveMeta(); renderShop(); }; }
+    grid.appendChild(el);
+  }
+}
+
+// buttons
+$('startBtn').onclick=()=>openShop();          // first stop is the hideout
+$('nextRunBtn').onclick=openContracts;
+$('collectionBtn').onclick=openCollection;
+$('collBack').onclick=openShop;
+$('freeRunBtn').onclick=()=>{ activeContract=null; startRun(); };
+$('continueBtn').onclick=routeAfterResult;
+$('escapeNow').onclick=()=>endRun(true);
+$('stayGreedy').onclick=resumeGreedy;
+$('bankBtn').onclick=bankHaul;
+let resetArmed=false;
+$('resetBtn').onclick=()=>{ const el=$('resetBtn');
+  if(!resetArmed){ resetArmed=true; el.textContent='Tap again to wipe everything';
+    el.style.color='var(--heat)'; setTimeout(()=>{resetArmed=false; el.textContent='Reset progress'; el.style.color='var(--muted)';},2500); }
+  else { resetArmed=false; wipeMeta(); toast('Progress wiped.',1200); }
+};
+
+// pause + how-to navigation
+let howtoFrom='menu';
+function pauseGame(){ if(state!=='playing') return; state='paused'; eHeld=false; touchVec={x:0,y:0}; renderStats(); show('paused'); }
+function renderStats(){
+  const rows=[
+    ['Move speed', `+${Math.round(11*upgLevel('feet'))}%`],
+    ['Weight drag', `\u2212${Math.round(14*upgLevel('straps'))}%`],
+    ['Noise', `\u2212${Math.round(18*upgLevel('boots'))}%`],
+    ['Sell bonus', `+${8*upgLevel('contacts')}%`],
+    ['Hearts', `${player?player.maxHp:3}`],
+    ['Landing', upgLevel('landing')>0?'Silent / safe':'Risky when loaded'],
+  ];
+  const run=[
+    ['Heat now', `T${heatTier}`],
+    ['Notoriety', `${meta.curseDebt}`],
+    ['In bag', `$${carriedValue.toLocaleString()}`],
+    ['Danger bonus', `+${Math.round(peakHeat*9)}%`],
+  ];
+  const cell=(k,v)=>`<div class="stat-cell"><span>${k}</span><b>${v}</b></div>`;
+  $('statPanel').innerHTML =
+    `<div class="stat-head">Loadout</div><div class="stat-grid">${rows.map(r=>cell(r[0],r[1])).join('')}</div>`
+    + `<div class="stat-head">This run</div><div class="stat-grid">${run.map(r=>cell(r[0],r[1])).join('')}</div>`;
+}
+function resumeGame(){ if(state!=='paused') return; state='playing'; show(null); $('hud').classList.add('on'); }
+function abandonRun(){ touchWrap.style.display='none'; $('hud').classList.remove('on');
+  toast('Run abandoned \u2014 you walk out with nothing.',1600); openShop(); }
+function openHowTo(from){ howtoFrom=from; show('howto'); }
+$('pauseBtn').onclick=pauseGame;
+$('resumeBtn').onclick=resumeGame;
+$('abandonBtn').onclick=abandonRun;
+$('howtoBtn').onclick=()=>openHowTo('menu');
+$('pauseHowto').onclick=()=>openHowTo('paused');
+$('howtoBack').onclick=()=>{ show(howtoFrom); if(howtoFrom==='paused'){/* stay paused */} };
+// keyboard pause toggle
+addEventListener('keydown', e=>{
+  const k=e.key.toLowerCase();
+  if(k==='escape'||k==='p'){ if(state==='playing') pauseGame(); else if(state==='paused') resumeGame(); }
+});
+
+// ---------- loop ----------
+function frame(t){
+  const dt=Math.min(0.033,(t-tPrev)/1000)||0; tPrev=t;
+  try { update(dt); draw(); }
+  catch(err){ console.error('frame error (loop kept alive):', err); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(t=>{tPrev=t; requestAnimationFrame(frame);});
+loadMeta();   // pull saved gold / upgrades / notoriety if present
+})();
+</script>
+</body>
+</html>
