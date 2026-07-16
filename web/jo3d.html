@@ -154,6 +154,18 @@ const mat=(c,r=0.85,m=0)=> new T.MeshStandardMaterial({color:c, roughness:r, met
 function pmesh(g,m,cast=true){ const e=new T.Mesh(g,m); e.castShadow=cast; e.receiveShadow=true; return e; }
 const at=(e,x,y,z)=>{ e.position.set(x,y,z); return e; };
 function limb(len,rT,rB,m){ const g=new T.Group(); const seg=pmesh(new T.CylinderGeometry(rT,rB,len,10),m); seg.position.y=-len/2; g.add(seg); return g; }
+// a self-contained animatable leg (hip pivot -> thigh -> knee -> shin -> boot), reused by the bust-graft.
+// Slim by default and scalable (r = radius scale) to match a slender imported torso.
+function buildLeg(side, legX, hipY, r=1){
+  const mPants=mat(COL.pants,0.9), mBoot=mat(COL.glove,0.6);
+  const TH=0.27, SH=0.27;                                // slightly chibi (shorter legs, like the reference)
+  const hip=new T.Group(); hip.position.set(side*legX, hipY, 0);
+  hip.add(limb(TH, 0.062*r, 0.050*r, mPants));
+  const knee=new T.Group(); knee.position.y=-TH; hip.add(knee);
+  knee.add(limb(SH, 0.050*r, 0.040*r, mPants));
+  const boot=pmesh(new T.BoxGeometry(0.10*r,0.085,0.20*r),mBoot); boot.position.set(0,-SH-0.02,0.03); knee.add(boot);
+  return {hip,knee};
+}
 
 function PrimitiveActor(){
   const root = new T.Group(); scene.add(root);
@@ -267,6 +279,33 @@ function BoneActor(gltf, bones){
     } };
 }
 
+// glTF actor: a legless BUST (no rig) grafted onto procedural legs so it can still
+// walk. Stopgap for Tripo-style half-body meshes: the mesh (with its baked arms)
+// rides the body as one piece; only the legs and body bob/lean are driven.
+function BustActor(gltf){
+  const root=new T.Group(); scene.add(root);
+  const body=new T.Group(); root.add(body);
+  const bust=gltf.scene;
+  bust.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; } });
+  const TORSO_H=1.05, HIP=0.62;                        // waist-to-headtop height, hip line (legs ~0.62 tall)
+  let box=new T.Box3().setFromObject(bust), size=new T.Vector3(); box.getSize(size);
+  const s = size.y>0 ? TORSO_H/size.y : 1; bust.scale.setScalar(s);
+  box=new T.Box3().setFromObject(bust); const c=new T.Vector3(); box.getCenter(c);
+  bust.position.x-=c.x; bust.position.z-=c.z; bust.position.y += (HIP+0.10) - box.min.y; // waist overlaps the hip so legs tuck up under it
+  body.add(bust);
+  const torsoW = size.x*s;                                    // world width of the torso
+  const rScale = Math.min(Math.max(torsoW/0.52, 0.6), 1.0);   // leg girth follows the torso (slender)
+  const legX   = Math.min(Math.max(torsoW*0.22, 0.07), 0.13);
+  const legL=buildLeg(-1, legX, HIP, rScale), legR=buildLeg(1, legX, HIP, rScale);
+  body.add(legL.hip); body.add(legR.hip);
+  return { root, bag:null, kind:'glTF · bust + procedural legs',
+    update(dt, loco){ const p=solveLocomotion(loco.speed01, loco.phase, loco.tSec);
+      legL.hip.rotation.x=p.hip[0]; legR.hip.rotation.x=p.hip[1];
+      legL.knee.rotation.x=p.knee[0]; legR.knee.rotation.x=p.knee[1];
+      body.position.y=p.bobY; body.rotation.x=p.leanX; body.rotation.z=p.rollZ; body.scale.y=1+p.breathe;
+    } };
+}
+
 // Fit any imported model to Jo's scale: ~1.85 units tall, feet at y=0, centered.
 function normalizeModel(model){
   model.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; } });
@@ -285,6 +324,8 @@ function loadJo(){
       gltf=>{
         try{
           if((gltf.animations||[]).length){ resolve(ClipActor(gltf)); return; }
+          // opt-in graft for a legless bust (e.g. Tripo half-body): jo3d.html?bust
+          if(/[?&]bust/.test(location.search)){ resolve(BustActor(gltf)); return; }
           const bones={ upLegL:findBone(gltf.scene,/(left|_l\b|l).*(upleg|thigh|upperleg)/i)||findBone(gltf.scene,/leftupleg/i),
                         upLegR:findBone(gltf.scene,/(right|_r\b|r).*(upleg|thigh|upperleg)/i)||findBone(gltf.scene,/rightupleg/i),
                         legL:findBone(gltf.scene,/leftleg|left.*shin|left.*lowerleg/i), legR:findBone(gltf.scene,/rightleg|right.*shin|right.*lowerleg/i),

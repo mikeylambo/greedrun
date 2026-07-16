@@ -61,6 +61,17 @@ otherwise it shows the mesh with an idle bob. No file → the primitive stand-in
   neighbor.
 - **Bag growth:** a node named `bag` scales with the haul; optional.
 
+### Legless bust? (`?bust`)
+
+Image-to-3D tools (e.g. Tripo) often return a **waist-up bust with no skeleton** —
+it renders but can't walk. Load `jo3d.html?bust` and a static mesh gets **grafted
+onto procedural legs**: the bust (with its baked arms) rides the body as one piece
+while the legs and body bob/lean are driven by the locomotion solver. It auto-fits
+the torso and slims/sizes the legs to it. This is a **stopgap** — arms stay as
+modeled, the leg proportions are guessed per model, and idle is stiffer than the
+walk. The real fix is a full-body T-pose model with a rig (then it uses the
+`ClipActor`/`BoneActor` path instead).
+
 The primitive Jo (near-black outfit, gold scarf with a streaming tail, blue
 headband, spiky hair, crossed bandolier, gloves/boots, loot bag that grows as you
 grab gold) is just the placeholder that proves the system reads correctly. Three.js
