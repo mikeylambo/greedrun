@@ -22,28 +22,50 @@ server needed). Drag anywhere (or WASD / arrows) to move. In `index.html`, hold 
 the exit to extract; in `jo3d.html`, walk over the gold to collect it and watch the
 bag grow.
 
-## `jo3d.html` — the 3D model
+## `jo3d.html` — the 3D model + the animation system
 
-A stylized 3D Jo assembled from primitives and rigged as a bone hierarchy
-(hips → torso → head, plus shoulder/elbow arms and hip/knee legs), matched to the
-reference: near-black outfit, gold scarf (neck wrap + a physics-y trailing tail),
-blue headband, spiky black hair, crossed leather bandolier, gloves, boots, and the
-loot bag on his back that **grows as you collect gold**.
+The important thing here isn't the model — it's that the **animation system is
+built rig-agnostically, so it's clean and fluid *before* a real model exists.** A
+stylized primitive Jo stands in today; drop a real `assets/jo.glb` in and it
+inherits all the motion with zero code changes.
 
-- **Real walk cycle** — thighs and shins swing and bend on opposite phase, arms
-  counter-swing, the body bobs twice per stride, leans into the walk, and rolls
-  slightly. The stride is distance-driven, so feet never skate.
-- **True 3D turning** — Jo rotates to face his heading; no sprite flipping, no
-  per-direction art, no mirror bugs. Idle eases back to a gentle breathing pose.
-- **Scarf** — a chain of ribbon segments that hangs at rest and streams out behind
-  him with speed, always fluttering.
-- **Scene** — 3/4 follow camera, warm key light with soft shadow maps, a cool rim
-  light, fog, a grid floor, and pillars for depth. Vendored `vendor/three.min.js`
-  (Three.js r128, MIT) so it runs offline with no CDN.
+### The system (this is the reusable part)
 
-This is the "reference target" build — it shows what the character can look like in
-motion when it's a model, not a sprite. The 2D build below is the same character as
-production-ready flat art.
+- **One locomotion solver** (`solveLocomotion(speed01, phase)`) is the single
+  source of truth for the walk — leg/arm swing, knee bend, body bob, lean, roll,
+  head counter-rotation, scarf lift. Every backend is driven from it, so the motion
+  is identical no matter what mesh is on screen.
+- **Eased controller** — input feeds a *smoothed* velocity (accel + decel), so
+  starts and stops are fluid; turning is angular-damped; the stride phase is
+  **distance-locked** so feet never skate at any speed. A live readout (bottom-right)
+  shows the state — IDLE / WALK / RUN — and the speed blend.
+- **Actor abstraction** — the controller talks to an `actor` interface
+  (`{ root, bag?, update(dt, loco) }`). Three backends implement it:
+  1. `PrimitiveActor` — the code-built Jo (drives group rotations from the solver).
+  2. `ClipActor` — a glTF with **baked clips**, played as a 1-D locomotion blend
+     tree (idle → walk → run by speed). This is the real-model path.
+  3. `BoneActor` — a glTF that's **rigged but has no clips**; the solver drives its
+     humanoid bones directly (best-effort name matching).
+
+### Dropping in a real model
+
+Put a `assets/jo.glb` next to `jo3d.html` and reload. `loadJo()` auto-selects the
+backend: has animations → `ClipActor`; rigged, no animations → `BoneActor`;
+otherwise it shows the mesh with an idle bob. No file → the primitive stand-in.
+
+- **Format:** glTF/GLB. Any scale/origin — it's auto-fit to ~1.85 units tall with
+  feet on the ground and centered.
+- **Facing:** author the model facing **+Z** (it's rotated to face movement).
+- **Clips (ideal):** name them so they match `/idle|breath|stand/i`, `/walk/i`,
+  `/run|jog|sprint/i` (e.g. a Mixamo export). Missing clips gracefully reuse a
+  neighbor.
+- **Bag growth:** a node named `bag` scales with the haul; optional.
+
+The primitive Jo (near-black outfit, gold scarf with a streaming tail, blue
+headband, spiky hair, crossed bandolier, gloves/boots, loot bag that grows as you
+grab gold) is just the placeholder that proves the system reads correctly. Three.js
+r128 (`vendor/three.min.js`) and its `GLTFLoader` (`vendor/GLTFLoader.js`) are
+vendored (MIT) so everything runs offline with no CDN.
 
 ## What changed vs. `docs/original_prototype.html`
 
