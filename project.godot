@@ -13,6 +13,7 @@ MetaSave="*res://autoload/meta_save.gd"
 Progression="*res://autoload/progression.gd"
 Economy="*res://autoload/economy.gd"
 GameState="*res://autoload/game_state.gd"
+AscensionModifiers="*res://autoload/ascension_modifiers.gd"
 
 [gui]
 

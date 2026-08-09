@@ -125,6 +125,16 @@ const KIND_TROPHY := {
 }
 
 
+## True when every upgrade sits at its max level. This is the sole gate that
+## unlocks Ascension 1 — deliberately upgrades-only (the Collection is an
+## optional sink and does not gate difficulty). Change the rule here.
+func is_meta_maxed() -> bool:
+	for upgrade: Dictionary in UPGRADES:
+		if MetaSave.upgrade_level(str(upgrade.id)) < int(upgrade.max):
+			return false
+	return true
+
+
 func upgrade_by_id(id: String) -> Dictionary:
 	for upgrade: Dictionary in UPGRADES:
 		if upgrade.id == id:

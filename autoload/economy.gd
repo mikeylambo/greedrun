@@ -60,4 +60,5 @@ func final_total(raw_total: int, peak_heat: int, perfect: bool) -> int:
 		total *= 1.4
 	total *= danger_multiplier(peak_heat)
 	total *= Progression.collection_gold_multiplier()
+	total *= AscensionModifiers.payout_mult(GameState.ascension_level)
 	return roundi(total)

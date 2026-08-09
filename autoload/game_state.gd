@@ -3,6 +3,7 @@ extends Node
 signal state_changed(previous: String, current: String)
 
 var current := "menu"
+var ascension_level := 0
 
 
 func change(next_state: String) -> void:

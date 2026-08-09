@@ -56,6 +56,8 @@ var fence_note: Label
 var pending_result: Dictionary = {}
 var contract_rng := RandomNumberGenerator.new()
 var reset_armed := false
+var selected_ascension := 0
+var ascension_summary: Label
 
 
 func _ready() -> void:
@@ -137,6 +139,7 @@ func _build_ui() -> void:
 	_build_hideout()
 	_build_shop()
 	_build_collection()
+	_build_ascension()
 	_build_contracts()
 	_build_one_more()
 	_build_artifact()
@@ -255,6 +258,7 @@ func _build_hideout() -> void:
 	box.add_child(_button("CONTRACTS BOARD", _open_contracts))
 	box.add_child(_button("UPGRADES", _open_shop))
 	box.add_child(_button("THE COLLECTION", _open_collection))
+	box.add_child(_button("DIFFICULTY ASCENSION", _open_ascension))
 	box.add_child(_button("HOW TO PLAY", _open_how_to))
 	box.add_child(_button("RESET PROGRESS", _reset_progress))
 
@@ -294,6 +298,85 @@ func _build_collection() -> void:
 	collection_grid.add_theme_constant_override("v_separation", 10)
 	scroll.add_child(collection_grid)
 	box.add_child(_button("BACK TO HIDEOUT", _open_hideout))
+
+
+func _build_ascension() -> void:
+	var box := _new_screen("ascension", 700)
+	box.add_child(_title("DIFFICULTY ASCENSION", 32))
+	box.add_child(
+		_body(
+			"Harden every run for a bigger payout. No new gold sink — this is score and mastery.",
+			MUTED
+		)
+	)
+	ascension_summary = _body("")
+	ascension_summary.custom_minimum_size = Vector2(600, 110)
+	box.add_child(ascension_summary)
+	box.add_child(_button("HARDER  ▲", _ascension_harder))
+	box.add_child(_button("EASIER  ▼", _ascension_easier))
+	box.add_child(_button("BACK", _open_hideout))
+
+
+func _open_ascension() -> void:
+	_refresh_ascension_summary()
+	_show_screen("ascension")
+
+
+func _ascension_harder() -> void:
+	selected_ascension = mini(selected_ascension + 1, MetaSave.ascension_unlocked())
+	_refresh_ascension_summary()
+
+
+func _ascension_easier() -> void:
+	selected_ascension = maxi(selected_ascension - 1, 0)
+	_refresh_ascension_summary()
+
+
+func _refresh_ascension_summary() -> void:
+	var unlocked := MetaSave.ascension_unlocked()
+	selected_ascension = clampi(selected_ascension, 0, unlocked)
+	if unlocked <= 0:
+		ascension_summary.text = (
+			"Locked.\nMax every upgrade in Tools of the Trade to unlock Ascension 1."
+		)
+		return
+	if selected_ascension == 0:
+		ascension_summary.text = (
+			"Ascension 0 — a standard run.\nHighest unlocked: %d. Escape an Ascension to unlock the next."
+			% unlocked
+		)
+		return
+	var mods := AscensionModifiers.modifiers(selected_ascension)
+	var hunter_text := "unchanged"
+	if bool(mods["hunter_from_start"]):
+		hunter_text = "from the opening second"
+	elif int(mods["hunter_heat_delta"]) > 0:
+		hunter_text = "%d tier(s) sooner" % int(mods["hunter_heat_delta"])
+	ascension_summary.text = (
+		(
+			"ASCENSION %d   (highest unlocked: %d)\n"
+			+ "Guards +%d%% speed · +%d%% detection\n"
+			+ "Starting Heat +%d · Hunter %s\n"
+			+ "Payout ×%.2f · Best $%s"
+		)
+		% [
+			selected_ascension,
+			unlocked,
+			roundi((float(mods["guard_speed_mult"]) - 1.0) * 100.0),
+			roundi((float(mods["guard_detr_mult"]) - 1.0) * 100.0),
+			int(mods["heat_floor_add"]),
+			hunter_text,
+			float(mods["payout_mult"]),
+			_money(MetaSave.best_for_ascension(selected_ascension))
+		]
+	)
+
+
+func _refresh_ascension_unlock() -> void:
+	if Progression.is_meta_maxed() and MetaSave.ascension_unlocked() < 1:
+		MetaSave.set_ascension_unlocked(1)
+		MetaSave.save()
+		_toast("Difficulty Ascension unlocked — every upgrade maxed.")
 
 
 func _build_contracts() -> void:
@@ -496,6 +579,8 @@ func _open_hideout() -> void:
 	if vault:
 		vault.queue_free()
 		vault = null
+	_refresh_ascension_unlock()
+	selected_ascension = clampi(selected_ascension, 0, MetaSave.ascension_unlocked())
 	hideout_bank.text = "$%s" % _money(MetaSave.gold())
 	var notoriety := MetaSave.notoriety()
 	if notoriety > 0:
@@ -536,6 +621,7 @@ func _on_upgrade_pressed(id: String) -> void:
 		MetaSave.set_upgrade_level(id, level + 1)
 		MetaSave.save()
 		_toast("%s — Lv %d" % [upgrade.name, level + 1])
+		_refresh_ascension_unlock()
 		_rebuild_shop()
 
 
@@ -709,6 +795,7 @@ func _generate_contracts(count: int) -> Array[Dictionary]:
 
 
 func _start_run(contract: Dictionary) -> void:
+	GameState.ascension_level = clampi(selected_ascension, 0, MetaSave.ascension_unlocked())
 	if vault:
 		vault.queue_free()
 	vault = VAULT_SCENE.instantiate()
@@ -774,9 +861,14 @@ func _open_result(result: Dictionary) -> void:
 			else "FAILED"
 		)
 		contract_line = "\n%s: %s" % [result.contract.title, outcome]
+	var ascension_line := ""
+	if int(result.get("ascension", 0)) > 0:
+		ascension_line = "\nAscension %d" % int(result.ascension)
+		if bool(result.get("ascension_new_best", false)):
+			ascension_line += " — NEW BEST $%s" % _money(int(result.haul_value))
 	result_stats.text = (
-		"Secured %d/%d · Peak Heat T%d%s"
-		% [result.secured, result.total, result.peak_heat, contract_line]
+		"Secured %d/%d · Peak Heat T%d%s%s"
+		% [result.secured, result.total, result.peak_heat, contract_line, ascension_line]
 	)
 	result_continue.text = (
 		"TO THE FENCE"

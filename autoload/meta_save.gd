@@ -38,6 +38,8 @@ func default_data() -> Dictionary:
 			"relicart": 0,
 			"heart": 0,
 		},
+		"ascension_unlocked": 0,
+		"best_by_ascension": {},
 	}
 
 
@@ -118,3 +120,21 @@ func collection_level(id: String) -> int:
 
 func set_collection_level(id: String, level: int) -> void:
 	data["collection"][id] = max(0, level)
+
+
+func ascension_unlocked() -> int:
+	return int(data.get("ascension_unlocked", 0))
+
+
+func set_ascension_unlocked(level: int) -> void:
+	data["ascension_unlocked"] = clampi(level, 0, AscensionModifiers.MAX_LEVEL)
+
+
+func best_for_ascension(level: int) -> int:
+	return int(data.get("best_by_ascension", {}).get(str(level), 0))
+
+
+func set_best_for_ascension(level: int, score: int) -> void:
+	var table: Dictionary = data.get("best_by_ascension", {})
+	table[str(level)] = max(best_for_ascension(level), score)
+	data["best_by_ascension"] = table

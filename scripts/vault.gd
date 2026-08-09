@@ -152,6 +152,8 @@ var carried_marked := 0.0
 var heat_tier := 0
 var peak_heat := 0
 var heat_seed := 0
+var ascension_level := 0
+var ascension: Dictionary = AscensionModifiers.modifiers(0)
 var alarm_heat_bonus := 0
 var forced_heat_floor := 0
 var run_clock := 0.0
@@ -189,9 +191,14 @@ func start_run(contract: Dictionary = {}, seed_value: int = 0) -> void:
 		theme_key = str(keys[rng.randi_range(0, keys.size() - 1)])
 	current_theme = THEMES[theme_key]
 	run_time_limit = float(active_contract.get("time_limit", 0.0))
+	ascension_level = GameState.ascension_level
+	ascension = AscensionModifiers.modifiers(ascension_level)
 	heat_seed = clampi(floori(MetaSave.notoriety() / 2.0) - MetaSave.upgrade_level("cool"), 0, 3)
+	heat_seed += int(ascension["heat_floor_add"])
 	_generate_world()
 	_recompute_load()
+	if bool(ascension["hunter_from_start"]) and not hunter_spawned:
+		_spawn_hunter()
 	_emit_hud()
 
 
@@ -639,6 +646,7 @@ func _recompute_load() -> void:
 	player.set_load(carried_weight)
 	peak_heat = maxi(peak_heat, heat_tier)
 	var hunter_at := maxi(2, 4 - floori(MetaSave.notoriety() / 3.0))
+	hunter_at = maxi(1, hunter_at - int(ascension["hunter_heat_delta"]))
 	if not hunter_spawned and heat_tier >= hunter_at:
 		_spawn_hunter()
 
@@ -646,9 +654,13 @@ func _recompute_load() -> void:
 func _update_guards(delta: float) -> void:
 	var effective_noise := Progression.effective_noise(carried_noise, noise_muffled)
 	var detect_radius := (
-		(92.0 + effective_noise * 6.0 + heat_tier * 9.0) * Progression.detection_multiplier()
+		(92.0 + effective_noise * 6.0 + heat_tier * 9.0)
+		* Progression.detection_multiplier()
+		* float(ascension["guard_detr_mult"])
 	)
-	var guard_speed := (1.5 + heat_tier * 0.16 + carried_marked * 0.03) * 60.0
+	var guard_speed := (
+		(1.5 + heat_tier * 0.16 + carried_marked * 0.03) * 60.0 * float(ascension["guard_speed_mult"])
+	)
 	for guard: GreedrunGuard in guards:
 		guard.update_ai(delta, player, self, detect_radius, guard_speed)
 		if (
@@ -857,6 +869,19 @@ func finish_run(escaped: bool) -> void:
 	set_run_paused(true)
 	MetaSave.data.runs = int(MetaSave.data.runs) + 1
 	MetaSave.data.best_haul = maxi(int(MetaSave.data.best_haul), carried_value if escaped else 0)
+	var ascension_score := carried_value if escaped else 0
+	var ascension_new_best: bool = escaped and ascension_score > MetaSave.best_for_ascension(
+		ascension_level
+	)
+	if ascension_new_best:
+		MetaSave.set_best_for_ascension(ascension_level, ascension_score)
+	if (
+		escaped
+		and ascension_level >= 1
+		and ascension_level == MetaSave.ascension_unlocked()
+		and ascension_level < AscensionModifiers.MAX_LEVEL
+	):
+		MetaSave.set_ascension_unlocked(ascension_level + 1)
 	var pending_haul: Array[Dictionary] = []
 	var bulk_value := 0
 	var bulk_count := 0
@@ -892,6 +917,8 @@ func finish_run(escaped: bool) -> void:
 		"contract_done": contract_done,
 		"contract_reward": int(active_contract.get("reward", 0)) if contract_done else 0,
 		"notoriety_down": int(active_contract.get("notoriety_down", 0)) if contract_done else 0,
+		"ascension": ascension_level,
+		"ascension_new_best": ascension_new_best,
 	}
 	run_finished.emit(result)
 
