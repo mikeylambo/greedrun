@@ -65,7 +65,8 @@ func update_ai(
 		target = waypoints[waypoint_index]
 		if global_position.distance_squared_to(target) < 1024.0:
 			waypoint_index = (waypoint_index + 1) % waypoints.size()
-	var move_direction: Vector2 = global_position.direction_to(target)
+	var nav_point: Vector2 = vault.nav_target(global_position, target)
+	var move_direction: Vector2 = global_position.direction_to(nav_point)
 	if move_direction.length_squared() > 0.001:
 		facing = move_direction.angle()
 		var step: Vector2 = move_direction * speed * delta

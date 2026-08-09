@@ -138,6 +138,7 @@ var world_size := Vector2(2400, 1700)
 var world_bounds := Rect2()
 var current_theme: Dictionary = THEMES.treasury
 var walls: Array[Rect2] = []
+var graph: VaultGraph
 var platforms: Array[Dictionary] = []
 var loot_items: Array[GreedrunLoot] = []
 var guards: Array[GreedrunGuard] = []
@@ -219,12 +220,21 @@ func _generate_world() -> void:
 	_generate_platforms()
 	for wall: Rect2 in walls:
 		_add_wall_body(wall)
+	# Spawn inside the middle-left room, off any partition line (an even-row grid
+	# would otherwise put a wall right through world_size.y * 0.5).
+	var spawn_y := world_size.y * 0.5
+	if graph != null:
+		@warning_ignore("integer_division")
+		var exit_room := (graph.rows / 2) * graph.cols
+		spawn_y = graph.region_open_rect(exit_room).get_center().y
 	portal = PORTAL_SCENE.instantiate()
 	add_child(portal)
-	portal.position = Vector2(150, world_size.y * 0.5)
+	portal.position = Vector2(150, spawn_y)
+	if graph:
+		graph.set_extraction(portal.position)
 	player = PLAYER_SCENE.instantiate()
 	add_child(player)
-	player.position = Vector2(190, world_size.y * 0.5)
+	player.position = Vector2(190, spawn_y)
 	player.setup(world_bounds, platforms)
 	player.ledge_dropped.connect(_on_player_drop)
 	player.died.connect(_on_player_died)
@@ -235,71 +245,13 @@ func _generate_world() -> void:
 
 
 func _generate_layout() -> void:
-	var layout := rng.randi_range(0, 3)
-	var safe_left := 340.0
-	if layout == 0:
-		for x_index in range(5):
-			for y_index in range(4):
-				if rng.randf() < 0.72:
-					var size := rng.randf_range(70, 120)
-					var cell_w := (world_size.x - safe_left - 160.0) / 5.0
-					var cell_h := (world_size.y - 240.0) / 4.0
-					walls.append(
-						Rect2(
-							(
-								safe_left
-								+ 60
-								+ x_index * cell_w
-								+ rng.randf_range(0, maxf(4, cell_w - size))
-							),
-							120 + y_index * cell_h + rng.randf_range(0, maxf(4, cell_h - size)),
-							size,
-							size
-						)
-					)
-	elif layout == 1:
-		for i in range(8):
-			var horizontal := rng.randf() < 0.5
-			var length := rng.randf_range(260, 520)
-			var rect := Rect2()
-			if horizontal:
-				rect = Rect2(
-					rng.randf_range(safe_left, world_size.x - length - 80),
-					rng.randf_range(100, world_size.y - 160),
-					length,
-					54
-				)
-			else:
-				rect = Rect2(
-					rng.randf_range(safe_left, world_size.x - 140),
-					rng.randf_range(100, world_size.y - length - 80),
-					54,
-					length
-				)
-			walls.append(rect)
-	elif layout == 2:
-		for i in range(7):
-			var size := Vector2(rng.randf_range(120, 300), rng.randf_range(120, 300))
-			walls.append(
-				Rect2(
-					Vector2(
-						rng.randf_range(safe_left, world_size.x - size.x - 80),
-						rng.randf_range(100, world_size.y - size.y - 80)
-					),
-					size
-				)
-			)
-	else:
-		for i in range(12):
-			var size := rng.randf_range(70, 155)
-			walls.append(
-				Rect2(
-					rng.randf_range(safe_left, world_size.x - size - 80),
-					rng.randf_range(100, world_size.y - size - 80),
-					size,
-					size
-				)
-			)
+	# Structured room grid: partition walls with doorways, connected by construction.
+	var thickness := 44.0
+	graph = VaultGraph.new()
+	var interior := Rect2(
+		thickness, thickness, world_size.x - thickness * 2.0, world_size.y - thickness * 2.0
+	)
+	walls.append_array(graph.build(rng, interior, thickness))
 
 
 func _generate_platforms() -> void:
@@ -457,9 +409,10 @@ func _spawn_guards() -> void:
 	var count := clampi(roundi(5 * area_scale), 5, 8)
 	for i in range(count):
 		var start := _open_spot(14, [], 0, 0.25)
+		var region := region_of(start)
 		var points: Array[Vector2] = [start]
 		for j in range(2):
-			points.append(_open_spot(14, [], 0, 0.18))
+			points.append(_open_spot_in_region(region, start))
 		_spawn_guard(start, points)
 
 func _spawn_guard(
@@ -503,6 +456,31 @@ func _open_spot(
 		if okay:
 			return point
 	return Vector2(world_size.x * 0.7, world_size.y * 0.5)
+
+
+func _open_spot_in_region(region: int, fallback: Vector2) -> Vector2:
+	if graph == null or region < 0:
+		return fallback
+	var rect := graph.region_open_rect(region)
+	for attempt in range(120):
+		var point := Vector2(
+			rng.randf_range(rect.position.x, rect.end.x), rng.randf_range(rect.position.y, rect.end.y)
+		)
+		if can_move(point, 14, false):
+			return point
+	return fallback
+
+
+## Read-only region lookup for consumers (guards, future placement/severing).
+func region_of(point: Vector2) -> int:
+	return graph.region_of(point) if graph != null else -1
+
+
+## The next point a mover should steer toward to reach to_point, threading through
+## doorways instead of pressing into partition walls. Returns to_point directly
+## when in the same room or when no graph is present.
+func nav_target(from_point: Vector2, to_point: Vector2) -> Vector2:
+	return graph.nav_target(from_point, to_point) if graph != null else to_point
 
 
 func can_move(point: Vector2, radius: float, ignore_platforms: bool = false) -> bool:
