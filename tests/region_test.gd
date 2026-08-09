@@ -12,10 +12,13 @@ var failures := 0
 func _initialize() -> void:
 	for s in SEEDS:
 		_check_seed(s)
+	for s in SEEDS:
+		_check_arena(s)
 	_check_determinism(42)
 	_check_guard_nav(1337)
+	_check_mix()
 	if failures == 0:
-		print("\nALL REGION TESTS PASSED (%d seeds)" % SEEDS.size())
+		print("\nALL REGION TESTS PASSED (%d seeds, both layout modes)" % SEEDS.size())
 	else:
 		print("\nREGION TESTS FAILED: %d problem(s)" % failures)
 	quit(1 if failures > 0 else 0)
@@ -26,16 +29,22 @@ func _fail(msg: String) -> void:
 	print("  FAIL: ", msg)
 
 
-func _new_vault(seed_value: int):
+func _new_vault(seed_value: int, layout: String = ""):
 	var vault = load("res://scripts/vault.gd").new()
 	get_root().add_child(vault)
-	vault.start_run({}, seed_value)
+	var contract := {}
+	if layout != "":
+		contract = {"layout": layout}
+	vault.start_run(contract, seed_value)
 	return vault
 
 
 func _check_seed(seed_value: int) -> void:
-	var vault = _new_vault(seed_value)
+	var vault = _new_vault(seed_value, "rooms")
 	var graph = vault.graph
+	if graph == null:
+		_fail("seed %d: forced rooms but no graph built" % seed_value)
+		return
 	print(
 		(
 			"seed %d: %dx%d rooms=%d doorways=%d loops=%d walls=%d"
@@ -80,9 +89,42 @@ func _check_seed(seed_value: int) -> void:
 			_fail("seed %d: ground loot at %s unreachable" % [seed_value, item.position])
 
 
+func _check_arena(seed_value: int) -> void:
+	var vault = _new_vault(seed_value, "arena")
+	if vault.graph != null or vault.layout_style != "arena":
+		_fail("seed %d: forced arena but got %s" % [seed_value, vault.layout_style])
+		return
+	# Open arenas have no region graph; verify the floor is one connected space.
+	var open := _flood(vault)
+	if not _reachable(open, vault, vault.portal.position):
+		_fail("arena seed %d: portal not reachable from spawn" % seed_value)
+	var unreachable := 0
+	for item in vault.loot_items:
+		if item.elevation < 0 and not _reachable(open, vault, item.position):
+			unreachable += 1
+	if unreachable > 0:
+		_fail("arena seed %d: %d ground loot unreachable" % [seed_value, unreachable])
+
+
+func _check_mix() -> void:
+	var rooms := 0
+	var arenas := 0
+	for s in SEEDS:
+		var vault = _new_vault(s)
+		if vault.layout_style == "rooms":
+			rooms += 1
+		else:
+			arenas += 1
+		if (vault.graph != null) != (vault.layout_style == "rooms"):
+			_fail("seed %d: layout_style/graph mismatch" % s)
+	print("layout mix over %d seeds: rooms=%d arenas=%d" % [SEEDS.size(), rooms, arenas])
+	if rooms == 0 or arenas == 0:
+		_fail("seeded layout flip did not produce both modes (rooms=%d arenas=%d)" % [rooms, arenas])
+
+
 func _check_determinism(seed_value: int) -> void:
-	var a = _new_vault(seed_value)
-	var b = _new_vault(seed_value)
+	var a = _new_vault(seed_value, "rooms")
+	var b = _new_vault(seed_value, "rooms")
 	var wa: Array = a.walls
 	var wb: Array = b.walls
 	var ok: bool = wa.size() == wb.size()
@@ -101,7 +143,7 @@ func _check_determinism(seed_value: int) -> void:
 
 
 func _check_guard_nav(seed_value: int) -> void:
-	var vault = _new_vault(seed_value)
+	var vault = _new_vault(seed_value, "rooms")
 	var graph = vault.graph
 	# Target the room farthest from the extraction room.
 	var target_region := 0

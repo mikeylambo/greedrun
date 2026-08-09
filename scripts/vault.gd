@@ -96,6 +96,8 @@ const ARTIFACTS: Array[Dictionary] = [
 	{"name": "The Empty Throne", "flavor": "Whoever sat here always wanted one more thing."},
 ]
 const BOONS := ["sense", "ghost", "muffle"]
+# Share of runs that generate a structured room grid; the rest are open arenas. # TUNE
+const ROOM_GRID_CHANCE := 0.5
 const THEMES := {
 	"treasury":
 	{
@@ -139,6 +141,7 @@ var world_bounds := Rect2()
 var current_theme: Dictionary = THEMES.treasury
 var walls: Array[Rect2] = []
 var graph: VaultGraph
+var layout_style := ""
 var platforms: Array[Dictionary] = []
 var loot_items: Array[GreedrunLoot] = []
 var guards: Array[GreedrunGuard] = []
@@ -245,13 +248,99 @@ func _generate_world() -> void:
 
 
 func _generate_layout() -> void:
-	# Structured room grid: partition walls with doorways, connected by construction.
+	# Two layout families for variety: flat open arenas (scattered cover, no graph)
+	# and structured room grids (partition walls + doorways + region graph). A
+	# contract may pin one via a "layout" key; otherwise it is a seeded coin flip.
+	graph = null
+	var forced := str(active_contract.get("layout", ""))
+	var use_rooms := forced == "rooms"
+	if forced == "":
+		use_rooms = rng.randf() < ROOM_GRID_CHANCE
+	layout_style = "rooms" if use_rooms else "arena"
+	if use_rooms:
+		_generate_room_grid()
+	else:
+		_generate_open_arena()
+
+
+## Structured room grid: partition walls with doorways, connected by construction.
+func _generate_room_grid() -> void:
 	var thickness := 44.0
 	graph = VaultGraph.new()
 	var interior := Rect2(
 		thickness, thickness, world_size.x - thickness * 2.0, world_size.y - thickness * 2.0
 	)
 	walls.append_array(graph.build(rng, interior, thickness))
+
+
+## Flat open arena: a spread of freestanding cover, no rooms or doorways. Movement
+## and guard steering fall back to open-world behaviour (graph stays null).
+func _generate_open_arena() -> void:
+	var layout := rng.randi_range(0, 3)
+	var safe_left := 340.0
+	if layout == 0:
+		for x_index in range(5):
+			for y_index in range(4):
+				if rng.randf() < 0.72:
+					var size := rng.randf_range(70, 120)
+					var cell_w := (world_size.x - safe_left - 160.0) / 5.0
+					var cell_h := (world_size.y - 240.0) / 4.0
+					walls.append(
+						Rect2(
+							(
+								safe_left
+								+ 60
+								+ x_index * cell_w
+								+ rng.randf_range(0, maxf(4, cell_w - size))
+							),
+							120 + y_index * cell_h + rng.randf_range(0, maxf(4, cell_h - size)),
+							size,
+							size
+						)
+					)
+	elif layout == 1:
+		for i in range(8):
+			var horizontal := rng.randf() < 0.5
+			var length := rng.randf_range(260, 520)
+			var rect := Rect2()
+			if horizontal:
+				rect = Rect2(
+					rng.randf_range(safe_left, world_size.x - length - 80),
+					rng.randf_range(100, world_size.y - 160),
+					length,
+					54
+				)
+			else:
+				rect = Rect2(
+					rng.randf_range(safe_left, world_size.x - 140),
+					rng.randf_range(100, world_size.y - length - 80),
+					54,
+					length
+				)
+			walls.append(rect)
+	elif layout == 2:
+		for i in range(7):
+			var size := Vector2(rng.randf_range(120, 300), rng.randf_range(120, 300))
+			walls.append(
+				Rect2(
+					Vector2(
+						rng.randf_range(safe_left, world_size.x - size.x - 80),
+						rng.randf_range(100, world_size.y - size.y - 80)
+					),
+					size
+				)
+			)
+	else:
+		for i in range(12):
+			var size := rng.randf_range(70, 155)
+			walls.append(
+				Rect2(
+					rng.randf_range(safe_left, world_size.x - size - 80),
+					rng.randf_range(100, world_size.y - size - 80),
+					size,
+					size
+				)
+			)
 
 
 func _generate_platforms() -> void:
@@ -412,7 +501,12 @@ func _spawn_guards() -> void:
 		var region := region_of(start)
 		var points: Array[Vector2] = [start]
 		for j in range(2):
-			points.append(_open_spot_in_region(region, start))
+			# In room grids, keep a guard patrolling its own room; in open arenas,
+			# roam the whole floor as before.
+			if graph != null:
+				points.append(_open_spot_in_region(region, start))
+			else:
+				points.append(_open_spot(14, [], 0, 0.18))
 		_spawn_guard(start, points)
 
 func _spawn_guard(
