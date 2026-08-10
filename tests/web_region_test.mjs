@@ -134,6 +134,21 @@ const res = await page.evaluate(() => {
   if (md.streak !== 1) out.fails.push('streak did not reset after a gap: ' + md.streak);
   Object.assign(md, JSON.parse(saveD));   // restore
   out.log.push('daily: seed determinism, code roundtrip, streak inc/reset all checked');
+
+  // ---- Tier 2: mutators + ladder ----
+  if (G.weeklyMutator().id !== G.weeklyMutator().id) out.fails.push('weekly mutator not deterministic');
+  if (!G.MUTATORS.some(m => m.id === G.weeklyMutator().id)) out.fails.push('weekly mutator not from the table');
+  const ladder = G.dailyAscension();
+  if (!(ladder >= 0 && ladder <= 10)) out.fails.push('daily ladder out of range: ' + ladder);
+  if (JSON.stringify(G.DAILY_LADDER.map(v => v >= 0 && v <= 10)).includes('false')) out.fails.push('ladder table has out-of-range values');
+  G.dailyMutator = { layout: 'rooms' };
+  let anyArena = false; for (const s of SEEDS) { build(s); if (!gv()) anyArena = true; }
+  if (anyArena) out.fails.push('mutator layout:rooms did not force a room grid on every seed');
+  G.dailyMutator = { layout: 'arena' };
+  let anyRoom = false; for (const s of SEEDS) { build(s); if (gv()) anyRoom = true; }
+  if (anyRoom) out.fails.push('mutator layout:arena did not force an arena on every seed');
+  G.dailyMutator = {};   // restore
+  out.log.push('tier2: mutator determinism, ladder range, forced layouts checked');
   return out;
 });
 

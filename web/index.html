@@ -526,7 +526,9 @@ function codeToSeed(c){ const n=parseInt(String(c).trim(),36); return Number.isF
 
 function startDaily(){
   if(dailyPlayedToday()) return;
-  dailyMode=true; runSeed=daySeed(dayKey()); activeContract=null; selectedAscension=0;
+  dailyMode=true; runSeed=daySeed(dayKey()); activeContract=null;
+  selectedAscension=dailyAscension();     // day-of-week difficulty ladder (resets each week)
+  dailyMutator=weeklyMutator().fx;        // this week's twist
   startRun();
 }
 function startSeed(seed){                    // unranked practice on any seed
@@ -538,9 +540,24 @@ function recordDaily(escaped){               // called from endRun for a ranked 
   d.streak = (d.playedDay===yesterKey()) ? (d.streak|0)+1 : 1;   // consecutive days shown up
   d.playedDay=day; d.playedScore=score; d.playedEscaped=escaped;
   d.best=Math.max(d.best|0, score); d.bestStreak=Math.max(d.bestStreak|0, d.streak);
-  d.history=[{day,score,escaped,seed:runSeed}, ...(d.history||[])].slice(0,14);
+  d.history=[{day,score,escaped,seed:runSeed,mut:(weeklyMutator().id)}, ...(d.history||[])].slice(0,14);
   saveMeta(); dailyMode=false;
 }
+
+// ----- Tier 2: weekly mutators + a day-of-week ascension ladder -----
+let dailyMutator={};
+const DAILY_LADDER=[0,0,1,1,2,2,3];   // TUNE — Sun..Sat: the week ramps in difficulty (and payout)
+const MUTATORS=[                      // TUNE — one is picked per ISO week, deterministically
+  {id:'std',    name:'Straight Job',  desc:'No twist — pure greed.',                         fx:{}},
+  {id:'laby',   name:'The Labyrinth', desc:'Every vault is a locked room grid.',              fx:{layout:'rooms'}},
+  {id:'open',   name:'Open House',    desc:'Every vault is open floor — nowhere to hide.',    fx:{layout:'arena'}},
+  {id:'edge',   name:'On Edge',       desc:'The guards were warned — +2 starting Heat.',      fx:{heat:2}},
+  {id:'sprawl', name:'The Sprawl',    desc:'A vast estate — bigger vault, more eyes.',        fx:{size:1.22}},
+];
+function weekKey(d){ d=d||new Date(); const t=Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()); return 'W'+Math.floor(t/(7*864e5)); }
+function weeklyMutator(){ return MUTATORS[daySeed(weekKey())%MUTATORS.length]; }
+function dailyAscension(){ return DAILY_LADDER[(new Date().getUTCDay())]; }
+function copyText(t){ try{ navigator.clipboard && navigator.clipboard.writeText(t); }catch(e){} }
 
 // ---------- The Collection (museum of greed) ----------
 // Keep a trophy at the fence (forgo the sale) to unlock its passive; then pour gold
@@ -844,6 +861,7 @@ function buildWorld(){
   // bigger, and a different size every job — some vaults are compact, some are sprawling estates
   WORLD.w = 2300 + Math.round(vr(0,900));
   WORLD.h = 1550 + Math.round(vr(0,650));
+  if(dailyMutator.size){ WORLD.w=Math.round(WORLD.w*dailyMutator.size); WORLD.h=Math.round(WORLD.h*dailyMutator.size); }
   const areaScale = (WORLD.w*WORLD.h)/(2000*1400);
   walls=[]; loot=[]; guards=[]; sentries=[]; particles=[]; floaters=[];
   seenOneMore=false; heartRevealed=false; runOutcome=null; flashCurse=0;
@@ -851,7 +869,7 @@ function buildWorld(){
   runLootTotal=0; runLootCount=0; vaultCleared=false; alarmFlash=0; lowNoiseRun=true;
   noiseMuffled=false;
   hunterSpawned=false; vertHintShown=false;
-  runHeatSeed = clamp(Math.floor(meta.curseDebt/2) - upgLevel('cool'), 0, 3) + ascMods(ascensionLevel).heat;  // world remembers + ascension floor
+  runHeatSeed = clamp(Math.floor(meta.curseDebt/2) - upgLevel('cool'), 0, 3) + ascMods(ascensionLevel).heat + (dailyMutator.heat||0);  // world + ascension + weekly mutator
   runSpotted=false; runClock=0; peakHeat=0; runDamaged=false;
   runTimeLimit = activeContract && activeContract.type==='timed' ? activeContract.timeLimit : 0;
   currentTheme = THEMES[(activeContract && activeContract.themeKey) || THEME_KEYS[Math.floor(vrng()*THEME_KEYS.length)]];
@@ -864,7 +882,9 @@ function buildWorld(){
   // Layout family: some runs are flat open arenas (scattered cover), some are
   // structured room grids (partition walls + doorways). Seeded coin flip.
   vgraph=null;
-  if(vrng() < ROOM_GRID_CHANCE){
+  const flip = vrng() < ROOM_GRID_CHANCE;                       // always drawn, so the seed stream stays stable
+  const useRooms = dailyMutator.layout ? dailyMutator.layout==='rooms' : flip;
+  if(useRooms){
     vgraph = buildRoomGrid({x:T, y:T, w:WORLD.w-2*T, h:WORLD.h-2*T}, T);
     for(const w of vgraph.walls) walls.push(w);
     currentLayout = 'rooms';
@@ -1759,7 +1779,9 @@ function toast(msg,ms=1200){ const t=$('toast'); t.textContent=msg; t.classList.
 // ---------- flow ----------
 function show(id){ ['menu','howto','paused','shop','collection','contracts','fence','onemore','decision','result'].forEach(o=>$(o).classList.toggle('on', o===id)); }
 function startRun(){
-  ascensionLevel = clamp(selectedAscension, 0, ascUnlocked());
+  // Dailies use their ladder level directly (up to the cap); normal runs clamp to what you've unlocked.
+  ascensionLevel = dailyMode ? clamp(selectedAscension, 0, ASC_MAX) : clamp(selectedAscension, 0, ascUnlocked());
+  if(!dailyMode) dailyMutator = {};
   buildWorld(); recompute();
   if(ascMods(ascensionLevel).fromStart && !hunterSpawned) spawnHunter();  // A10: hunter from the opening second
   state='playing';
@@ -2102,24 +2124,39 @@ function renderShop(){
   renderAscension();
   renderDaily();
 }
-// Hideout daily panel: today's seed/streak/best, plus a practice input to replay any shared seed.
+// Hideout daily panel: today's seed/mutator/ladder/streak, a replay-history browser,
+// and a practice input to play any shared seed.
 function renderDaily(){
   const d=meta.daily, played=dailyPlayedToday(), code='GR-'+dayKey()+'-'+seedToCode(daySeed(dayKey()));
+  const mut=weeklyMutator(), asc=dailyAscension();
   $('dailyLine').innerHTML =
-    `<div style="margin:8px 0;padding:8px 12px;border:1px solid var(--panel-line,#46391f);border-radius:8px;font-size:13px;color:var(--gold)">`
-    + `<b>Daily Run</b> · ${dayKey()} · <span style="letter-spacing:.1em;color:var(--muted)">${code}</span><br>`
+    `<div style="margin:8px 0;padding:10px 12px;border:1px solid var(--panel-line,#46391f);border-radius:8px;font-size:13px;color:var(--gold)">`
+    + `<b>Daily Run</b> · ${dayKey()} · <span id="dailyCode" title="click to copy" style="letter-spacing:.1em;color:var(--muted);cursor:pointer">${code} ⧉</span><br>`
+    + `<span style="color:var(--purple,#a98bff)">This week: <b>${mut.name}</b> — ${mut.desc}</span><br>`
     + `<span style="color:var(--bone,#f0e7d2)">`
+    + (asc>0?`Today's ladder: <b>Ascension ${asc}</b> · `:'')
     + (played ? `Today: ${d.playedEscaped?'$'+d.playedScore.toLocaleString()+' scored':'caught'} · ` : 'One attempt · ')
-    + `streak ${d.streak|0} (best ${d.bestStreak|0}) · daily best $${(d.best|0).toLocaleString()}</span><br>`
-    + `<input id="seedInput" placeholder="paste a seed code — practice any vault" style="margin-top:6px;width:58%;padding:4px 8px;background:#120f0a;border:1px solid #46391f;border-radius:6px;color:var(--bone,#f0e7d2)">`
-    + `<button id="seedGo" style="margin-left:6px;padding:4px 10px;background:#241d13;color:var(--gold);border:1px solid #46391f;border-radius:6px;cursor:pointer">Practice</button></div>`;
+    + `streak ${d.streak|0} (best ${d.bestStreak|0}) · daily best $${(d.best|0).toLocaleString()}</span>`
+    + historyHTML(d)
+    + `<div style="margin-top:8px"><input id="seedInput" placeholder="paste a seed code — practice any vault" style="width:56%;padding:4px 8px;background:#120f0a;border:1px solid #46391f;border-radius:6px;color:var(--bone,#f0e7d2)">`
+    + `<button id="seedGo" style="margin-left:6px;padding:4px 10px;background:#241d13;color:var(--gold);border:1px solid #46391f;border-radius:6px;cursor:pointer">Practice</button></div></div>`;
   const btn=$('dailyBtn'); if(btn){ btn.disabled=played; btn.style.opacity=played?0.5:1;
     btn.textContent = played?'☀ Daily done — back tomorrow':'☀ Daily Run'; }
+  const cc=$('dailyCode'); if(cc) cc.onclick=()=>{ copyText(code); toast('Daily code copied.',900); };
   const go=$('seedGo'), inp=$('seedInput');
   if(go&&inp) go.onclick=()=>{ const raw=inp.value.trim(); if(!raw) return;
     const parts=raw.split('-'), c=parts.length>=3?parts[parts.length-1]:raw;
     const seed = /^[0-9]+$/.test(c) ? (parseInt(c,10)>>>0) : codeToSeed(c);
     if(seed) startSeed(seed); };
+  (d.history||[]).slice(0,6).forEach((h,i)=>{ const pb=$('hp'+i); if(pb) pb.onclick=()=>startSeed(h.seed); });
+}
+function historyHTML(d){
+  const hs=(d.history||[]).slice(0,6); if(!hs.length) return '';
+  return `<div style="margin-top:8px;font-size:12px;color:var(--muted)">Recent dailies — replay any:</div>`
+    + hs.map((h,i)=>`<div style="font-size:12px;display:flex;gap:10px;align-items:center;color:var(--bone,#f0e7d2);margin-top:2px">`
+      + `<span style="width:82px;color:var(--muted)">${h.day}</span>`
+      + `<span style="width:96px">${h.escaped?'$'+(h.score||0).toLocaleString():'caught'}</span>`
+      + `<button id="hp${i}" style="padding:2px 8px;background:#241d13;color:var(--gold);border:1px solid #46391f;border-radius:5px;cursor:pointer;font-size:11px">Practice</button></div>`).join('');
 }
 // Minimal Ascension selector on the hideout: harder runs, bigger payout, no new sink.
 function renderAscension(){
@@ -2218,6 +2255,8 @@ window.__greed = {
   get ascensionLevel(){ return ascensionLevel; }, set ascensionLevel(v){ ascensionLevel = v; },
   dayKey, yesterKey, daySeed, dailyScore, recordDaily, dailyPlayedToday, seedToCode, codeToSeed,
   get dailyMode(){ return dailyMode; }, set dailyMode(v){ dailyMode = v; },
+  weeklyMutator, dailyAscension, weekKey, get MUTATORS(){ return MUTATORS; }, get DAILY_LADDER(){ return DAILY_LADDER; },
+  get dailyMutator(){ return dailyMutator; }, set dailyMutator(v){ dailyMutator = v; },
 };
 })();
 </script>
