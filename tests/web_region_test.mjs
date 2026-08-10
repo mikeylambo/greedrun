@@ -149,6 +149,26 @@ const res = await page.evaluate(() => {
   if (anyRoom) out.fails.push('mutator layout:arena did not force an arena on every seed');
   G.dailyMutator = {};   // restore
   out.log.push('tier2: mutator determinism, ladder range, forced layouts checked');
+
+  // ---- Room grammar: deep loot gravitates to deep rooms ----
+  let deepSum = 0, deepN = 0, shSum = 0, shN = 0, heartFails = 0, rseeds = 0;
+  for (const s of SEEDS) {
+    build(s); if (!gv()) continue; const g = gv(); rseeds++;
+    const grad = l => g.gradient(g.regionOf(l.x, l.y));
+    for (const l of G.loot) {
+      if (l.plat >= 0) continue;
+      if (['loud', 'cursed', 'royal', 'mythic', 'artifact'].includes(l.kind)) { deepSum += grad(l); deepN++; }
+      else if (['common', 'valuable'].includes(l.kind)) { shSum += grad(l); shN++; }
+    }
+    const heart = G.loot.find(l => l.kind === 'mythic');
+    if (heart && grad(heart) < 0.5) heartFails++;
+  }
+  if (deepN && shN) {
+    const da = deepSum / deepN, sa = shSum / shN;
+    out.log.push(`room grammar: deep loot avg gradient ${da.toFixed(2)} vs bulk ${sa.toFixed(2)} (${rseeds} room seeds)`);
+    if (da <= sa) out.fails.push(`deep loot not biased deeper than bulk (${da.toFixed(2)} <= ${sa.toFixed(2)})`);
+  }
+  if (heartFails > Math.ceil(rseeds * 0.5)) out.fails.push(`vault heart not in a deep room (${heartFails}/${rseeds})`);
   return out;
 });
 

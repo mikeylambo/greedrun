@@ -746,6 +746,30 @@ function openSpotInRegion(reg, fallback){
   for(let i=0;i<120;i++){ const x=vr(R.x,R.x+R.w), y=vr(R.y,R.y+R.h); if(isOpen(x,y,20)&&platAt(x,y)===-1) return {x,y}; }
   return fallback;
 }
+// Room grammar: a spot DEEP in the vault. In room grids that means a high-gradient
+// room (far from the exit by doorways) — so the far room is the rich room, by
+// construction; in open arenas it falls back to the old deep-right bias.
+function deepSpot(placed, minGrad, minXFrac){
+  if(vgraph){
+    const rooms=[]; for(let i=0;i<vgraph.cols*vgraph.rows;i++) if(vgraph.gradient(i)>=minGrad) rooms.push(i);
+    if(rooms.length){
+      rooms.sort((a,b)=>vgraph.gradient(b)-vgraph.gradient(a));            // deepest first
+      const reg=rooms[Math.floor(vrng()*Math.max(1,Math.ceil(rooms.length/2)))]; // upper (deepest) half
+      const p=openSpotInRegion(reg,null);
+      if(p) return p;
+    }
+  }
+  let s; do{ s=openSpot(14,170,placed); }while(s.x<WORLD.w*(minXFrac||0.5)); return s;
+}
+// Guards weight toward deeper rooms in room grids (the vault protects its riches).
+function guardSpot(avoid){
+  if(vgraph){
+    let reg=0, bestW=-1;
+    for(let i=0;i<vgraph.cols*vgraph.rows;i++){ if(i===vgraph.exit) continue; const w=(0.4+vgraph.gradient(i))*vrng(); if(w>bestW){bestW=w;reg=i;} }
+    const p=openSpotInRegion(reg,null); if(p) return p;
+  }
+  return openSpot(14,240,avoid);
+}
 
 // ---------- world generation ----------
 // ---------- procedural vault layouts ----------
@@ -794,12 +818,15 @@ function buildRoomGrid(interior, T){
   for(let r=0;r<rows-1;r++) for(let c=0;c<cols;c++){ const a=r*cols+c, b=a+cols, ly=oy+(r+1)*ch, left=ox+c*cw, right=left+cw;
     if(open[key(a,b)]){ const dx=doorPos(left,right); addW(left,ly-half,dx-DOOR_WIDTH/2-left,T); addW(dx+DOOR_WIDTH/2,ly-half,right-(dx+DOOR_WIDTH/2),T); link(a,b,dx,ly); }
     else addW(left,ly-half,cw,T); }
-  return { cols, rows, ox, oy, cw, ch, adj, doors, loopKeys, walls:wallsOut, exit:0, dist:{}, cellRect,
+  return { cols, rows, ox, oy, cw, ch, adj, doors, loopKeys, walls:wallsOut, exit:0, dist:{}, maxDist:0, cellRect,
     regionOf(x,y){ const c=clamp((x-ox)/cw|0,0,cols-1), r=clamp((y-oy)/ch|0,0,rows-1); return r*cols+c; },
-    openRect(i){ const R=cellRect(i); return {x:R.x+32,y:R.y+32,w:R.w-64,h:R.h-64}; } };
+    openRect(i){ const R=cellRect(i); return {x:R.x+32,y:R.y+32,w:R.w-64,h:R.h-64}; },
+    gradient(i){ return (this.dist[i]||0)/(this.maxDist||1); },          // 0 (at exit) .. 1 (deepest room)
+    deepestRoom(){ let best=-1,br=this.exit; for(let i=0;i<this.cols*this.rows;i++){ const d=this.dist[i]|0; if(d>best){best=d;br=i;} } return br; } };
 }
 function graphSetExit(g,x,y){ g.exit=g.regionOf(x,y); g.dist={[g.exit]:0}; const q=[g.exit];
-  while(q.length){ const c=q.shift(); for(const n of g.adj[c]) if(g.dist[n]===undefined){ g.dist[n]=g.dist[c]+1; q.push(n); } } }
+  while(q.length){ const c=q.shift(); for(const n of g.adj[c]) if(g.dist[n]===undefined){ g.dist[n]=g.dist[c]+1; q.push(n); } }
+  g.maxDist=Math.max(0,...Object.values(g.dist)); }
 // next point to steer toward to reach (tx,ty): the doorway into the next room, or the target itself
 function navTarget(g,fx,fy,tx,ty){
   if(!g) return {x:tx,y:ty};
@@ -940,8 +967,8 @@ function buildWorld(){
 
   for(let i=0;i<Math.round(7*areaScale);i++){ const s=openSpot(14,140,placed); add('coin',s.x,s.y); }
   for(let i=0;i<Math.round(5*areaScale);i++){ const s=openSpot(14,150,placed); add('gem', s.x,s.y); }
-  for(let i=0;i<2;i++){ let s; do{ s=openSpot(14,180,placed);}while(s.x<WORLD.w*0.5); add('idol',s.x,s.y); }
-  { let s; do{ s=openSpot(14,180,placed);}while(s.x<WORLD.w*0.55); add('mask',s.x,s.y); }
+  for(let i=0;i<2;i++){ const s=deepSpot(placed,0.5,0.5); add('idol',s.x,s.y); }
+  { const s=deepSpot(placed,0.6,0.55); add('mask',s.x,s.y); }
 
   // elevated loot — the reward for climbing. One good item on each platform.
   platforms.forEach((p,pi)=>{
@@ -955,15 +982,15 @@ function buildWorld(){
   { let s; do{ s=openSpot(14,170,placed);}while(s.x<WORLD.w*0.28||s.x>WORLD.w*0.82); add('living',s.x,s.y); }
 
   // Royal Loot: worth a fortune, but touching it turns out the elite guard
-  if(vrng()<0.7){ let s; do{ s=openSpot(14,180,placed);}while(s.x<WORLD.w*0.5); add('royal',s.x,s.y); }
+  if(vrng()<0.7){ const s=deepSpot(placed,0.55,0.5); add('royal',s.x,s.y); }
   // Fragile Loot: valuable, but it shatters if a guard lands a hit on you
-  if(vrng()<0.7){ let s; do{ s=openSpot(14,170,placed);}while(s.x<WORLD.w*0.35); add('fragile',s.x,s.y); }
+  if(vrng()<0.7){ const s=deepSpot(placed,0.35,0.35); add('fragile',s.x,s.y); }
 
   // NEW: 1-2 decision artifacts (branching loot) in the mid-deep vault
   const artCount = 1 + (vrng()<0.6?1:0);
   const artPool = [...ARTIFACTS].sort(()=>vrng()-0.5);
   for(let i=0;i<artCount;i++){
-    let s; do{ s=openSpot(14,190,placed);}while(s.x<WORLD.w*0.4);
+    const s=deepSpot(placed,0.45,0.4);
     const cfg=artPool[i%artPool.length];
     const base=700+Math.floor(vrng()*450);
     const boon=BOON_KEYS[Math.floor(vrng()*BOON_KEYS.length)];
@@ -972,8 +999,10 @@ function buildWorld(){
     placed.push({x:s.x,y:s.y});
   }
 
-  // Vault Heart pre-placed deep-right but hidden until "one more thing"
-  const hSpot={x:WORLD.w-150, y: vrng()<.5 ? 180 : WORLD.h-180};
+  // Vault Heart: the crown of the vault — in the deepest room (graph-farthest from
+  // the exit) in a room grid, else deep-right. Hidden until "one more thing".
+  let hSpot={x:WORLD.w-150, y: vrng()<.5 ? 180 : WORLD.h-180};
+  if(vgraph){ const p=openSpotInRegion(vgraph.deepestRoom(),null); if(p) hSpot=p; }
   add('heart', hSpot.x, hSpot.y);
   if(upgLevel('scanner')>0){ heartRevealed=true; } else { loot[loot.length-1].hidden=true; }
 
@@ -984,7 +1013,7 @@ function buildWorld(){
   // patrolling guards
   const gCount=clamp(Math.round(5*areaScale),5,8);
   for(let i=0;i<gCount;i++){
-    const a=openSpot(14,240,placed.concat(guards));
+    const a=guardSpot(placed.concat(guards));   // weighted toward deeper rooms in room grids
     const reg = vgraph ? vgraph.regionOf(a.x,a.y) : -1;
     const wps=[{x:a.x,y:a.y}];
     // In room grids keep a guard patrolling its own room; in open arenas roam freely.
