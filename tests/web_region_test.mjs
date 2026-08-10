@@ -200,6 +200,12 @@ const res = await page.evaluate(() => {
   build(SEEDS[0]);
   if (!G.guards.some(g => g.dog)) out.fails.push('no watchdog spawned');
   else out.log.push('threats: watchdog present (hunts by noise)');
+
+  // ---- Special rooms: boon shrine ----
+  let shrineSeen = false;
+  for (const s of SEEDS) { build(s); if (gv() && G.loot.some(l => l.kind === 'shrine')) { shrineSeen = true; break; } }
+  if (!shrineSeen) out.fails.push('no boon shrine spawned across room-grid seeds');
+  else out.log.push('special rooms: boon shrine present');
   return out;
 });
 

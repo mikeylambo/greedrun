@@ -1061,6 +1061,15 @@ function buildWorld(){
     placed.push({x:s.x,y:s.y});
   }
 
+  // Special room: a Boon Shrine in a mid-depth room — a set-piece detour. Take the
+  // offering for a gift (Greed Sense / Smoke Step / Silence), but the vault stirs (+Heat).
+  if(vgraph && vrng()<0.7){
+    const rooms=[]; for(let i=0;i<vgraph.cols*vgraph.rows;i++){ const gd=vgraph.gradient(i); if(gd>=0.35&&gd<=0.75&&i!==vgraph.exit) rooms.push(i); }
+    if(rooms.length){ const reg=rooms[Math.floor(vrng()*rooms.length)], sp=openSpotInRegion(reg,null);
+      if(sp){ const boon=BOON_KEYS[Math.floor(vrng()*BOON_KEYS.length)];
+        loot.push({x:sp.x,y:sp.y,type:'shrine',kind:'shrine',name:'Offering Shrine',boon,value:0,weight:0,noise:0,curse:0,glow:vrng()*6.28,got:false,plat:-1}); placed.push(sp); } }
+  }
+
   // Vault Heart: the crown of the vault — in the deepest room (graph-farthest from
   // the exit) in a room grid, else deep-right. Hidden until "one more thing".
   let hSpot={x:WORLD.w-150, y: vrng()<.5 ? 180 : WORLD.h-180};
@@ -1317,6 +1326,10 @@ function update(dt){
     l.glow+=dt*4;
     if(dist2(player.x,player.y,l.x,l.y) < (player.r+16+6*collLevel('jewel'))**2){
       if(l.kind==='artifact'){ openDecision(l); return; }  // branching loot: pause & choose
+      if(l.kind==='shrine'){ l.got=true; applyBoon(l.boon); heatTier=clamp(heatTier+1,0,6);
+        flashCurse=Math.max(flashCurse||0,0.6); shake=Math.max(shake,6); hitStop=Math.max(hitStop,0.04);
+        for(let i=0;i<14;i++)particles.push(mkP(l.x,l.y,'#a98bff'));
+        toast('You take the offering — the vault stirs. (+Heat)',1600); continue; }
       l.got=true; recompute();
       if(l.kind==='living'){ toast('Cornered the Skitterjewel!', 1100);
         for(let i=0;i<10;i++)particles.push(mkP(l.x,l.y,'#8fe39a')); }
@@ -1612,6 +1625,16 @@ function drawLoot(l){
   const c=lootColor(l.kind), pulse=1+Math.sin(l.glow)*0.12;
   ctx.save(); ctx.translate(l.x,l.y);
   if(l.plat>=0){ ctx.fillStyle='rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(0,6,7,3,0,0,6.28); ctx.fill(); ctx.translate(0,-7); }
+  // boon shrine: a violet altar with a rising glow — a set-piece you can see from afar
+  if(l.kind==='shrine'){
+    const gl=18+Math.sin(l.glow)*4;
+    const rg=ctx.createRadialGradient(0,0,2,0,0,gl); rg.addColorStop(0,'rgba(169,139,255,0.5)'); rg.addColorStop(1,'rgba(169,139,255,0)');
+    ctx.fillStyle=rg; ctx.beginPath();ctx.arc(0,0,gl,0,6.28);ctx.fill();
+    ctx.fillStyle='#2a2140'; ctx.fillRect(-9,-2,18,12);                  // altar base
+    ctx.fillStyle='#a98bff'; ctx.beginPath();ctx.moveTo(0,-14*pulse);ctx.lineTo(7,-2);ctx.lineTo(-7,-2);ctx.fill(); // gem
+    ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.lineWidth=1; ctx.stroke();
+    ctx.restore(); return;
+  }
   // artifact: unmistakable rotating gold-violet relic with a halo ring
   if(l.kind==='artifact'){
     const gr=ctx.createRadialGradient(0,0,1,0,0,30*pulse);
