@@ -195,6 +195,11 @@ const res = await page.evaluate(() => {
     if (g.loopDoors.filter(d => d.state === 'open').length <= openBefore) out.fails.push(`seed ${s}: shedding loot did not reopen a door`);
   }
   out.log.push(`severing: telegraph->close, stays connected, loop-only, reversible (${severTested} seeds)`);
+
+  // ---- Threat variety: the watchdog spawns ----
+  build(SEEDS[0]);
+  if (!G.guards.some(g => g.dog)) out.fails.push('no watchdog spawned');
+  else out.log.push('threats: watchdog present (hunts by noise)');
   return out;
 });
 

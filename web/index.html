@@ -1083,6 +1083,11 @@ function buildWorld(){
     guards.push({x:a.x,y:a.y,r:14,wps,wi:0,state:'patrol',alert:0,face:0,hitCd:0,lkp:null,searchT:0});
   }
 
+  // Watchdog: a fast hound that hunts by SOUND — a loud haul draws it straight to you.
+  { const a=guardSpot(placed.concat(guards)); const reg=vgraph?vgraph.regionOf(a.x,a.y):-1;
+    const wps=[{x:a.x,y:a.y}]; for(let k=0;k<2;k++){ const b=vgraph?openSpotInRegion(reg,a):openSpot(14,60,null); wps.push({x:b.x,y:b.y}); }
+    guards.push({x:a.x,y:a.y,r:11,dog:true,wps,wi:0,state:'patrol',alert:0,face:0,hitCd:0,lkp:null,searchT:0}); }
+
   // NEW: stationary sentries with swiveling vision cones (guard the deep loot)
   const senCount=2+Math.floor(vrng()*2); // 2-3
   for(let i=0;i<senCount;i++){
@@ -1341,10 +1346,12 @@ function update(dt){
   const ghosting = player.ghost>0;
   for(const g of guards){
     if(g.hitCd>0) g.hitCd-=dt;
-    const gDet = g.hunter ? detR*1.25 : g.elite ? detR*1.2 : detR;
-    const gBase = g.hunter ? gSpd*1.10 : g.elite ? gSpd*1.12 : gSpd;
+    const gDet = g.dog ? detR*0.9 : g.hunter ? detR*1.25 : g.elite ? detR*1.2 : detR;
+    const gBase = g.dog ? gSpd*1.32 : g.hunter ? gSpd*1.10 : g.elite ? gSpd*1.12 : gSpd;
     if(ghosting){ g.state='patrol'; g.alert=0; }
-    const seeing = !ghosting && dist2(g.x,g.y,player.x,player.y) < gDet*gDet;
+    // Watchdog hears you: a loud haul draws it straight in, no line of sight needed.
+    const hears = g.dog && !ghosting && noiseNow()>=2 && dist2(g.x,g.y,player.x,player.y) < Math.pow(240+noiseNow()*26,2);
+    const seeing = !ghosting && (hears || dist2(g.x,g.y,player.x,player.y) < gDet*gDet);
     if(seeing){
       g.state='chase'; g.alert=Math.min(1,g.alert+dt*3);
       g.lkp={x:player.x,y:player.y}; runSpotted=true;   // no longer a silent job
@@ -1680,7 +1687,17 @@ function drawGuard(g){
   ctx.save(); ctx.translate(g.x,g.y);
   ctx.fillStyle='rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(0,g.r*0.7,g.r,g.r*0.4,0,0,6.28); ctx.fill();
   if(g.hunter && platAt(g.x,g.y)!==-1) ctx.translate(0,-7);   // it climbed up after you
-  if(g.hunter){
+  if(g.dog){
+    // watchdog: lean low body, pricked ears, amber eye that flares red when it hears you
+    ctx.fillStyle=chasing?'#3a2018':'#241812';
+    ctx.beginPath();ctx.ellipse(0,0,g.r*1.15,g.r*0.8,g.face,0,6.28);ctx.fill();
+    ctx.strokeStyle=chasing?'#e0503f':'#7a5a3a'; ctx.lineWidth=2; ctx.stroke();
+    const ex=Math.cos(g.face), ey=Math.sin(g.face);
+    ctx.fillStyle='#1a1009';
+    ctx.beginPath();ctx.moveTo(ex*g.r-ey*5,ey*g.r+ex*5);ctx.lineTo(ex*(g.r+7),ey*(g.r+7));ctx.lineTo(ex*g.r+ey*2,ey*g.r-ex*2);ctx.fill();
+    ctx.fillStyle=chasing?'#ff5240':'#ffb020';
+    ctx.beginPath();ctx.arc(ex*g.r*0.7,ey*g.r*0.7,2.4,0,6.28);ctx.fill();
+  } else if(g.hunter){
     // bounty hunter: dark iron body, red eye, spiked silhouette
     ctx.fillStyle=chasing?'#2a1420':'#1c1420';
     ctx.beginPath();ctx.arc(0,0,g.r,0,6.28);ctx.fill();
