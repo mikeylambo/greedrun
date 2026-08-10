@@ -118,6 +118,22 @@ const res = await page.evaluate(() => {
   G.refreshAscUnlock(); if (G.ascUnlocked < 1) out.fails.push('Ascension 1 did not unlock at max upgrades');
   m.upg = JSON.parse(savedUpg); m.ascUnlocked = savedUnlock;   // restore
   out.log.push('ascension: identity/sentinel/scaling/unlock all checked');
+
+  // ---- Daily ----
+  const dk = G.dayKey();
+  if (G.daySeed('2020-5-5') !== G.daySeed('2020-5-5')) out.fails.push('daySeed not deterministic');
+  const s7 = G.daySeed('2020-5-5');
+  if (G.codeToSeed(G.seedToCode(s7)) !== s7) out.fails.push('seed code roundtrip broken');
+  const md = G.meta.daily, saveD = JSON.stringify(md);
+  md.playedDay = G.yesterKey(); md.streak = 3; G.dailyMode = true; G.recordDaily(false);
+  if (md.streak !== 4) out.fails.push('streak did not increment from yesterday: ' + md.streak);
+  if (md.playedDay !== dk) out.fails.push('playedDay not set to today');
+  if (!G.dailyPlayedToday()) out.fails.push('dailyPlayedToday false after record');
+  if (G.dailyMode) out.fails.push('dailyMode not cleared after record');
+  md.playedDay = '2000-1-1'; md.streak = 9; G.dailyMode = true; G.recordDaily(false);
+  if (md.streak !== 1) out.fails.push('streak did not reset after a gap: ' + md.streak);
+  Object.assign(md, JSON.parse(saveD));   // restore
+  out.log.push('daily: seed determinism, code roundtrip, streak inc/reset all checked');
   return out;
 });
 

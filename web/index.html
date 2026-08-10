@@ -371,8 +371,10 @@
     <div class="shop-head eyebrow">The Hideout · Fence &amp; Prep</div>
     <div class="bank"><span class="c">Banked gold</span><span id="bankAmt">$0</span></div>
     <div id="notoLine"></div>
+    <div id="dailyLine"></div>
     <div class="fence-grid" id="fenceGrid"></div>
     <div class="btn-row">
+      <button class="btn" id="dailyBtn">☀ Daily Run</button>
       <button class="btn" id="nextRunBtn">Choose Tonight&rsquo;s Job →</button>
       <button class="btn ghost" id="collectionBtn">The Collection</button>
     </div>
@@ -469,7 +471,8 @@ const meta = {
   upg: { straps:0, boots:0, feet:0, luck:0,
          landing:0, scanner:0, pockets:0, contacts:0, cool:0, revive:0 },
   collection: { idol:0, relic:0, jewel:0, relicart:0, heart:0 },
-  ascUnlocked: 0, bestByAsc: {}
+  ascUnlocked: 0, bestByAsc: {},
+  daily: { playedDay:'', playedScore:0, playedEscaped:false, streak:0, bestStreak:0, best:0, history:[] }
 };
 const UPGRADES = [
   { id:'feet',    nm:'Quick Feet',       base:650,  max:5, ds:'+11% base movement speed per level.' },
@@ -507,6 +510,37 @@ function isMetaMaxed(){ return UPGRADES.every(u=>upgLevel(u.id)>=u.max); }   // 
 function ascUnlocked(){ return meta.ascUnlocked|0; }
 function bestForAsc(l){ return (meta.bestByAsc&&meta.bestByAsc[l])|0; }
 function refreshAscUnlock(){ if(isMetaMaxed() && ascUnlocked()<1){ meta.ascUnlocked=1; saveMeta(); } }
+
+// ===== Daily Runs (seeded, one attempt, streaks) — the replay engine =====
+// Everyone gets the same vault on the same UTC day (a free run, pure greed score),
+// one ranked attempt; past/custom seeds are unlimited practice. No backend needed.
+let dailyMode=false;                 // true while a ranked daily is in progress
+function dayKey(d){ d=d||new Date(); return d.getUTCFullYear()+'-'+(d.getUTCMonth()+1)+'-'+d.getUTCDate(); }
+function yesterKey(){ const d=new Date(); d.setUTCDate(d.getUTCDate()-1); return dayKey(d); }
+function daySeed(key){ let h=1779033703; for(let i=0;i<key.length;i++){ h=Math.imul(h^key.charCodeAt(i),3432918353); h=h<<13|h>>>19; } return (h>>>0)||1; }
+function dailyPlayedToday(){ return meta.daily.playedDay===dayKey(); }
+function dailyScore(){ return Math.round(carriedValue * (1 + peakHeat*0.09) * (vaultCleared?1.4:1)); }
+// Base-36 seed codes players can share: play someone else's exact vault.
+function seedToCode(s){ return (s>>>0).toString(36).toUpperCase(); }
+function codeToSeed(c){ const n=parseInt(String(c).trim(),36); return Number.isFinite(n)?(n>>>0):0; }
+
+function startDaily(){
+  if(dailyPlayedToday()) return;
+  dailyMode=true; runSeed=daySeed(dayKey()); activeContract=null; selectedAscension=0;
+  startRun();
+}
+function startSeed(seed){                    // unranked practice on any seed
+  dailyMode=false; runSeed=(seed>>>0)||1; activeContract=null;
+  startRun();
+}
+function recordDaily(escaped){               // called from endRun for a ranked daily
+  const day=dayKey(), score=escaped?dailyScore():0, d=meta.daily;
+  d.streak = (d.playedDay===yesterKey()) ? (d.streak|0)+1 : 1;   // consecutive days shown up
+  d.playedDay=day; d.playedScore=score; d.playedEscaped=escaped;
+  d.best=Math.max(d.best|0, score); d.bestStreak=Math.max(d.bestStreak|0, d.streak);
+  d.history=[{day,score,escaped,seed:runSeed}, ...(d.history||[])].slice(0,14);
+  saveMeta(); dailyMode=false;
+}
 
 // ---------- The Collection (museum of greed) ----------
 // Keep a trophy at the fence (forgo the sale) to unlock its passive; then pour gold
@@ -1812,6 +1846,7 @@ function epithet(escaped){
   return 'OPPORTUNIST';
 }
 function endRun(escaped){
+  const wasDaily=dailyMode;
   runOutcome=escaped; state='result';
   $('hud').classList.remove('on'); document.getElementById('prompt').classList.remove('on');
   touchWrap.style.display='none';
@@ -1834,6 +1869,7 @@ function endRun(escaped){
   ascNewBest = escaped && ascScore > bestForAsc(ascensionLevel);
   if(ascNewBest){ meta.bestByAsc[ascensionLevel] = ascScore; }
   if(escaped && ascensionLevel>=1 && ascensionLevel===ascUnlocked() && ascensionLevel<ASC_MAX){ meta.ascUnlocked=ascensionLevel+1; }
+  if(dailyMode) recordDaily(escaped);
   saveMeta();
   // Danger pays: the hotter the run got, the more everything is worth (risk = reward)
   pendingDangerMult = 1 + peakHeat*0.09 + 0.05*collLevel('heart');
@@ -1867,6 +1903,7 @@ function endRun(escaped){
     + (perfect?`<div>Clean bonus<b style="color:var(--ok)">+40%</b></div>`:'')
     + contractLine
     + (ascensionLevel>0?`<div>Ascension ${ascensionLevel}<b style="color:var(--purple,#a98bff)">${ascNewBest?'NEW BEST':'★'.repeat(Math.min(ascensionLevel,5))}</b></div>`:'')
+    + (wasDaily?`<div>Daily score<b style="color:var(--gold)">${(escaped?dailyScore():0).toLocaleString()}</b></div><div>Streak<b>${meta.daily.streak} day${meta.daily.streak===1?'':'s'}</b></div><div>Share code<b style="letter-spacing:.12em">GR-${dayKey()}-${seedToCode(daySeed(dayKey()))}</b></div>`:'')
     + `<div>Secured<b>${loot.filter(l=>l.got).length}/${runLootCount}</b></div>`;
   $('continueBtn').textContent = (escaped && pendingHaul.length) ? 'To the Fence' : 'To the Hideout';
   show('result');
@@ -2014,6 +2051,7 @@ async function loadMeta(){
         meta.curseDebt=d.curseDebt||0; if(d.upg) Object.assign(meta.upg,d.upg);
         if(d.collection) Object.assign(meta.collection,d.collection);
         meta.ascUnlocked=d.ascUnlocked||0; if(d.bestByAsc) meta.bestByAsc=d.bestByAsc;
+        if(d.daily) Object.assign(meta.daily, d.daily);
       }
       refreshAscUnlock();  // already-maxed saves unlock Ascension 1
     }
@@ -2023,7 +2061,7 @@ async function loadMeta(){
 async function saveMeta(){
   try{ if(window.storage) await window.storage.set(SAVE_KEY, JSON.stringify({
     gold:meta.gold, runs:meta.runs, bestHaul:meta.bestHaul, curseDebt:meta.curseDebt, upg:meta.upg, collection:meta.collection,
-    ascUnlocked:meta.ascUnlocked, bestByAsc:meta.bestByAsc })); }
+    ascUnlocked:meta.ascUnlocked, bestByAsc:meta.bestByAsc, daily:meta.daily })); }
   catch(e){}
 }
 async function wipeMeta(){
@@ -2032,6 +2070,7 @@ async function wipeMeta(){
   meta.upg={straps:0,boots:0,feet:0,luck:0,landing:0,scanner:0,pockets:0,contacts:0,cool:0,revive:0};
   meta.collection={idol:0,relic:0,jewel:0,relicart:0,heart:0};
   meta.ascUnlocked=0; meta.bestByAsc={}; selectedAscension=0; ascensionLevel=0;
+  meta.daily={ playedDay:'', playedScore:0, playedEscaped:false, streak:0, bestStreak:0, best:0, history:[] };
   renderShop();
 }
 function renderShop(){
@@ -2061,6 +2100,26 @@ function renderShop(){
     grid.appendChild(el);
   }
   renderAscension();
+  renderDaily();
+}
+// Hideout daily panel: today's seed/streak/best, plus a practice input to replay any shared seed.
+function renderDaily(){
+  const d=meta.daily, played=dailyPlayedToday(), code='GR-'+dayKey()+'-'+seedToCode(daySeed(dayKey()));
+  $('dailyLine').innerHTML =
+    `<div style="margin:8px 0;padding:8px 12px;border:1px solid var(--panel-line,#46391f);border-radius:8px;font-size:13px;color:var(--gold)">`
+    + `<b>Daily Run</b> · ${dayKey()} · <span style="letter-spacing:.1em;color:var(--muted)">${code}</span><br>`
+    + `<span style="color:var(--bone,#f0e7d2)">`
+    + (played ? `Today: ${d.playedEscaped?'$'+d.playedScore.toLocaleString()+' scored':'caught'} · ` : 'One attempt · ')
+    + `streak ${d.streak|0} (best ${d.bestStreak|0}) · daily best $${(d.best|0).toLocaleString()}</span><br>`
+    + `<input id="seedInput" placeholder="paste a seed code — practice any vault" style="margin-top:6px;width:58%;padding:4px 8px;background:#120f0a;border:1px solid #46391f;border-radius:6px;color:var(--bone,#f0e7d2)">`
+    + `<button id="seedGo" style="margin-left:6px;padding:4px 10px;background:#241d13;color:var(--gold);border:1px solid #46391f;border-radius:6px;cursor:pointer">Practice</button></div>`;
+  const btn=$('dailyBtn'); if(btn){ btn.disabled=played; btn.style.opacity=played?0.5:1;
+    btn.textContent = played?'☀ Daily done — back tomorrow':'☀ Daily Run'; }
+  const go=$('seedGo'), inp=$('seedInput');
+  if(go&&inp) go.onclick=()=>{ const raw=inp.value.trim(); if(!raw) return;
+    const parts=raw.split('-'), c=parts.length>=3?parts[parts.length-1]:raw;
+    const seed = /^[0-9]+$/.test(c) ? (parseInt(c,10)>>>0) : codeToSeed(c);
+    if(seed) startSeed(seed); };
 }
 // Minimal Ascension selector on the hideout: harder runs, bigger payout, no new sink.
 function renderAscension(){
@@ -2082,6 +2141,7 @@ function renderAscension(){
 
 // buttons
 $('startBtn').onclick=()=>openShop();          // first stop is the hideout
+$('dailyBtn').onclick=startDaily;
 $('nextRunBtn').onclick=openContracts;
 $('collectionBtn').onclick=openCollection;
 $('collBack').onclick=openShop;
@@ -2156,6 +2216,8 @@ window.__greed = {
   ascMods, isMetaMaxed, refreshAscUnlock, guardSpeed, detectRadius,
   get meta(){ return meta; }, get UPGRADES(){ return UPGRADES; }, get ascUnlocked(){ return ascUnlocked(); },
   get ascensionLevel(){ return ascensionLevel; }, set ascensionLevel(v){ ascensionLevel = v; },
+  dayKey, yesterKey, daySeed, dailyScore, recordDaily, dailyPlayedToday, seedToCode, codeToSeed,
+  get dailyMode(){ return dailyMode; }, set dailyMode(v){ dailyMode = v; },
 };
 })();
 </script>
