@@ -169,6 +169,32 @@ const res = await page.evaluate(() => {
     if (da <= sa) out.fails.push(`deep loot not biased deeper than bulk (${da.toFixed(2)} <= ${sa.toFixed(2)})`);
   }
   if (heartFails > Math.ceil(rseeds * 0.5)) out.fails.push(`vault heart not in a deep room (${heartFails}/${rseeds})`);
+
+  // ---- Severing: greed closes loop doors, telegraphed, connected, reversible ----
+  let severTested = 0;
+  for (const s of SEEDS) {
+    build(s); if (!gv()) continue; const g = gv();
+    if (!g.loopDoors.length) continue;
+    const exR = g.openRect(g.exit); G.player.x = exR.x + exR.w / 2; G.player.y = exR.y + exR.h / 2;
+    G.resetSever(); G.carriedValue = G.runLootTotal;            // max greed → crosses thresholds
+    if (!G.severCandidates().length) continue;                 // no fair target for this seed; fine
+    severTested++;
+    let telegraphed = false;
+    for (let i = 0; i < 20 && !telegraphed; i++) { G.updateSever(0.02); if (G.severTele) telegraphed = true; }
+    if (!telegraphed) { out.fails.push(`seed ${s}: no telegraph despite candidates`); continue; }
+    const wallsBefore = G.walls.length;
+    for (let i = 0; i < 200 && G.severTele; i++) G.updateSever(0.02);   // run out the telegraph
+    if (G.walls.length <= wallsBefore) out.fails.push(`seed ${s}: telegraphed door never closed`);
+    const seen = { [g.exit]: 1 }, q = [g.exit];
+    while (q.length) { const c = q.shift(); for (const n of g.adj[c]) if (!seen[n]) { seen[n] = 1; q.push(n); } }
+    if (Object.keys(seen).length !== g.cols * g.rows) out.fails.push(`seed ${s}: severing DISCONNECTED the vault`);
+    const closed = g.loopDoors.filter(d => d.state === 'closed');
+    if (closed.some(d => !g.loopKeys.includes(d.key))) out.fails.push(`seed ${s}: severed a non-loop (tree) door`);
+    const openBefore = g.loopDoors.filter(d => d.state === 'open').length;
+    G.carriedValue = 0; for (let i = 0; i < 12; i++) G.updateSever(0.02);   // shed loot → reopen
+    if (g.loopDoors.filter(d => d.state === 'open').length <= openBefore) out.fails.push(`seed ${s}: shedding loot did not reopen a door`);
+  }
+  out.log.push(`severing: telegraph->close, stays connected, loop-only, reversible (${severTested} seeds)`);
   return out;
 });
 

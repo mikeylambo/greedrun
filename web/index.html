@@ -808,17 +808,19 @@ function buildRoomGrid(interior, T){
   for(let i=0;i<Math.min(loops,cand.length);i++){ open[key(cand[i][0],cand[i][1])]=1; loopKeys.push(key(cand[i][0],cand[i][1])); }
   // emit one wall per internal boundary, split around a doorway when the edge is open
   const wallsOut=[], doors={}, adj={}; for(let i=0;i<cols*rows;i++) adj[i]=[];
+  const loopSet=new Set(loopKeys), loopDoors=[];   // the only severable doorways
   const half=T/2;
   const addW=(x,y,w,h)=>{ if(w>1&&h>1) wallsOut.push({x,y,w,h}); };
   const link=(a,b,cx,cy)=>{ doors[key(a,b)]={x:cx,y:cy}; adj[a].push(b); adj[b].push(a); };
+  const recordLoop=(a,b,plug)=>{ if(loopSet.has(key(a,b))) loopDoors.push({key:key(a,b),a,b,center:doors[key(a,b)],plug,state:'open'}); };
   const doorPos=(lo,hi)=>{ const m=DOOR_WIDTH/2+56, a=lo+m, z=hi-m; return a>=z?(lo+hi)/2:vr(a,z); };
   for(let c=0;c<cols-1;c++) for(let r=0;r<rows;r++){ const a=r*cols+c, b=a+1, lx=ox+(c+1)*cw, top=oy+r*ch, bot=top+ch;
-    if(open[key(a,b)]){ const dy=doorPos(top,bot); addW(lx-half,top,T,dy-DOOR_WIDTH/2-top); addW(lx-half,dy+DOOR_WIDTH/2,T,bot-(dy+DOOR_WIDTH/2)); link(a,b,lx,dy); }
+    if(open[key(a,b)]){ const dy=doorPos(top,bot); addW(lx-half,top,T,dy-DOOR_WIDTH/2-top); addW(lx-half,dy+DOOR_WIDTH/2,T,bot-(dy+DOOR_WIDTH/2)); link(a,b,lx,dy); recordLoop(a,b,{x:lx-half,y:dy-DOOR_WIDTH/2,w:T,h:DOOR_WIDTH}); }
     else addW(lx-half,top,T,ch); }
   for(let r=0;r<rows-1;r++) for(let c=0;c<cols;c++){ const a=r*cols+c, b=a+cols, ly=oy+(r+1)*ch, left=ox+c*cw, right=left+cw;
-    if(open[key(a,b)]){ const dx=doorPos(left,right); addW(left,ly-half,dx-DOOR_WIDTH/2-left,T); addW(dx+DOOR_WIDTH/2,ly-half,right-(dx+DOOR_WIDTH/2),T); link(a,b,dx,ly); }
+    if(open[key(a,b)]){ const dx=doorPos(left,right); addW(left,ly-half,dx-DOOR_WIDTH/2-left,T); addW(dx+DOOR_WIDTH/2,ly-half,right-(dx+DOOR_WIDTH/2),T); link(a,b,dx,ly); recordLoop(a,b,{x:dx-DOOR_WIDTH/2,y:ly-half,w:DOOR_WIDTH,h:T}); }
     else addW(left,ly-half,cw,T); }
-  return { cols, rows, ox, oy, cw, ch, adj, doors, loopKeys, walls:wallsOut, exit:0, dist:{}, maxDist:0, cellRect,
+  return { cols, rows, ox, oy, cw, ch, adj, doors, loopKeys, loopDoors, walls:wallsOut, exit:0, dist:{}, maxDist:0, cellRect,
     regionOf(x,y){ const c=clamp((x-ox)/cw|0,0,cols-1), r=clamp((y-oy)/ch|0,0,rows-1); return r*cols+c; },
     openRect(i){ const R=cellRect(i); return {x:R.x+32,y:R.y+32,w:R.w-64,h:R.h-64}; },
     gradient(i){ return (this.dist[i]||0)/(this.maxDist||1); },          // 0 (at exit) .. 1 (deepest room)
@@ -836,6 +838,66 @@ function navTarget(g,fx,fy,tx,ty){
     if(n===b){ let s=n; while(prev[s]!==a) s=prev[s]; const d=g.doors[Math.min(a,s)+'-'+Math.max(a,s)]; return d?{x:d.x,y:d.y}:{x:tx,y:ty}; }
     q.push(n); } }
   return {x:tx,y:ty};
+}
+
+// ===== Severing: greed closes the vault behind you (loop-budget mechanic) =====
+// Only LOOP doorways ever close, so the spanning tree keeps the vault escapable BY
+// CONSTRUCTION. Every closure is telegraphed (sprint and you make it) and reverses
+// LIFO when you shed enough loot. Sever picks are drawn from the seeded stream.
+const SEVER_TELEGRAPH=1.6, SEVER_COOLDOWN=4.5;       // TUNE seconds
+const GREED_SEVER_FRACS=[0.35,0.55,0.75,0.9];        // TUNE fractions of vault value carried that trigger a sever
+let severCooldown=0, severHeatMark=0, severGreedIdx=0, severStack=[], severTele=null;
+function resetSever(){ severCooldown=0; severHeatMark=0; severGreedIdx=0; severStack=[]; severTele=null; }
+function severGreedFrac(){ return runLootTotal>0 ? carriedValue/runLootTotal : 0; }
+function playerRoom(){ return vgraph ? vgraph.regionOf(player.x,player.y) : -1; }
+// Fair targets: open loop doors NOT adjacent to the player's room and BEHIND the
+// player (both endpoints deeper from the exit than the player) — closes from the back.
+function severCandidates(){
+  if(!vgraph) return [];
+  const pr=playerRoom(), pd=vgraph.dist[pr]||0;
+  return vgraph.loopDoors.filter(d=> d.state==='open' && d.a!==pr && d.b!==pr
+    && (vgraph.dist[d.a]||0)>pd && (vgraph.dist[d.b]||0)>pd);
+}
+function triggerSever(){
+  if(!vgraph || severTele || severCooldown>0) return;
+  const cands=severCandidates();
+  if(!cands.length) return;                          // no fair target → sever nothing
+  severTele={door:cands[Math.floor(vrng()*cands.length)], t:SEVER_TELEGRAPH};
+  severTele.door.state='warn'; severCooldown=SEVER_COOLDOWN;
+  toast('A shutter groans somewhere behind you…',1200);   // audio hook: sever_telegraphed
+}
+function commitSever(d){
+  d.state='closed'; walls.push(d.plug); severStack.push(d);
+  const ai=vgraph.adj[d.a].indexOf(d.b); if(ai>=0) vgraph.adj[d.a].splice(ai,1);
+  const bi=vgraph.adj[d.b].indexOf(d.a); if(bi>=0) vgraph.adj[d.b].splice(bi,1);
+  shake=Math.max(shake,9); alarmFlash=Math.max(alarmFlash,0.5);
+  for(let i=0;i<10;i++) particles.push(mkP(d.center.x,d.center.y,'#6b5a3a'));
+  if(!isOpen(player.x,player.y,player.r)) unstick(player);
+  toast('A vault door slams shut.',1100);                 // audio hook: sever_committed (positional)
+}
+function reopenLast(){
+  const d=severStack.pop(); if(!d) return;
+  d.state='open'; const i=walls.indexOf(d.plug); if(i>=0) walls.splice(i,1);
+  vgraph.adj[d.a].push(d.b); vgraph.adj[d.b].push(d.a);
+  for(let k=0;k<8;k++) particles.push(mkP(d.center.x,d.center.y,'#8fe39a'));
+  toast('A shutter grinds back open.',1000);              // audio hook: sever_reversed
+}
+function updateSever(dt){
+  if(!vgraph) return;
+  severCooldown=Math.max(0,severCooldown-dt);
+  if(severTele){ severTele.t-=dt; if(severTele.t<=0){ commitSever(severTele.door); severTele=null; } }
+  const frac=severGreedFrac();
+  while(severGreedIdx<GREED_SEVER_FRACS.length && frac>=GREED_SEVER_FRACS[severGreedIdx]){ severGreedIdx++; triggerSever(); }
+  if(severGreedIdx>0 && frac < GREED_SEVER_FRACS[severGreedIdx-1]-0.03){ severGreedIdx--; reopenLast(); }   // shed loot → reopen
+  if(heatTier>severHeatMark){ severHeatMark=heatTier; triggerSever(); }
+}
+function drawSever(){
+  if(!vgraph||!severTele) return;
+  const p=severTele.door.plug, pulse=0.5+0.5*Math.sin(runClock*14);
+  ctx.save();
+  ctx.fillStyle=`rgba(224,80,63,${0.22+0.34*pulse})`; ctx.fillRect(p.x,p.y,p.w,p.h);
+  ctx.strokeStyle=`rgba(255,180,120,${0.55+0.4*pulse})`; ctx.lineWidth=3; ctx.strokeRect(p.x,p.y,p.w,p.h);
+  ctx.restore();
 }
 
 function genLayout(){
@@ -895,7 +957,7 @@ function buildWorld(){
   carriedValue=carriedWeight=carriedNoise=carriedCurse=0; heatTier=0;
   runLootTotal=0; runLootCount=0; vaultCleared=false; alarmFlash=0; lowNoiseRun=true;
   noiseMuffled=false;
-  hunterSpawned=false; vertHintShown=false;
+  hunterSpawned=false; vertHintShown=false; resetSever();
   runHeatSeed = clamp(Math.floor(meta.curseDebt/2) - upgLevel('cool'), 0, 3) + ascMods(ascensionLevel).heat + (dailyMutator.heat||0);  // world + ascension + weekly mutator
   runSpotted=false; runClock=0; peakHeat=0; runDamaged=false;
   runTimeLimit = activeContract && activeContract.type==='timed' ? activeContract.timeLimit : 0;
@@ -1140,8 +1202,20 @@ function guardSpeed(){ return (1.5 + heatTier*0.16 + carriedCurse*0.03) * ascMod
 addEventListener('keydown', e=>{
   const k=e.key.toLowerCase();
   if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase())) e.preventDefault();
+  if(k==='q' && state==='playing') dropLoot();   // shed your heaviest carried piece — cools greed, reopens a door
   keys.add(k);
 });
+// Drop the heaviest carried item at your feet (re-grabbable). The mid-run verb that
+// pairs with severing: shed loot to drop below a greed threshold and reopen a shutter.
+function dropLoot(){
+  let best=null;
+  for(const l of loot){ if(l.got && l.weight>0 && (!best || l.weight>best.weight)) best=l; }
+  if(!best) return;
+  best.got=false; best.x=player.x; best.y=player.y; best.plat=player.plat;
+  recompute();
+  floaters.push({x:player.x,y:player.y-20,txt:'dropped '+(best.name||best.type),life:1,col:'#f0e7d2'});
+  for(let i=0;i<6;i++) particles.push(mkP(player.x,player.y+4,'#6b5a3a'));
+}
 addEventListener('keyup', e=>keys.delete(e.key.toLowerCase()));
 
 // touch
@@ -1209,6 +1283,7 @@ function update(dt){
   player.vx=ix*sp; player.vy=iy*sp;
   if(player.inv>0) player.inv-=dt;
   if(player.ghost>0) player.ghost-=dt;
+  updateSever(dt);                        // greed closes the vault behind you
 
   // camera
   cam.x += (clamp(player.x-VIEW.w/2,0,WORLD.w-VIEW.w)-cam.x)*0.12;
@@ -1384,6 +1459,7 @@ function draw(){
   drawPortal();
   // loot
   for(const l of loot){ if(!l.got && !l.hidden) drawLoot(l); }
+  drawSever();   // pulsing warning on a door about to slam
   // sentries (draw cones under the mobile guards)
   for(const s of sentries) drawSentry(s);
   // guards
@@ -2286,6 +2362,10 @@ window.__greed = {
   get dailyMode(){ return dailyMode; }, set dailyMode(v){ dailyMode = v; },
   weeklyMutator, dailyAscension, weekKey, get MUTATORS(){ return MUTATORS; }, get DAILY_LADDER(){ return DAILY_LADDER; },
   get dailyMutator(){ return dailyMutator; }, set dailyMutator(v){ dailyMutator = v; },
+  updateSever, severCandidates, resetSever, dropLoot,
+  get severTele(){ return severTele; }, get severStack(){ return severStack; },
+  get carriedValue(){ return carriedValue; }, set carriedValue(v){ carriedValue = v; },
+  get runLootTotal(){ return runLootTotal; },
 };
 })();
 </script>
