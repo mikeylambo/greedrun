@@ -870,7 +870,7 @@ function commitSever(d){
   d.state='closed'; walls.push(d.plug); severStack.push(d);
   const ai=vgraph.adj[d.a].indexOf(d.b); if(ai>=0) vgraph.adj[d.a].splice(ai,1);
   const bi=vgraph.adj[d.b].indexOf(d.a); if(bi>=0) vgraph.adj[d.b].splice(bi,1);
-  shake=Math.max(shake,9); alarmFlash=Math.max(alarmFlash,0.5);
+  shake=Math.max(shake,9); alarmFlash=Math.max(alarmFlash,0.5); hitStop=Math.max(hitStop,0.05);
   for(let i=0;i<10;i++) particles.push(mkP(d.center.x,d.center.y,'#6b5a3a'));
   if(!isOpen(player.x,player.y,player.r)) unstick(player);
   toast('A vault door slams shut.',1100);                 // audio hook: sever_committed (positional)
@@ -1260,7 +1260,7 @@ eBtn.addEventListener('pointerup', ()=>{eHeld=false;});
 eBtn.addEventListener('pointerleave', ()=>{eHeld=false;});
 
 // ---------- update ----------
-let extractHold=0;
+let extractHold=0, hitStop=0;   // hitStop = brief freeze-frame on impact (game feel)
 function update(dt){
   if(state!=='playing') return;
   runClock+=dt;
@@ -1286,8 +1286,10 @@ function update(dt){
   updateSever(dt);                        // greed closes the vault behind you
 
   // camera
-  cam.x += (clamp(player.x-VIEW.w/2,0,WORLD.w-VIEW.w)-cam.x)*0.12;
-  cam.y += (clamp(player.y-VIEW.h/2,0,WORLD.h-VIEW.h)-cam.y)*0.12;
+  // camera leads the way you're moving, then eases — reads as intent, not lag
+  const lead=58;
+  cam.x += (clamp(player.x+player.vx*lead-VIEW.w/2,0,WORLD.w-VIEW.w)-cam.x)*0.10;
+  cam.y += (clamp(player.y+player.vy*lead-VIEW.h/2,0,WORLD.h-VIEW.h)-cam.y)*0.10;
 
   // Living Loot: flees directly away, sliding along walls until it's cornered
   for(const l of loot){
@@ -1377,7 +1379,7 @@ function update(dt){
 
     // contact — grunts only reach ground-level Jo; the Hunter reaches you anywhere
     if(g.hitCd<=0 && player.inv<=0 && !ghosting && (player.plat===-1 || g.hunter) && dist2(g.x,g.y,player.x,player.y) < (g.r+player.r)**2){
-      player.hp-- ; player.inv=1.1; g.hitCd=0.8; shake=14; runDamaged=true;
+      player.hp-- ; player.inv=1.1; g.hitCd=0.8; shake=14; hitStop=Math.max(hitStop,0.07); runDamaged=true;
       const kx=player.x-g.x, ky=player.y-g.y, km=Math.hypot(kx,ky)||1, push=26;
       if(isOpen(player.x+kx/km*push, player.y, player.r)) player.x+=kx/km*push;
       if(isOpen(player.x, player.y+ky/km*push, player.r)) player.y+=ky/km*push;
@@ -2341,7 +2343,10 @@ addEventListener('keydown', e=>{
 // ---------- loop ----------
 function frame(t){
   const dt=Math.min(0.033,(t-tPrev)/1000)||0; tPrev=t;
-  try { update(dt); draw(); }
+  try {
+    if(hitStop>0){ hitStop-=dt; draw(); }   // freeze the sim for a beat on impact, keep rendering (punch)
+    else { update(dt); draw(); }
+  }
   catch(err){ console.error('frame error (loop kept alive):', err); }
   requestAnimationFrame(frame);
 }
