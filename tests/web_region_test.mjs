@@ -97,6 +97,27 @@ const res = await page.evaluate(() => {
     if (!arrived) out.fails.push('guard could not thread doorways');
   }
   if (out.mix.rooms === 0 || out.mix.arena === 0) out.fails.push('layout flip did not produce both modes ' + JSON.stringify(out.mix));
+
+  // ---- Ascension ----
+  const id0 = G.ascMods(0), a10 = G.ascMods(10);
+  if (id0.gs !== 1 || id0.det !== 1 || id0.pay !== 1 || id0.heat !== 0 || id0.fromStart) out.fails.push('ascMods(0) is not identity');
+  if (!a10.fromStart || a10.hun !== 0) out.fails.push('ascMods(10) HUNTER_FROM_START not resolved');
+  if (a10.pay !== 3.40) out.fails.push('ascMods(10) payout wrong: ' + a10.pay);
+  // guard speed / detection scale with the active level
+  G.ascensionLevel = 0; const gs0 = G.guardSpeed(), dt0 = G.detectRadius();
+  G.ascensionLevel = 5; const gs5 = G.guardSpeed(), dt5 = G.detectRadius(); G.ascensionLevel = 0;
+  if (Math.abs(gs5 / gs0 - 1.11) > 1e-6) out.fails.push('A5 guard speed mult wrong: ' + gs5 / gs0);
+  if (Math.abs(dt5 / dt0 - 1.28) > 1e-6) out.fails.push('A5 detection mult wrong: ' + dt5 / dt0);
+  // unlock gate is upgrades-only
+  const m = G.meta, savedUpg = JSON.stringify(m.upg), savedUnlock = m.ascUnlocked;
+  for (const u of G.UPGRADES) m.upg[u.id] = 0; m.ascUnlocked = 0;
+  if (G.isMetaMaxed()) out.fails.push('isMetaMaxed true with zero upgrades');
+  G.refreshAscUnlock(); if (G.ascUnlocked !== 0) out.fails.push('unlocked while not maxed');
+  for (const u of G.UPGRADES) m.upg[u.id] = u.max;
+  if (!G.isMetaMaxed()) out.fails.push('isMetaMaxed false when all upgrades maxed');
+  G.refreshAscUnlock(); if (G.ascUnlocked < 1) out.fails.push('Ascension 1 did not unlock at max upgrades');
+  m.upg = JSON.parse(savedUpg); m.ascUnlocked = savedUnlock;   // restore
+  out.log.push('ascension: identity/sentinel/scaling/unlock all checked');
   return out;
 });
 

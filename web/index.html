@@ -468,7 +468,8 @@ const meta = {
   gold: 0, runs: 0, bestHaul: 0, curseDebt: 0,
   upg: { straps:0, boots:0, feet:0, luck:0,
          landing:0, scanner:0, pockets:0, contacts:0, cool:0, revive:0 },
-  collection: { idol:0, relic:0, jewel:0, relicart:0, heart:0 }
+  collection: { idol:0, relic:0, jewel:0, relicart:0, heart:0 },
+  ascUnlocked: 0, bestByAsc: {}
 };
 const UPGRADES = [
   { id:'feet',    nm:'Quick Feet',       base:650,  max:5, ds:'+11% base movement speed per level.' },
@@ -484,6 +485,28 @@ const UPGRADES = [
 ];
 function upgLevel(id){ return meta.upg[id]|0; }                 // works for old boolean saves too
 function upgCost(u){ return Math.round(u.base * Math.pow(1.55, upgLevel(u.id))); }
+
+// ===== Difficulty Ascension (ported from AscensionModifiers.gd) =====
+// One editable table of run modifiers per level; level 0 is a standard run (identity),
+// so base difficulty/economy are untouched. Unlock is upgrades-only, by design.
+const ASC_MAX=10, HUNTER_FROM_START=-1;
+const ASC_TABLE=[  // TUNE — gs=guard speed, det=detection, heat=starting-heat add, hun=hunter-sooner, pay=payout
+  {gs:1.03,det:1.05,heat:0,hun:0,pay:1.15}, {gs:1.05,det:1.10,heat:0,hun:0,pay:1.30},
+  {gs:1.07,det:1.16,heat:1,hun:1,pay:1.50}, {gs:1.09,det:1.22,heat:1,hun:1,pay:1.70},
+  {gs:1.11,det:1.28,heat:1,hun:1,pay:1.95}, {gs:1.14,det:1.34,heat:2,hun:2,pay:2.20},
+  {gs:1.16,det:1.40,heat:2,hun:2,pay:2.45}, {gs:1.18,det:1.46,heat:2,hun:2,pay:2.70},
+  {gs:1.20,det:1.52,heat:3,hun:3,pay:3.00}, {gs:1.22,det:1.58,heat:3,hun:HUNTER_FROM_START,pay:3.40},
+];
+function ascMods(level){
+  if(level<=0) return {gs:1,det:1,heat:0,hun:0,pay:1,fromStart:false};
+  const r=Object.assign({}, ASC_TABLE[clamp(level,1,ASC_MAX)-1]);
+  r.fromStart = r.hun===HUNTER_FROM_START; if(r.fromStart) r.hun=0; return r;
+}
+let ascensionLevel=0, selectedAscension=0;
+function isMetaMaxed(){ return UPGRADES.every(u=>upgLevel(u.id)>=u.max); }   // the sole gate: all upgrades maxed
+function ascUnlocked(){ return meta.ascUnlocked|0; }
+function bestForAsc(l){ return (meta.bestByAsc&&meta.bestByAsc[l])|0; }
+function refreshAscUnlock(){ if(isMetaMaxed() && ascUnlocked()<1){ meta.ascUnlocked=1; saveMeta(); } }
 
 // ---------- The Collection (museum of greed) ----------
 // Keep a trophy at the fence (forgo the sale) to unlock its passive; then pour gold
@@ -555,7 +578,7 @@ let runLootTotal = 0, runLootCount = 0, vaultCleared = false, alarmFlash = 0, lo
 let noiseMuffled = false;
 let hunterSpawned = false;
 let runHeatSeed = 0;
-let peakHeat = 0, pendingDangerMult = 1, runDamaged = false;
+let peakHeat = 0, pendingDangerMult = 1, runDamaged = false, ascNewBest = false;
 let pendingHaul = [], pendingBulk = {val:0,n:0}, pendingPerfect = false;
 let player, portal, cam = {x:0,y:0};
 let carriedValue=0, carriedWeight=0, carriedNoise=0, carriedCurse=0, heatTier=0;
@@ -794,7 +817,7 @@ function buildWorld(){
   runLootTotal=0; runLootCount=0; vaultCleared=false; alarmFlash=0; lowNoiseRun=true;
   noiseMuffled=false;
   hunterSpawned=false; vertHintShown=false;
-  runHeatSeed = clamp(Math.floor(meta.curseDebt/2) - upgLevel('cool'), 0, 3);  // the world remembers your dealings
+  runHeatSeed = clamp(Math.floor(meta.curseDebt/2) - upgLevel('cool'), 0, 3) + ascMods(ascensionLevel).heat;  // world remembers + ascension floor
   runSpotted=false; runClock=0; peakHeat=0; runDamaged=false;
   runTimeLimit = activeContract && activeContract.type==='timed' ? activeContract.timeLimit : 0;
   currentTheme = THEMES[(activeContract && activeContract.themeKey) || THEME_KEYS[Math.floor(vrng()*THEME_KEYS.length)]];
@@ -1027,8 +1050,8 @@ function speedNow(){
   return player.baseSpeed*(1-pen);
 }
 function noiseNow(){ return noiseMuffled ? 0 : carriedNoise * Math.max(0.2, 1 - 0.18*upgLevel('boots')); }
-function detectRadius(){ return (92 + noiseNow()*6 + heatTier*9) * Math.max(0.55, 1 - 0.06*collLevel('relic')); }
-function guardSpeed(){ return 1.5 + heatTier*0.16 + carriedCurse*0.03; }
+function detectRadius(){ return (92 + noiseNow()*6 + heatTier*9) * Math.max(0.55, 1 - 0.06*collLevel('relic')) * ascMods(ascensionLevel).det; }
+function guardSpeed(){ return (1.5 + heatTier*0.16 + carriedCurse*0.03) * ascMods(ascensionLevel).gs; }
 
 // ---------- input ----------
 addEventListener('keydown', e=>{
@@ -1217,7 +1240,7 @@ function update(dt){
   }
 
   // GDD Heat ladder: at high heat, a Bounty Hunter enters — and notoriety brings it sooner
-  const hunterAt = Math.max(2, 4 - Math.floor(meta.curseDebt/3));
+  const hunterAt = Math.max(1, Math.max(2, 4 - Math.floor(meta.curseDebt/3)) - ascMods(ascensionLevel).hun);
   if(!hunterSpawned && heatTier>=hunterAt){ spawnHunter(); }
 
   // NEW: swivel sentries — stationary eyes that sweep a vision cone
@@ -1702,7 +1725,10 @@ function toast(msg,ms=1200){ const t=$('toast'); t.textContent=msg; t.classList.
 // ---------- flow ----------
 function show(id){ ['menu','howto','paused','shop','collection','contracts','fence','onemore','decision','result'].forEach(o=>$(o).classList.toggle('on', o===id)); }
 function startRun(){
-  buildWorld(); recompute(); state='playing';
+  ascensionLevel = clamp(selectedAscension, 0, ascUnlocked());
+  buildWorld(); recompute();
+  if(ascMods(ascensionLevel).fromStart && !hunterSpawned) spawnHunter();  // A10: hunter from the opening second
+  state='playing';
   show(null); $('hud').classList.add('on');
   if(isTouch){ touchWrap.style.display='block'; eBtn.style.display='flex'; }
 }
@@ -1803,6 +1829,12 @@ function endRun(escaped){
     }
   }
   const haulVal = carriedValue;
+  // Ascension: record a per-level best and unlock the next level on a successful clear.
+  const ascScore = escaped ? haulVal : 0;
+  ascNewBest = escaped && ascScore > bestForAsc(ascensionLevel);
+  if(ascNewBest){ meta.bestByAsc[ascensionLevel] = ascScore; }
+  if(escaped && ascensionLevel>=1 && ascensionLevel===ascUnlocked() && ascensionLevel<ASC_MAX){ meta.ascUnlocked=ascensionLevel+1; }
+  saveMeta();
   // Danger pays: the hotter the run got, the more everything is worth (risk = reward)
   pendingDangerMult = 1 + peakHeat*0.09 + 0.05*collLevel('heart');
 
@@ -1834,6 +1866,7 @@ function endRun(escaped){
     + (peakHeat>0?`<div>Danger (T${peakHeat})<b style="color:var(--heat)">+${Math.round((pendingDangerMult-1)*100)}%</b></div>`:'')
     + (perfect?`<div>Clean bonus<b style="color:var(--ok)">+40%</b></div>`:'')
     + contractLine
+    + (ascensionLevel>0?`<div>Ascension ${ascensionLevel}<b style="color:var(--purple,#a98bff)">${ascNewBest?'NEW BEST':'★'.repeat(Math.min(ascensionLevel,5))}</b></div>`:'')
     + `<div>Secured<b>${loot.filter(l=>l.got).length}/${runLootCount}</b></div>`;
   $('continueBtn').textContent = (escaped && pendingHaul.length) ? 'To the Fence' : 'To the Hideout';
   show('result');
@@ -1864,7 +1897,7 @@ function routeAfterResult(){
   if(runOutcome && pendingHaul.length){ openFence(); return; }
   // no items to haggle over — bank any loose bulk directly, then to the hideout
   if(runOutcome && pendingBulk.n>0){
-    let t=Math.round(pendingBulk.val*sellMult()); if(pendingPerfect) t=Math.round(t*1.4); t=Math.round(t*pendingDangerMult*collGoldMult()); meta.gold+=t;
+    let t=Math.round(pendingBulk.val*sellMult()); if(pendingPerfect) t=Math.round(t*1.4); t=Math.round(t*pendingDangerMult*collGoldMult()*ascMods(ascensionLevel).pay); meta.gold+=t;
   }
   applyContractRewards();
   pendingHaul=[]; pendingBulk={val:0,n:0};
@@ -1903,7 +1936,7 @@ function renderFence(){
       pendingHaul.forEach((o,oi)=>{ if(oi!==i){ const cur=o.buyers[o.saleIdx]; if(cur&&cur.id==='noble') o.saleIdx=0; } });
     }
     pendingHaul[i].saleIdx=bi; renderFence(); });
-  if(pendingPerfect) total=Math.round(total*1.4); total=Math.round(total*pendingDangerMult*collGoldMult());
+  if(pendingPerfect) total=Math.round(total*1.4); total=Math.round(total*pendingDangerMult*collGoldMult()*ascMods(ascensionLevel).pay);
   $('fenceTotal').textContent='$'+total.toLocaleString();
   const noto = curseD>0?`The syndicate\u2019s coin raises your notoriety.`
     : curseD<0?`Returning goods cools the world down.`
@@ -1918,7 +1951,7 @@ function bankHaul(){
     if(b.fx==='curse+')curseD++; else if(b.fx==='curse-')curseD--;
     if(b.fx==='keep'){ const tid=KIND_TROPHY[it.kind]; if(tid && collLevel(tid)===0){ meta.collection[tid]=1;
       toast(trophyById(tid).passive+' \u2014 added to the Collection.',1600); } } }
-  if(pendingPerfect) total=Math.round(total*1.4); total=Math.round(total*pendingDangerMult*collGoldMult());
+  if(pendingPerfect) total=Math.round(total*1.4); total=Math.round(total*pendingDangerMult*collGoldMult()*ascMods(ascensionLevel).pay);
   meta.gold+=total; meta.curseDebt=clamp(meta.curseDebt+curseD,0,10);
   applyContractRewards();
   pendingHaul=[]; pendingBulk={val:0,n:0};
@@ -1980,14 +2013,17 @@ async function loadMeta(){
         meta.gold=d.gold||0; meta.runs=d.runs||0; meta.bestHaul=d.bestHaul||0;
         meta.curseDebt=d.curseDebt||0; if(d.upg) Object.assign(meta.upg,d.upg);
         if(d.collection) Object.assign(meta.collection,d.collection);
+        meta.ascUnlocked=d.ascUnlocked||0; if(d.bestByAsc) meta.bestByAsc=d.bestByAsc;
       }
+      refreshAscUnlock();  // already-maxed saves unlock Ascension 1
     }
   }catch(e){/* first run or storage unavailable — play in-memory */}
   if(state==='shop') renderShop();
 }
 async function saveMeta(){
   try{ if(window.storage) await window.storage.set(SAVE_KEY, JSON.stringify({
-    gold:meta.gold, runs:meta.runs, bestHaul:meta.bestHaul, curseDebt:meta.curseDebt, upg:meta.upg, collection:meta.collection })); }
+    gold:meta.gold, runs:meta.runs, bestHaul:meta.bestHaul, curseDebt:meta.curseDebt, upg:meta.upg, collection:meta.collection,
+    ascUnlocked:meta.ascUnlocked, bestByAsc:meta.bestByAsc })); }
   catch(e){}
 }
 async function wipeMeta(){
@@ -1995,6 +2031,7 @@ async function wipeMeta(){
   meta.gold=0; meta.runs=0; meta.bestHaul=0; meta.curseDebt=0;
   meta.upg={straps:0,boots:0,feet:0,luck:0,landing:0,scanner:0,pockets:0,contacts:0,cool:0,revive:0};
   meta.collection={idol:0,relic:0,jewel:0,relicart:0,heart:0};
+  meta.ascUnlocked=0; meta.bestByAsc={}; selectedAscension=0; ascensionLevel=0;
   renderShop();
 }
 function renderShop(){
@@ -2019,9 +2056,28 @@ function renderShop(){
     el.innerHTML=`<div class="nm">${u.nm}</div><div class="ds">${u.ds}</div>${effLine}
       <div class="cost">${maxed?'\u2713 MAX':'$'+cost.toLocaleString()}</div>${lvlTag}`;
     if(!maxed&&afford){ el.onclick=()=>{ meta.gold-=cost; meta.upg[u.id]=lvl+1;
+      const wasLocked=ascUnlocked()<1; refreshAscUnlock(); if(wasLocked&&ascUnlocked()>=1) toast('Difficulty Ascension unlocked \u2014 every upgrade maxed.',1600);
       toast(u.nm+(u.max>1?` \u2014 Lv ${lvl+1}`:' acquired')+'.',1100); saveMeta(); renderShop(); }; }
     grid.appendChild(el);
   }
+  renderAscension();
+}
+// Minimal Ascension selector on the hideout: harder runs, bigger payout, no new sink.
+function renderAscension(){
+  const old=$('ascSel'); if(old) old.remove();
+  if(ascUnlocked()<1) return;
+  selectedAscension=clamp(selectedAscension,0,ascUnlocked());
+  const m=ascMods(selectedAscension);
+  const box=document.createElement('div'); box.id='ascSel';
+  box.style.cssText='margin:10px 0;padding:8px 12px;border:1px solid var(--panel-line,#46391f);border-radius:8px;color:var(--purple,#a98bff);font-size:13px;display:flex;align-items:center;gap:10px;justify-content:center';
+  const mk=(t,fn)=>{ const b=document.createElement('button'); b.textContent=t;
+    b.style.cssText='min-width:34px;padding:4px 8px;background:#1c1730;color:var(--purple,#a98bff);border:1px solid #4a3a6a;border-radius:6px;cursor:pointer'; b.onclick=fn; return b; };
+  const desc=document.createElement('span'); desc.style.flex='1'; desc.style.textAlign='center';
+  desc.innerHTML = selectedAscension===0
+    ? `<b>Ascension 0</b> \u00b7 standard run \u00b7 highest unlocked A${ascUnlocked()}`
+    : `<b>Ascension ${selectedAscension}</b> \u00b7 guards +${Math.round((m.gs-1)*100)}% spd, +${Math.round((m.det-1)*100)}% detect \u00b7 Heat +${m.heat} \u00b7 Hunter ${m.fromStart?'from start':(m.hun>0?m.hun+' sooner':'\u2014')} \u00b7 payout \u00d7${m.pay.toFixed(2)} \u00b7 best $${bestForAsc(selectedAscension).toLocaleString()}`;
+  box.append(mk('\u2212',()=>{selectedAscension=Math.max(0,selectedAscension-1);renderShop();}), desc, mk('+',()=>{selectedAscension=Math.min(ascUnlocked(),selectedAscension+1);renderShop();}));
+  const nl=$('notoLine'); nl.parentNode.insertBefore(box, nl.nextSibling);
 }
 
 // buttons
@@ -2097,6 +2153,9 @@ window.__greed = {
   get vgraph(){ return vgraph; }, get walls(){ return walls; }, get loot(){ return loot; },
   get guards(){ return guards; }, get player(){ return player; }, get portal(){ return portal; },
   get WORLD(){ return WORLD; }, isOpen, platAt, navTarget,
+  ascMods, isMetaMaxed, refreshAscUnlock, guardSpeed, detectRadius,
+  get meta(){ return meta; }, get UPGRADES(){ return UPGRADES; }, get ascUnlocked(){ return ascUnlocked(); },
+  get ascensionLevel(){ return ascensionLevel; }, set ascensionLevel(v){ ascensionLevel = v; },
 };
 })();
 </script>
