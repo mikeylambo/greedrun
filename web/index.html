@@ -656,7 +656,7 @@ function isOpenGround(x,y,r){
 }
 function openSpot(r, minFromList, list, tries=200){
   for(let i=0;i<tries;i++){
-    const x=rand(120,WORLD.w-120), y=rand(120,WORLD.h-120);
+    const x=vr(120,WORLD.w-120), y=vr(120,WORLD.h-120);
     if(!isOpen(x,y,r+6)) continue;
     if(platAt(x,y)!==-1) continue;   // ground entities stay off raised platforms
     let ok=true;
@@ -665,6 +665,13 @@ function openSpot(r, minFromList, list, tries=200){
   }
   return {x:WORLD.w/2,y:WORLD.h/2};
 }
+// A seeded open point inside one room (keeps a guard's patrol within its region).
+function openSpotInRegion(reg, fallback){
+  if(!vgraph || reg<0) return fallback;
+  const R=vgraph.openRect(reg);
+  for(let i=0;i<120;i++){ const x=vr(R.x,R.x+R.w), y=vr(R.y,R.y+R.h); if(isOpen(x,y,20)&&platAt(x,y)===-1) return {x,y}; }
+  return fallback;
+}
 
 // ---------- world generation ----------
 // ---------- procedural vault layouts ----------
@@ -672,19 +679,77 @@ function openSpot(r, minFromList, list, tries=200){
 // arena stays fully connected (no sealed pockets) while feeling different.
 const LAYOUTS = ['pillars','corridors','chambers','warren'];
 let currentLayout = 'chambers';
+// ===== Seeded RNG for vault generation (daily-run determinism; contracts stay unseeded) =====
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+let vaultSeed=0, vrng=Math.random;
+function seedVault(s){ vaultSeed=(s>>>0)||1; vrng=mulberry32(vaultSeed); }
+const vr=(a,b)=>a+vrng()*(b-a);                     // seeded float in [a,b)
+const vpick=arr=>arr[Math.floor(vrng()*arr.length)];// seeded array pick
+
+// ===== Room-grid vault graph (ported from Godot vault_graph.gd) =====
+// Rooms joined by doorways; the open doorways are a spanning tree over the rooms
+// plus a few loop doorways, so the whole map is connected BY CONSTRUCTION — never
+// a runtime check. Drives region-aware guard navigation. All off the seeded stream.
+const DOOR_WIDTH=132, ROOM_GRID_CHANCE=0.5;         // TUNE: gap width; share of runs that are room grids
+let vgraph=null;
+function buildRoomGrid(interior, T){
+  const cols=clamp(Math.round(interior.w/820),2,4), rows=clamp(Math.round(interior.h/640),2,3); // TUNE spans/clamps
+  const cw=interior.w/cols, ch=interior.h/rows, ox=interior.x, oy=interior.y;
+  const key=(a,b)=>Math.min(a,b)+'-'+Math.max(a,b);
+  const neigh=i=>{ const c=i%cols, r=(i/cols)|0, o=[]; if(c>0)o.push(i-1); if(c<cols-1)o.push(i+1); if(r>0)o.push(i-cols); if(r<rows-1)o.push(i+cols); return o; };
+  const cellRect=i=>({x:ox+(i%cols)*cw, y:oy+((i/cols)|0)*ch, w:cw, h:ch});
+  // spanning tree (randomised DFS): every room reachable by these edges alone
+  const open={}, seen={0:1}, stack=[0];
+  while(stack.length){ const cur=stack[stack.length-1], opts=neigh(cur).filter(n=>!seen[n]);
+    if(!opts.length){ stack.pop(); continue; }
+    const nx=opts[Math.floor(vrng()*opts.length)]; open[key(cur,nx)]=1; seen[nx]=1; stack.push(nx); }
+  // loop doorways beyond the tree (alternate routes; the only ones a future sever pass could close)
+  const cand=[]; for(let a=0;a<cols*rows;a++) for(const b of neigh(a)) if(a<b && !open[key(a,b)]) cand.push([a,b]);
+  for(let i=cand.length-1;i>0;i--){ const j=Math.floor(vrng()*(i+1)); const t=cand[i]; cand[i]=cand[j]; cand[j]=t; }
+  const loops=clamp((cols*rows/3)|0,1,4), loopKeys=[];
+  for(let i=0;i<Math.min(loops,cand.length);i++){ open[key(cand[i][0],cand[i][1])]=1; loopKeys.push(key(cand[i][0],cand[i][1])); }
+  // emit one wall per internal boundary, split around a doorway when the edge is open
+  const wallsOut=[], doors={}, adj={}; for(let i=0;i<cols*rows;i++) adj[i]=[];
+  const half=T/2;
+  const addW=(x,y,w,h)=>{ if(w>1&&h>1) wallsOut.push({x,y,w,h}); };
+  const link=(a,b,cx,cy)=>{ doors[key(a,b)]={x:cx,y:cy}; adj[a].push(b); adj[b].push(a); };
+  const doorPos=(lo,hi)=>{ const m=DOOR_WIDTH/2+56, a=lo+m, z=hi-m; return a>=z?(lo+hi)/2:vr(a,z); };
+  for(let c=0;c<cols-1;c++) for(let r=0;r<rows;r++){ const a=r*cols+c, b=a+1, lx=ox+(c+1)*cw, top=oy+r*ch, bot=top+ch;
+    if(open[key(a,b)]){ const dy=doorPos(top,bot); addW(lx-half,top,T,dy-DOOR_WIDTH/2-top); addW(lx-half,dy+DOOR_WIDTH/2,T,bot-(dy+DOOR_WIDTH/2)); link(a,b,lx,dy); }
+    else addW(lx-half,top,T,ch); }
+  for(let r=0;r<rows-1;r++) for(let c=0;c<cols;c++){ const a=r*cols+c, b=a+cols, ly=oy+(r+1)*ch, left=ox+c*cw, right=left+cw;
+    if(open[key(a,b)]){ const dx=doorPos(left,right); addW(left,ly-half,dx-DOOR_WIDTH/2-left,T); addW(dx+DOOR_WIDTH/2,ly-half,right-(dx+DOOR_WIDTH/2),T); link(a,b,dx,ly); }
+    else addW(left,ly-half,cw,T); }
+  return { cols, rows, ox, oy, cw, ch, adj, doors, loopKeys, walls:wallsOut, exit:0, dist:{}, cellRect,
+    regionOf(x,y){ const c=clamp((x-ox)/cw|0,0,cols-1), r=clamp((y-oy)/ch|0,0,rows-1); return r*cols+c; },
+    openRect(i){ const R=cellRect(i); return {x:R.x+32,y:R.y+32,w:R.w-64,h:R.h-64}; } };
+}
+function graphSetExit(g,x,y){ g.exit=g.regionOf(x,y); g.dist={[g.exit]:0}; const q=[g.exit];
+  while(q.length){ const c=q.shift(); for(const n of g.adj[c]) if(g.dist[n]===undefined){ g.dist[n]=g.dist[c]+1; q.push(n); } } }
+// next point to steer toward to reach (tx,ty): the doorway into the next room, or the target itself
+function navTarget(g,fx,fy,tx,ty){
+  if(!g) return {x:tx,y:ty};
+  const a=g.regionOf(fx,fy), b=g.regionOf(tx,ty); if(a===b) return {x:tx,y:ty};
+  const prev={[a]:a}, q=[a];
+  while(q.length){ const c=q.shift(); for(const n of g.adj[c]){ if(prev[n]!==undefined) continue; prev[n]=c;
+    if(n===b){ let s=n; while(prev[s]!==a) s=prev[s]; const d=g.doors[Math.min(a,s)+'-'+Math.max(a,s)]; return d?{x:d.x,y:d.y}:{x:tx,y:ty}; }
+    q.push(n); } }
+  return {x:tx,y:ty};
+}
+
 function genLayout(){
-  const theme = LAYOUTS[Math.floor(Math.random()*LAYOUTS.length)];
+  const theme = vpick(LAYOUTS);
   currentLayout = theme;
   const b = []; // interior blocks [x,y,w,h]
   const safeLeft = 340; // keep the entrance/return lane clear
-  const R = (a,z)=>a+Math.random()*(z-a);
+  const R = (a,z)=>a+vrng()*(z-a);
   const clear = (x,y,w,h)=> x>safeLeft || false; // only place right of the safe lane
 
   if(theme==='pillars'){
     // grid-ish field of square pillars, jittered
     const cols=5, rows=4, cw=(WORLD.w-safeLeft-120)/cols, ch=(WORLD.h-240)/rows;
     for(let cx=0;cx<cols;cx++)for(let cy=0;cy<rows;cy++){
-      if(Math.random()<0.28) continue;
+      if(vrng()<0.28) continue;
       const s=R(70,120);
       const x=safeLeft+80+cx*cw+R(0,cw-s), y=140+cy*ch+R(0,ch-s);
       b.push([x,y,s,s]);
@@ -692,7 +757,7 @@ function genLayout(){
   } else if(theme==='corridors'){
     // long thin walls forming loose lanes
     for(let i=0;i<7;i++){
-      const horiz=Math.random()<0.5;
+      const horiz=vrng()<0.5;
       const len=R(280,520), th=56;
       const x=R(safeLeft+40, WORLD.w-len-80), y=R(120, WORLD.h-th-120);
       b.push(horiz?[x,y,len,th]:[x,y,th,len]);
@@ -706,19 +771,22 @@ function genLayout(){
     }
     // plus a couple of thin dividers
     for(let i=0;i<3;i++){ const l=R(240,420); const x=R(safeLeft, WORLD.w-l-80), y=R(120,WORLD.h-180);
-      b.push(Math.random()<.5?[x,y,l,52]:[x,y,52,l]); }
+      b.push(vrng()<.5?[x,y,l,52]:[x,y,52,l]); }
   } else { // warren: dense mix of small blocks + a few walls
     for(let i=0;i<10;i++){ const s=R(70,150); const x=R(safeLeft+40,WORLD.w-s-80), y=R(120,WORLD.h-s-120); b.push([x,y,s,s]); }
     for(let i=0;i<3;i++){ const l=R(300,480); const x=R(safeLeft,WORLD.w-l-80), y=R(120,WORLD.h-180);
-      b.push(Math.random()<.5?[x,y,l,54]:[x,y,54,l]); }
+      b.push(vrng()<.5?[x,y,l,54]:[x,y,54,l]); }
   }
   return b.filter(r=>clear(r[0],r[1],r[2],r[3]));
 }
 
+let runSeed=0;  // 0 = fresh random each run; set to a fixed value (e.g. a daily hash) to reproduce a vault
 function buildWorld(){
+  // One seeded stream drives the whole vault, so a seed reproduces it (daily runs).
+  seedVault(runSeed || ((Math.random()*4294967296)>>>0));
   // bigger, and a different size every job — some vaults are compact, some are sprawling estates
-  WORLD.w = 2300 + Math.round(rand(0,900));
-  WORLD.h = 1550 + Math.round(rand(0,650));
+  WORLD.w = 2300 + Math.round(vr(0,900));
+  WORLD.h = 1550 + Math.round(vr(0,650));
   const areaScale = (WORLD.w*WORLD.h)/(2000*1400);
   walls=[]; loot=[]; guards=[]; sentries=[]; particles=[]; floaters=[];
   seenOneMore=false; heartRevealed=false; runOutcome=null; flashCurse=0;
@@ -729,22 +797,31 @@ function buildWorld(){
   runHeatSeed = clamp(Math.floor(meta.curseDebt/2) - upgLevel('cool'), 0, 3);  // the world remembers your dealings
   runSpotted=false; runClock=0; peakHeat=0; runDamaged=false;
   runTimeLimit = activeContract && activeContract.type==='timed' ? activeContract.timeLimit : 0;
-  currentTheme = THEMES[(activeContract && activeContract.themeKey) || THEME_KEYS[Math.floor(Math.random()*THEME_KEYS.length)]];
+  currentTheme = THEMES[(activeContract && activeContract.themeKey) || THEME_KEYS[Math.floor(vrng()*THEME_KEYS.length)]];
 
   const T=44; // wall thickness
   walls.push({x:0,y:0,w:WORLD.w,h:T});
   walls.push({x:0,y:WORLD.h-T,w:WORLD.w,h:T});
   walls.push({x:0,y:0,w:T,h:WORLD.h});
   walls.push({x:WORLD.w-T,y:0,w:T,h:WORLD.h});
-  for(const bk of genLayout()) walls.push({x:bk[0],y:bk[1],w:bk[2],h:bk[3]});
+  // Layout family: some runs are flat open arenas (scattered cover), some are
+  // structured room grids (partition walls + doorways). Seeded coin flip.
+  vgraph=null;
+  if(vrng() < ROOM_GRID_CHANCE){
+    vgraph = buildRoomGrid({x:T, y:T, w:WORLD.w-2*T, h:WORLD.h-2*T}, T);
+    for(const w of vgraph.walls) walls.push(w);
+    currentLayout = 'rooms';
+  } else {
+    for(const bk of genLayout()) walls.push({x:bk[0],y:bk[1],w:bk[2],h:bk[3]});
+  }
 
   // raised platforms (mesas) with a staircase on one side — placed before loot so nothing spawns on them
   platforms=[];
-  const platN = clamp(Math.round((2 + (Math.random()<0.6?1:0)) * areaScale), 2, 4);
+  const platN = clamp(Math.round((2 + (vrng()<0.6?1:0)) * areaScale), 2, 4);
   for(let i=0;i<platN;i++){
     for(let t=0;t<40;t++){
-      const w=Math.round(rand(180,300)), h=Math.round(rand(160,260));
-      const x=Math.round(rand(WORLD.w*0.32, WORLD.w-w-120)), y=Math.round(rand(150, WORLD.h-h-150));
+      const w=Math.round(vr(180,300)), h=Math.round(vr(160,260));
+      const x=Math.round(vr(WORLD.w*0.32, WORLD.w-w-120)), y=Math.round(vr(150, WORLD.h-h-150));
       const cand={x,y,w,h};
       // keep clear of walls, the entrance lane, and other platforms
       if(x<340) continue;
@@ -754,7 +831,7 @@ function buildWorld(){
       for(const p of platforms){ if(x< p.x+p.w+90 && x+w> p.x-90 && y< p.y+p.h+90 && y+h> p.y-90){ bad=true; break; } }
       if(bad) continue;
       // stair sits just OUTSIDE one edge, on the ground (never inside the footprint)
-      const side=Math.floor(Math.random()*4); const sw=72;
+      const side=Math.floor(vrng()*4); const sw=72;
       let st;
       if(side===0) st={x:x+w/2-sw/2, y:y-46, w:sw, h:46};       // above top edge
       else if(side===1) st={x:x+w/2-sw/2, y:y+h, w:sw, h:46};   // below bottom edge
@@ -765,8 +842,13 @@ function buildWorld(){
   }
 
   // portal = the entrance, on the left. The good loot is deep right.
-  const pSpot = {x:150, y:WORLD.h/2};
+  // Spawn inside the middle-left room, off any partition line (an even-row grid
+  // would otherwise put a wall right through WORLD.h/2).
+  let spawnY = WORLD.h/2;
+  if(vgraph){ const ex=((vgraph.rows/2)|0)*vgraph.cols, R=vgraph.openRect(ex); spawnY=R.y+R.h/2; }
+  const pSpot = {x:150, y:spawnY};
   portal = {x:pSpot.x, y:pSpot.y, r:46, spin:0};
+  if(vgraph) graphSetExit(vgraph, portal.x, portal.y);
 
   player = {
     x:pSpot.x, y:pSpot.y, r:14, vx:0, vy:0, face:0,
@@ -777,7 +859,7 @@ function buildWorld(){
 
   // scatter loot — quantity by tier, biased deeper (higher x) for the good stuff
   const placed=[{x:portal.x,y:portal.y}];
-  const add=(type,x,y)=>{ loot.push(Object.assign({x,y,type,glow:Math.random()*6.28,got:false,plat:-1}, LOOT_TYPES[type])); placed.push({x,y}); };
+  const add=(type,x,y)=>{ loot.push(Object.assign({x,y,type,glow:vrng()*6.28,got:false,plat:-1}, LOOT_TYPES[type])); placed.push({x,y}); };
 
   for(let i=0;i<Math.round(7*areaScale);i++){ const s=openSpot(14,140,placed); add('coin',s.x,s.y); }
   for(let i=0;i<Math.round(5*areaScale);i++){ const s=openSpot(14,150,placed); add('gem', s.x,s.y); }
@@ -786,9 +868,9 @@ function buildWorld(){
 
   // elevated loot — the reward for climbing. One good item on each platform.
   platforms.forEach((p,pi)=>{
-    const kind = Math.random()<0.5?'idol':'gem';
-    const lx=p.x+p.w/2+rand(-p.w*0.25,p.w*0.25), ly=p.y+p.h/2+rand(-p.h*0.25,p.h*0.25);
-    loot.push(Object.assign({x:lx,y:ly,type:kind,glow:Math.random()*6.28,got:false,plat:pi}, LOOT_TYPES[kind]));
+    const kind = vrng()<0.5?'idol':'gem';
+    const lx=p.x+p.w/2+vr(-p.w*0.25,p.w*0.25), ly=p.y+p.h/2+vr(-p.h*0.25,p.h*0.25);
+    loot.push(Object.assign({x:lx,y:ly,type:kind,glow:vrng()*6.28,got:false,plat:pi}, LOOT_TYPES[kind]));
     placed.push({x:lx,y:ly});
   });
 
@@ -796,25 +878,25 @@ function buildWorld(){
   { let s; do{ s=openSpot(14,170,placed);}while(s.x<WORLD.w*0.28||s.x>WORLD.w*0.82); add('living',s.x,s.y); }
 
   // Royal Loot: worth a fortune, but touching it turns out the elite guard
-  if(Math.random()<0.7){ let s; do{ s=openSpot(14,180,placed);}while(s.x<WORLD.w*0.5); add('royal',s.x,s.y); }
+  if(vrng()<0.7){ let s; do{ s=openSpot(14,180,placed);}while(s.x<WORLD.w*0.5); add('royal',s.x,s.y); }
   // Fragile Loot: valuable, but it shatters if a guard lands a hit on you
-  if(Math.random()<0.7){ let s; do{ s=openSpot(14,170,placed);}while(s.x<WORLD.w*0.35); add('fragile',s.x,s.y); }
+  if(vrng()<0.7){ let s; do{ s=openSpot(14,170,placed);}while(s.x<WORLD.w*0.35); add('fragile',s.x,s.y); }
 
   // NEW: 1-2 decision artifacts (branching loot) in the mid-deep vault
-  const artCount = 1 + (Math.random()<0.6?1:0);
-  const artPool = [...ARTIFACTS].sort(()=>Math.random()-0.5);
+  const artCount = 1 + (vrng()<0.6?1:0);
+  const artPool = [...ARTIFACTS].sort(()=>vrng()-0.5);
   for(let i=0;i<artCount;i++){
     let s; do{ s=openSpot(14,190,placed);}while(s.x<WORLD.w*0.4);
     const cfg=artPool[i%artPool.length];
-    const base=700+Math.floor(Math.random()*450);
-    const boon=BOON_KEYS[Math.floor(Math.random()*BOON_KEYS.length)];
+    const base=700+Math.floor(vrng()*450);
+    const boon=BOON_KEYS[Math.floor(vrng()*BOON_KEYS.length)];
     loot.push({x:s.x,y:s.y,type:'artifact',kind:'artifact',name:cfg.name,flavor:cfg.flavor,
-      value:base, base, boon, weight:0,noise:0,curse:0, glow:Math.random()*6.28, got:false, plat:-1});
+      value:base, base, boon, weight:0,noise:0,curse:0, glow:vrng()*6.28, got:false, plat:-1});
     placed.push({x:s.x,y:s.y});
   }
 
   // Vault Heart pre-placed deep-right but hidden until "one more thing"
-  const hSpot={x:WORLD.w-150, y: Math.random()<.5 ? 180 : WORLD.h-180};
+  const hSpot={x:WORLD.w-150, y: vrng()<.5 ? 180 : WORLD.h-180};
   add('heart', hSpot.x, hSpot.y);
   if(upgLevel('scanner')>0){ heartRevealed=true; } else { loot[loot.length-1].hidden=true; }
 
@@ -826,18 +908,20 @@ function buildWorld(){
   const gCount=clamp(Math.round(5*areaScale),5,8);
   for(let i=0;i<gCount;i++){
     const a=openSpot(14,240,placed.concat(guards));
+    const reg = vgraph ? vgraph.regionOf(a.x,a.y) : -1;
     const wps=[{x:a.x,y:a.y}];
-    for(let k=0;k<2;k++){ const b=openSpot(14,60,null); wps.push({x:b.x,y:b.y}); }
+    // In room grids keep a guard patrolling its own room; in open arenas roam freely.
+    for(let k=0;k<2;k++){ const b = vgraph ? openSpotInRegion(reg,a) : openSpot(14,60,null); wps.push({x:b.x,y:b.y}); }
     guards.push({x:a.x,y:a.y,r:14,wps,wi:0,state:'patrol',alert:0,face:0,hitCd:0,lkp:null,searchT:0});
   }
 
   // NEW: stationary sentries with swiveling vision cones (guard the deep loot)
-  const senCount=2+Math.floor(Math.random()*2); // 2-3
+  const senCount=2+Math.floor(vrng()*2); // 2-3
   for(let i=0;i<senCount;i++){
     let s; do{ s=openSpot(14,200,placed.concat(sentries)); }while(s.x<WORLD.w*0.42);
-    const center=Math.random()*6.28;
-    sentries.push({x:s.x,y:s.y,r:12, ang:center, center, sweep:0.9+Math.random()*0.5,
-      dir:Math.random()<.5?1:-1, coneHalf:0.42, view:250, cd:0, hot:0});
+    const center=vrng()*6.28;
+    sentries.push({x:s.x,y:s.y,r:12, ang:center, center, sweep:0.9+vrng()*0.5,
+      dir:vrng()<.5?1:-1, coneHalf:0.42, view:250, cd:0, hot:0});
   }
 
   cam.x = clamp(player.x-VIEW.w/2,0,WORLD.w-VIEW.w);
@@ -1098,7 +1182,9 @@ function update(dt){
       if(dist2(g.x,g.y,tx,ty)<32*32) g.wi=(g.wi+1)%g.wps.length; }
 
     if(!searching){
-      let dx=tx-g.x, dy=ty-g.y; const d=Math.hypot(dx,dy)||1;
+      // Thread doorways in room grids instead of pressing into a partition wall.
+      const nav = navTarget(vgraph, g.x, g.y, tx, ty);
+      let dx=nav.x-g.x, dy=nav.y-g.y; const d=Math.hypot(dx,dy)||1;
       dx/=d; dy/=d; g.face=Math.atan2(dy,dx);
       const step=spd*dt*60;
       const passable = g.hunter ? isOpen : isOpenGround;   // the Hunter can climb; grunts can't
@@ -2003,6 +2089,15 @@ function frame(t){
 }
 requestAnimationFrame(t=>{tPrev=t; requestAnimationFrame(frame);});
 loadMeta();   // pull saved gold / upgrades / notoriety if present
+
+// Read-only headless-test surface (harmless in normal play). Used by
+// tests/web_region_test.mjs to drive generation and inspect the vault graph.
+window.__greed = {
+  build(seed){ runSeed = seed; activeContract = null; buildWorld(); },
+  get vgraph(){ return vgraph; }, get walls(){ return walls; }, get loot(){ return loot; },
+  get guards(){ return guards; }, get player(){ return player; }, get portal(){ return portal; },
+  get WORLD(){ return WORLD; }, isOpen, platAt, navTarget,
+};
 })();
 </script>
 </body>
