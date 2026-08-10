@@ -1,1 +1,7 @@
+# Node tooling (headless test harness)
 node_modules/
+
+# Godot engine-generated artifacts (regenerated on import; never source)
+.godot/
+*.import
+*.uid
