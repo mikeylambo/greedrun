@@ -248,6 +248,18 @@
   .niche .rbtn:hover{transform:translateY(-1px);}
   .niche .rbtn.dim{background:transparent;color:var(--gold-deep);box-shadow:none;cursor:default;font-size:11px;letter-spacing:.12em;text-transform:uppercase;}
   .buyer .bf{font-size:10.5px;color:var(--muted);letter-spacing:.02em;}
+  /* Hideout scene — a den that visibly grows with progress */
+  /* contain:layout paint isolates the SVG from the flex ancestor, which otherwise
+     mis-maps its viewBox in Chromium (renders content squashed to the bottom). */
+  #hideoutScene{width:min(560px,96%);margin:8px auto 0;flex:none;line-height:0;contain:layout paint;}
+  #hideoutScene svg{width:100%;height:100%;display:block;border-radius:12px;
+    border:1px solid var(--gold-deep);box-shadow:0 14px 30px rgba(0,0,0,.6);}
+  .den-bar{width:min(560px,96%);height:5px;margin:7px auto 0;border-radius:3px;
+    background:#241d13;overflow:hidden;box-shadow:inset 0 0 0 1px #3a2e1b;}
+  .den-bar i{display:block;height:100%;width:0;border-radius:3px;
+    background:linear-gradient(90deg,var(--gold-deep),var(--gold));transition:width .5s ease;}
+  .den-cap{font-size:11.5px;color:var(--muted);text-align:center;margin:5px 0 0;letter-spacing:.03em;}
+  .den-cap b{color:var(--gold);font-family:"Cinzel",serif;font-weight:700;letter-spacing:.02em;}
   /* Hideout daily panel — compact, no vertical scroll */
   .daily-card{margin:8px auto;max-width:520px;padding:10px 12px;border:1px solid var(--panel-line,#46391f);
     border-radius:10px;background:linear-gradient(180deg,#1b160e,#141009);}
@@ -405,6 +417,9 @@
   <!-- Fence / upgrades -->
   <div class="overlay" id="shop">
     <div class="shop-head eyebrow">The Hideout · Fence &amp; Prep</div>
+    <div id="hideoutScene"></div>
+    <div class="den-bar"><i id="denBarFill"></i></div>
+    <div class="den-cap" id="denCap"></div>
     <div class="bank"><span class="c">Banked gold</span><span id="bankAmt">$0</span></div>
     <div id="notoLine"></div>
     <div id="dailyLine"></div>
@@ -2325,7 +2340,96 @@ async function wipeMeta(){
   meta.daily={ playedDay:'', playedScore:0, playedEscaped:false, streak:0, bestStreak:0, best:0, history:[] };
   renderShop();
 }
+// ---------- The hideout scene: a den that visibly grows with your standing ----------
+// A monotonic "standing" score drives the vault dial, gold piles, crates and tier
+// name; the trophy shelf lights per trophy owned (mirrors the Collection).
+const DEN_TIERS=[[0,'Back Alley'],[6,'Safehouse'],[16,'The Den'],[32,'Underground'],[54,'The Vault'],[84,'Kingpin’s Lair']];
+function denScore(){
+  let u=0; for(const k in meta.upg) u+=meta.upg[k]|0;
+  let c=0; for(const k in meta.collection) c+=meta.collection[k]|0;
+  return (meta.runs|0) + u + c*2 + (meta.ascUnlocked|0)*4;
+}
+function denTierIdx(s){ let t=0; for(let i=0;i<DEN_TIERS.length;i++) if(s>=DEN_TIERS[i][0]) t=i; return t; }
+function goldStackSVG(x,n){ let g=`<g transform="translate(${x},0)">`;
+  for(let i=0;i<n;i++){ const y=98-i*7.5;
+    g+=`<rect x="0" y="${y}" width="30" height="6.8" rx="2" fill="url(#gbar)"/>`
+      +`<rect x="1" y="${y}" width="28" height="2" rx="1" fill="#ffe9a8" opacity=".8"/>`; }
+  return g+'</g>'; }
+function crateSVG(x,y){ return `<g transform="translate(${x},${y})">`
+  +`<rect width="27" height="25" rx="2" fill="#2c2113" stroke="#3f2f1a" stroke-width="1.5"/>`
+  +`<path d="M0 0 L27 25 M27 0 L0 25" stroke="#3f2f1a" stroke-width="1.4"/>`
+  +`<rect y="10" width="27" height="5" fill="#221a0e" opacity=".6"/></g>`; }
+function renderHideoutScene(){
+  const host=$('hideoutScene'); if(!host) return;
+  const s=denScore(), ti=denTierIdx(s), cur=DEN_TIERS[ti][0], nx=DEN_TIERS[ti+1];
+  const prog = nx ? clamp((s-cur)/(nx[0]-cur),0,1) : 1;
+  const gems=['idol','relic','jewel','relicart','heart'].map((id,i)=>{
+    const owned=collLevel(id)>0, gc=TROPHY_GEM[id][0], x=180+i*52;
+    return `<g transform="translate(${x},30)">`
+      + (owned
+        ? `<circle r="9.5" fill="none" stroke="${gc}" stroke-opacity=".45" stroke-width="7"/>`
+          +`<circle r="8" fill="${gc}"><animate attributeName="opacity" values=".72;1;.72" dur="2.9s" repeatCount="indefinite"/></circle>`
+          +`<circle cx="-2.6" cy="-3" r="2.4" fill="#fff" opacity=".85"/>`
+        : `<circle r="7.5" fill="#2a2013" stroke="#5a4526" stroke-width="1.5"/>`
+          +`<circle r="3" fill="#140e07"/>`)
+      + `</g>`; }).join('');
+  const stacks=clamp(ti + (meta.bestHaul>=6000?1:0) + (meta.gold>=4000?1:0),0,5);
+  const sx=[172,208,244,296,334];
+  let gold=''; for(let i=0;i<stacks;i++) gold+=goldStackSVG(sx[i], 2+((ti+i*2+3)%4)+1);
+  const nCr=clamp(Math.floor((meta.runs|0)/3),0,3);
+  let crates=''; const cpos=[[100,75],[132,77],[116,51]];
+  for(let i=0;i<nCr;i++) crates+=crateSVG(cpos[i][0],cpos[i][1]);
+  const ring=2*Math.PI*26;
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 116" role="img" aria-label="Your hideout">
+    <defs>
+      <linearGradient id="dwall" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#40301a"/><stop offset=".6" stop-color="#2a2013"/><stop offset="1" stop-color="#1a130a"/></linearGradient>
+      <linearGradient id="gbar" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ffd85a"/><stop offset="1" stop-color="#b8862a"/></linearGradient>
+      <radialGradient id="lglow"><stop offset="0" stop-color="#ffdc7a"/><stop offset="1" stop-color="#7a5a1a" stop-opacity="0"/></radialGradient>
+      <radialGradient id="fglow" cx=".5" cy="1" r=".9"><stop offset="0" stop-color="#7a5620" stop-opacity=".55"/><stop offset="1" stop-color="#7a5620" stop-opacity="0"/></radialGradient>
+      <radialGradient id="vault" cx=".38" cy=".32"><stop offset="0" stop-color="#4a3d24"/><stop offset="1" stop-color="#1c130a"/></radialGradient>
+    </defs>
+    <rect width="560" height="116" fill="url(#dwall)"/>
+    <rect width="560" height="116" fill="url(#fglow)"/>
+    <ellipse cx="512" cy="22" rx="70" ry="56" fill="url(#lglow)" opacity=".6"/>
+    <rect y="100" width="560" height="16" fill="#140e07"/>
+    <line x1="0" y1="100" x2="560" y2="100" stroke="#5a4526" stroke-width="1.5" opacity=".7"/>
+    <!-- trophy shelf -->
+    <rect x="150" y="40" width="272" height="6" rx="2" fill="#4a3620" stroke="#5a4526"/>
+    <rect x="150" y="40" width="272" height="2" rx="1" fill="#6a5230" opacity=".7"/>
+    <rect x="152" y="46" width="4" height="12" fill="#2a1d10"/><rect x="416" y="46" width="4" height="12" fill="#2a1d10"/>
+    ${gems}
+    <!-- vault door -->
+    <g transform="translate(58,58)">
+      <circle r="40" fill="#1c130a" stroke="#5a4526" stroke-width="3"/>
+      <circle r="33" fill="url(#vault)" stroke="#6a5230"/>
+      <circle r="26" fill="none" stroke="#2a1d10" stroke-width="5"/>
+      <circle r="26" fill="none" stroke="#f5c542" stroke-width="3.5" stroke-linecap="round"
+        stroke-dasharray="${(prog*ring).toFixed(1)} ${ring.toFixed(1)}" transform="rotate(-90)"/>
+      <g stroke="#5a4526" stroke-width="2.6" stroke-linecap="round">
+        <line x1="-11" y1="0" x2="11" y2="0"/><line x1="0" y1="-11" x2="0" y2="11"/>
+        <line x1="-8" y1="-8" x2="8" y2="8"/><line x1="-8" y1="8" x2="8" y2="-8"/></g>
+      <circle r="4.5" fill="#6a5230"/>
+    </g>
+    <!-- lantern -->
+    <g transform="translate(512,2)">
+      <line x1="0" y1="0" x2="0" y2="11" stroke="#3a2e1b" stroke-width="2"/>
+      <rect x="-6" y="11" width="12" height="14" rx="2" fill="#2a1d10" stroke="#3a2e1b"/>
+      <rect x="-3.5" y="14" width="7" height="8" rx="1.5" fill="#ffcf3f" opacity=".9"/></g>
+    ${crates}${gold}
+  </svg>`;
+  host.innerHTML=svg;
+  // Inside the flex overlay an SVG with height:auto collapses; give the box a
+  // definite height (width × viewBox ratio) so the SVG fills it. Track resizes.
+  const fit=()=>{ const w=host.clientWidth; if(w) host.style.height=Math.round(w*116/560)+'px'; };
+  fit(); if(!host._ro && window.ResizeObserver){ host._ro=new ResizeObserver(fit); host._ro.observe(host); }
+  const cap=$('denCap'); if(cap) cap.innerHTML = `<b>${DEN_TIERS[ti][1]}</b>` +
+    (nx?` · ${nx[0]-s} to <b>${nx[1]}</b>`:` · fully established`);
+  const bar=$('denBarFill'); if(bar) bar.style.width=(prog*100).toFixed(0)+'%';
+}
 function renderShop(){
+  renderHideoutScene();
   $('bankAmt').textContent='$'+meta.gold.toLocaleString();
   const nl=$('notoLine');
   if(meta.curseDebt>0){
