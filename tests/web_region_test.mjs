@@ -206,6 +206,19 @@ const res = await page.evaluate(() => {
   for (const s of SEEDS) { build(s); if (gv() && G.loot.some(l => l.kind === 'shrine')) { shrineSeen = true; break; } }
   if (!shrineSeen) out.fails.push('no boon shrine spawned across room-grid seeds');
   else out.log.push('special rooms: boon shrine present');
+
+  // ---- Rival thief ----
+  build(SEEDS[4]);
+  if (!G.rivals.length) out.fails.push('no rival thief spawned');
+  else {
+    for (let i = 0; i < 1500; i++) G.updateRivals(0.05);       // ~75s of sim
+    const stolen = G.loot.filter(l => l.stolen).length;
+    if (stolen <= 0) out.fails.push('rival stole nothing over a long sim');
+    if (G.rivalHaul <= 0) out.fails.push('rival haul is zero');
+    if (G.loot.some(l => l.stolen && (l.kind === 'mythic' || l.kind === 'artifact' || l.kind === 'shrine')))
+      out.fails.push('rival stole a protected prize (Heart/artifact/shrine)');
+    out.log.push(`rival: stole ${stolen} items worth $${G.rivalHaul}`);
+  }
   return out;
 });
 

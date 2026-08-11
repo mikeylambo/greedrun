@@ -622,6 +622,7 @@ const BOON_KEYS = Object.keys(BOONS);
 // ---------- game state ----------
 let state = 'menu';   // menu | shop | playing | onemore | decision | result
 let walls = [], loot = [], guards = [], sentries = [], particles = [], floaters = [];
+let rivals = [], rivalHaul = 0;   // a rival thief races you for the loot
 let platforms = [];               // raised terrain (mesas): {x,y,w,h,stair}
 const ELEV = 12;                  // visual height cue for platforms
 let vertHintShown = false;
@@ -900,6 +901,44 @@ function drawSever(){
   ctx.restore();
 }
 
+// ===== Rival Thief: an AI competitor that races you for the loot =====
+function updateRivals(dt){
+  for(const rv of rivals){
+    // (re)target the nearest grabbable ground item; it leaves the big prizes (Heart,
+    // artifacts, shrine) for you, so the race is over the bulk + notable loot.
+    if(!rv.target || rv.target.got || rv.target.stolen || rv.target.hidden){
+      rv.target=null; let bd=1e18;
+      for(const l of loot){
+        if(l.got||l.stolen||l.hidden||l.plat>=0) continue;
+        if(l.kind==='artifact'||l.kind==='mythic'||l.kind==='shrine') continue;
+        const d=dist2(rv.x,rv.y,l.x,l.y); if(d<bd){ bd=d; rv.target=l; }
+      }
+    }
+    const t=rv.target; if(!t) continue;
+    const nav=navTarget(vgraph,rv.x,rv.y,t.x,t.y);
+    let dx=nav.x-rv.x, dy=nav.y-rv.y; const d=Math.hypot(dx,dy)||1; dx/=d; dy/=d; rv.face=Math.atan2(dy,dx);
+    const spd=1.7*dt*60;                                   // TUNE: a hair slower than a loaded sprint
+    if(isOpenGround(rv.x+dx*spd,rv.y,rv.r)) rv.x+=dx*spd; else if(isOpenGround(rv.x+(dx>0?spd:-spd),rv.y,rv.r)) rv.x+=(dx>0?spd:-spd);
+    if(isOpenGround(rv.x,rv.y+dy*spd,rv.r)) rv.y+=dy*spd; else if(isOpenGround(rv.x,rv.y+(dy>0?spd:-spd),rv.r)) rv.y+=(dy>0?spd:-spd);
+    if(dist2(rv.x,rv.y,t.x,t.y) < (rv.r+14)**2){           // reached it → steal it
+      t.stolen=true; rivalHaul+=t.value; rv.target=null;
+      for(let i=0;i<8;i++)particles.push(mkP(t.x,t.y,'#ff7a3a'));
+      if(dist2(rv.x,rv.y,player.x,player.y) < 360*360) toast('The rival snatched '+(t.name||t.type)+'!',1000);
+    }
+  }
+}
+function drawRivals(){
+  for(const rv of rivals){
+    ctx.save(); ctx.translate(rv.x,rv.y);
+    ctx.fillStyle='rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(0,rv.r*0.7,rv.r,rv.r*0.4,0,0,6.28); ctx.fill();
+    ctx.fillStyle='#33243f'; ctx.beginPath(); ctx.arc(0,0,rv.r,0,6.28); ctx.fill();     // placeholder (sprites last)
+    ctx.strokeStyle='#c86bff'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(0,0,rv.r,0,6.28); ctx.stroke();
+    ctx.fillStyle='#ff9a4a'; ctx.beginPath(); ctx.arc(Math.cos(rv.face)*4,Math.sin(rv.face)*4,rv.r*0.4,0,6.28); ctx.fill();
+    if(rivalHaul>0){ ctx.fillStyle='#6b5a3a'; ctx.beginPath(); ctx.arc(-Math.cos(rv.face)*7,-Math.sin(rv.face)*7,4,0,6.28); ctx.fill(); }
+    ctx.restore();
+  }
+}
+
 function genLayout(){
   const theme = vpick(LAYOUTS);
   currentLayout = theme;
@@ -952,7 +991,7 @@ function buildWorld(){
   WORLD.h = 1550 + Math.round(vr(0,650));
   if(dailyMutator.size){ WORLD.w=Math.round(WORLD.w*dailyMutator.size); WORLD.h=Math.round(WORLD.h*dailyMutator.size); }
   const areaScale = (WORLD.w*WORLD.h)/(2000*1400);
-  walls=[]; loot=[]; guards=[]; sentries=[]; particles=[]; floaters=[];
+  walls=[]; loot=[]; guards=[]; sentries=[]; particles=[]; floaters=[]; rivals=[]; rivalHaul=0;
   seenOneMore=false; heartRevealed=false; runOutcome=null; flashCurse=0;
   carriedValue=carriedWeight=carriedNoise=carriedCurse=0; heatTier=0;
   runLootTotal=0; runLootCount=0; vaultCleared=false; alarmFlash=0; lowNoiseRun=true;
@@ -1096,6 +1135,9 @@ function buildWorld(){
   { const a=guardSpot(placed.concat(guards)); const reg=vgraph?vgraph.regionOf(a.x,a.y):-1;
     const wps=[{x:a.x,y:a.y}]; for(let k=0;k<2;k++){ const b=vgraph?openSpotInRegion(reg,a):openSpot(14,60,null); wps.push({x:b.x,y:b.y}); }
     guards.push({x:a.x,y:a.y,r:11,dog:true,wps,wi:0,state:'patrol',alert:0,face:0,hitCd:0,lkp:null,searchT:0}); }
+
+  // Rival Thief: a competitor working the same vault — whatever it grabs, you can't.
+  { const s=deepSpot([],0.4,0.45); rivals.push({x:s.x,y:s.y,r:13,target:null,face:0}); }
 
   // NEW: stationary sentries with swiveling vision cones (guard the deep loot)
   const senCount=2+Math.floor(vrng()*2); // 2-3
@@ -1298,6 +1340,7 @@ function update(dt){
   if(player.inv>0) player.inv-=dt;
   if(player.ghost>0) player.ghost-=dt;
   updateSever(dt);                        // greed closes the vault behind you
+  updateRivals(dt);                       // a rival thief works the vault too
 
   // camera
   // camera leads the way you're moving, then eases — reads as intent, not lag
@@ -1321,7 +1364,7 @@ function update(dt){
 
   // loot pickup
   for(const l of loot){
-    if(l.got||l.hidden) continue;
+    if(l.got||l.hidden||l.stolen) continue;
     if((l.plat!==undefined?l.plat:-1)!==player.plat) continue;   // must be on the same level
     l.glow+=dt*4;
     if(dist2(player.x,player.y,l.x,l.y) < (player.r+16+6*collLevel('jewel'))**2){
@@ -1340,7 +1383,7 @@ function update(dt){
       if(l.noise>=3){ toast('The vault heard that.', 900); lowNoiseRun=false; }
       if(l.curse>0){ flashCurse=1; toast('Marked goods \u2014 the vault turns hostile.', 1100); }
       // 100% payoff: everything (including the revealed Heart) is now in the bag
-      if(!vaultCleared && loot.every(x=>x.got)){
+      if(!vaultCleared && loot.every(x=>x.got||x.stolen)){
         vaultCleared=true; alarmFlash=1;
         toast('VAULT EMPTY \u00b7 every last coin. Now RUN.', 2000);
         for(const g of guards){ g.state='chase'; g.alert=1; }
@@ -1480,11 +1523,12 @@ function draw(){
   // portal
   drawPortal();
   // loot
-  for(const l of loot){ if(!l.got && !l.hidden) drawLoot(l); }
+  for(const l of loot){ if(!l.got && !l.hidden && !l.stolen) drawLoot(l); }
   drawSever();   // pulsing warning on a door about to slam
   // sentries (draw cones under the mobile guards)
   for(const s of sentries) drawSentry(s);
   // guards
+  drawRivals();
   for(const g of guards) drawGuard(g);
   // player
   if(state==='playing'||state==='onemore'||state==='decision'||state==='paused') drawJo();
@@ -1977,7 +2021,7 @@ function resolveArtifact(pick){
   l.got=true; recompute();
   if(l.value>0) floaters.push({x:l.x,y:l.y,txt:'+$'+l.value,life:1.2,col:'#f5c542'});
   for(let i=0;i<14;i++)particles.push(mkP(l.x,l.y,'#a98bff'));
-  if(!vaultCleared && loot.every(x=>x.got)){
+  if(!vaultCleared && loot.every(x=>x.got||x.stolen)){
     vaultCleared=true; alarmFlash=1; toast('VAULT EMPTY \u00b7 every last coin. Now RUN.',2000);
     for(const g of guards){ g.state='chase'; g.alert=1; }
   }
@@ -2065,7 +2109,8 @@ function endRun(escaped){
     + contractLine
     + (ascensionLevel>0?`<div>Ascension ${ascensionLevel}<b style="color:var(--purple,#a98bff)">${ascNewBest?'NEW BEST':'★'.repeat(Math.min(ascensionLevel,5))}</b></div>`:'')
     + (wasDaily?`<div>Daily score<b style="color:var(--gold)">${(escaped?dailyScore():0).toLocaleString()}</b></div><div>Streak<b>${meta.daily.streak} day${meta.daily.streak===1?'':'s'}</b></div><div>Share code<b style="letter-spacing:.12em">GR-${dayKey()}-${seedToCode(daySeed(dayKey()))}</b></div>`:'')
-    + `<div>Secured<b>${loot.filter(l=>l.got).length}/${runLootCount}</b></div>`;
+    + `<div>Secured<b>${loot.filter(l=>l.got).length}/${runLootCount}</b></div>`
+    + (rivalHaul>0?`<div>Rival's take<b style="color:#c86bff">−$${rivalHaul.toLocaleString()}</b></div>`:'');
   $('continueBtn').textContent = (escaped && pendingHaul.length) ? 'To the Fence' : 'To the Hideout';
   show('result');
 }
@@ -2411,6 +2456,7 @@ window.__greed = {
   get carriedValue(){ return carriedValue; }, set carriedValue(v){ carriedValue = v; },
   get runLootTotal(){ return runLootTotal; },
   saveMeta, loadMeta,
+  updateRivals, get rivals(){ return rivals; }, get rivalHaul(){ return rivalHaul; },
 };
 })();
 </script>
