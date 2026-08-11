@@ -1774,59 +1774,51 @@ function joDir(face){
   return {key:'side', flip:false};                         // facing left  (native)
 }
 function joTier(w){ return w<=0 ? 'empty' : w<16 ? 'light' : 'heavy'; }
-let joWalkPhase=0;                                         // distance-driven so steps never skate
+
+// ===== Atlas frame renderer (authored animation, replaces the procedural puppet) =====
+const JO_A_CELL=128, JO_A_FEET=118, JO_A_CX=64, JO_A_SCALE=0.62;   // TUNE on-screen size
+const joAtlas=new Image(); joAtlas.src='assets/jo/atlas.png';
+const JO_ROW={idle_down:0,idle_side_l:1,idle_up:2,run_down:3,run_side_l:4,run_up:5,
+  pickup:6,hit:7,downed:8,run_light_down:9,run_light_side_l:10,run_light_up:11,
+  run_heavy_down:12,run_heavy_side_l:13,run_heavy_up:14};
+const JO_NF={idle_down:6,idle_side_l:6,idle_up:6,run_down:6,run_side_l:6,run_up:6,
+  pickup:6,hit:5,downed:6,run_light_down:6,run_light_side_l:6,run_light_up:6,
+  run_heavy_down:6,run_heavy_side_l:6,run_heavy_up:5};
+const JO_DIRSUF={front:'down',side:'side_l',back:'up'};
+let joWalkPhase=0;                                          // distance-driven so steps never skate
 function drawJo(){
-  const dir=joDir(player.face), img=joImg[dir.key+'_'+joTier(carriedWeight)];
-  if(!img || !img.complete || !img.naturalWidth){ drawJoVector(); return; } // art not ready yet
+  if(!joAtlas.complete || !joAtlas.naturalWidth){ drawJoVector(); return; }  // atlas not ready
+  const dir=joDir(player.face), tier=joTier(carriedWeight), suf=JO_DIRSUF[dir.key];
   const {x,y}=player, R=player.r;
   const blink = player.inv>0 && Math.floor(player.inv*12)%2===0;
-  const eoff = player.plat>=0 ? -7 : 0;                    // height cue on a platform
-  const moved = Math.hypot(player.vx||0, player.vy||0);
-  const moving = moved > 0.35;
-  if(moving) joWalkPhase += moved*0.065; else joWalkPhase=0; // advance the stride by distance walked
+  const eoff = player.plat>=0 ? -7 : 0;
+  const moved = Math.hypot(player.vx||0, player.vy||0), moving = moved>0.35;
+  const hurt = player.inv>0.55 && player.ghost<=0;          // recoil window after a hit
   const clk = tPrev/1000;
-  const step = Math.sin(joWalkPhase);
+  if(moving) joWalkPhase += moved*0.09; else joWalkPhase=0;
+  // pick row + frame
+  let row, nf, frame;
+  if(hurt){ row='hit'; nf=JO_NF.hit; frame=Math.min(nf-1, Math.floor((1.1-player.inv)/0.09)); }
+  else if(moving){ row = tier==='empty' ? `run_${suf}` : `run_${tier}_${suf}`; nf=JO_NF[row]; frame=Math.floor(joWalkPhase)%nf; }
+  else if(tier==='empty'){ row=`idle_${suf}`; nf=JO_NF[row]; frame=Math.floor(clk*5)%nf; }
+  else { row=`run_${tier}_${suf}`; nf=JO_NF[row]; frame=0; }  // standing loaded = loaded-run frame 0
+  const sx=(frame%6)*JO_A_CELL, sy=JO_ROW[row]*JO_A_CELL, S=JO_A_SCALE;
   ctx.save(); ctx.translate(x,y);
   if(blink) ctx.globalAlpha=0.4;
-  // Smoke Step: shimmer aura + translucency
   if(player.ghost>0){
     ctx.globalAlpha=0.6+Math.sin(player.ghost*10)*0.1;
     const ga=ctx.createRadialGradient(0,0,4,0,0,32);
     ga.addColorStop(0,'rgba(169,139,255,.5)'); ga.addColorStop(1,'rgba(169,139,255,0)');
     ctx.fillStyle=ga; ctx.beginPath(); ctx.arc(0,0,32,0,6.28); ctx.fill();
   }
-  // ground shadow — feet plant on its center so Jo reads as standing on the floor
-  const shW = R*1.05*(moving ? 1+Math.abs(step)*0.05 : 1);
+  // ground shadow — feet plant on its center
   ctx.fillStyle='rgba(0,0,0,.42)';
-  ctx.beginPath(); ctx.ellipse(0, R*1.02, shW, R*0.42, 0,0,6.28); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0, R*1.02, R*1.05, R*0.42, 0,0,6.28); ctx.fill();
   ctx.translate(0,eoff);
-  // whole-body motion: 2-step bob, weight-shift sway, forward lean, idle breathe
-  const bob     = moving ? -Math.abs(step)*3.0 : Math.sin(clk*2.3)*-0.7;
-  const sway    = moving ? step*1.2 : 0;
-  const lean    = moving ? step*0.03 : 0;
-  const squash  = moving ? 1-(1-Math.abs(step))*0.05 : 1;
-  const breathe = moving ? 0 : Math.sin(clk*2.3)*0.012;
-  const S = JO_SCALE*(1+breathe);
-  ctx.translate(sway,bob); if(lean) ctx.rotate(lean);
-  if(dir.flip) ctx.scale(-1,1);                             // centered figure -> mirror stays centered
-  ctx.scale(1,squash);
+  if(dir.flip) ctx.scale(-1,1);                              // centered figure -> mirror stays centered
   ctx.imageSmoothingEnabled=true;
-  const footY = R*1.02, dyTop = footY - JO_FEET*S;          // where cell-row 0 lands on screen
-  const cell=(sx,sy,sw,sh,rot,dyOff)=>{                     // draw a sub-rect, optional hip-pivot rotation + lift
-    ctx.save();
-    if(rot){ const p=dyTop+JO_HIP*S; ctx.translate(0,p); ctx.rotate(rot); ctx.translate(0,-p); }
-    ctx.drawImage(img, sx,sy,sw,sh, -JO_CX*S+sx*S, dyTop+sy*S+(dyOff||0), sw*S, sh*S);
-    ctx.restore();
-  };
-  if(moving){
-    const restH=JO_CELL-(JO_HIP-JO_LEG_OV);
-    const lLift=-Math.max(0, step)*9*S, rLift=-Math.max(0,-step)*9*S; // alternate foot lift
-    cell(0, JO_HIP-JO_LEG_OV, JO_LEG_W, restH, -0.06*step, lLift);            // left leg half
-    cell(JO_CELL-JO_LEG_W, JO_HIP-JO_LEG_OV, JO_LEG_W, restH, 0.06*step, rLift); // right leg half (overlaps)
-    cell(0, 0, JO_CELL, JO_HIP, 0, 0);                                        // torso on top, hides the hip seam
-  } else {
-    ctx.drawImage(img, -JO_CX*S, dyTop, JO_CELL*S, JO_CELL*S);
-  }
+  // draw the cell so its feet (y=118) sit on the shadow and its center (x=64) is under Jo
+  ctx.drawImage(joAtlas, sx,sy,JO_A_CELL,JO_A_CELL, -JO_A_CX*S, R*1.02-JO_A_FEET*S, JO_A_CELL*S, JO_A_CELL*S);
   ctx.restore();
   ctx.globalAlpha=1;
 }
