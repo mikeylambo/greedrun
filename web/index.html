@@ -248,6 +248,28 @@
   .niche .rbtn:hover{transform:translateY(-1px);}
   .niche .rbtn.dim{background:transparent;color:var(--gold-deep);box-shadow:none;cursor:default;font-size:11px;letter-spacing:.12em;text-transform:uppercase;}
   .buyer .bf{font-size:10.5px;color:var(--muted);letter-spacing:.02em;}
+  /* Hideout daily panel — compact, no vertical scroll */
+  .daily-card{margin:8px auto;max-width:520px;padding:10px 12px;border:1px solid var(--panel-line,#46391f);
+    border-radius:10px;background:linear-gradient(180deg,#1b160e,#141009);}
+  .dc-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .dc-mut{font-family:"Cinzel",serif;font-weight:700;font-size:13px;color:var(--curse-glow,#a98bff);
+    letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .dc-code{font-size:11px;letter-spacing:.08em;color:var(--muted);cursor:pointer;white-space:nowrap;}
+  .dc-code:hover{color:var(--gold);}
+  .dc-stats{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0 2px;}
+  .dc-stats .chip{font-size:11px;color:var(--muted);background:#241d13;border:1px solid #3a2e1b;
+    border-radius:20px;padding:3px 9px;white-space:nowrap;}
+  .dc-stats .chip b{color:var(--bone);font-weight:700;}
+  .dc-stats .chip i{color:var(--gold-deep);font-style:normal;font-size:10px;margin-left:1px;}
+  .hchip{cursor:pointer;font-size:10.5px;color:var(--bone);background:#1c1710;border:1px solid #3a2e1b;
+    border-radius:20px;padding:3px 8px;white-space:nowrap;transition:transform .1s,border-color .1s;}
+  .hchip:hover{transform:translateY(-1px);border-color:var(--gold-deep);}
+  .dc-seed{display:flex;gap:6px;margin-top:8px;}
+  .dc-seed input{flex:1;min-width:0;padding:5px 9px;background:#120f0a;border:1px solid #46391f;
+    border-radius:6px;color:var(--bone,#f0e7d2);font-size:12px;}
+  .dc-seed button{padding:5px 12px;background:#241d13;color:var(--gold);border:1px solid #46391f;
+    border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;}
+  .dc-seed button:hover{border-color:var(--gold-deep);}
   #notoLine{margin-top:6px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;}
   .fence-legend{display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:center;width:min(560px,94%);
     margin:12px 0 2px;font-size:11.5px;color:var(--muted);line-height:1.4;}
@@ -2334,17 +2356,22 @@ function renderShop(){
 function renderDaily(){
   const d=meta.daily, played=dailyPlayedToday(), code='GR-'+dayKey()+'-'+seedToCode(daySeed(dayKey()));
   const mut=weeklyMutator(), asc=dailyAscension();
+  const today = played ? (d.playedEscaped?'$'+d.playedScore.toLocaleString():'caught') : 'open';
   $('dailyLine').innerHTML =
-    `<div style="margin:8px 0;padding:10px 12px;border:1px solid var(--panel-line,#46391f);border-radius:8px;font-size:13px;color:var(--gold)">`
-    + `<b>Daily Run</b> · ${dayKey()} · <span id="dailyCode" title="click to copy" style="letter-spacing:.1em;color:var(--muted);cursor:pointer">${code} ⧉</span><br>`
-    + `<span style="color:var(--purple,#a98bff)">This week: <b>${mut.name}</b> — ${mut.desc}</span><br>`
-    + `<span style="color:var(--bone,#f0e7d2)">`
-    + (asc>0?`Today's ladder: <b>Ascension ${asc}</b> · `:'')
-    + (played ? `Today: ${d.playedEscaped?'$'+d.playedScore.toLocaleString()+' scored':'caught'} · ` : 'One attempt · ')
-    + `streak ${d.streak|0} (best ${d.bestStreak|0}) · daily best $${(d.best|0).toLocaleString()}</span>`
-    + historyHTML(d)
-    + `<div style="margin-top:8px"><input id="seedInput" placeholder="paste a seed code — practice any vault" style="width:56%;padding:4px 8px;background:#120f0a;border:1px solid #46391f;border-radius:6px;color:var(--bone,#f0e7d2)">`
-    + `<button id="seedGo" style="margin-left:6px;padding:4px 10px;background:#241d13;color:var(--gold);border:1px solid #46391f;border-radius:6px;cursor:pointer">Practice</button></div></div>`;
+    `<div class="daily-card">`
+    + `<div class="dc-row">`
+    +   `<span class="dc-mut">${mut.name}${asc>0?` · A${asc}`:''}</span>`
+    +   `<span id="dailyCode" class="dc-code" title="copy vault code">${code} ⧉</span>`
+    + `</div>`
+    + `<div class="dc-stats">`
+    +   `<span class="chip">today <b>${today}</b></span>`
+    +   `<span class="chip">streak <b>${d.streak|0}</b><i>·${d.bestStreak|0}</i></span>`
+    +   `<span class="chip">best <b>$${(d.best|0).toLocaleString()}</b></span>`
+    +   historyChips(d)
+    + `</div>`
+    + `<div class="dc-seed"><input id="seedInput" placeholder="paste a code to practice any vault">`
+    +   `<button id="seedGo">Practice</button></div>`
+    + `</div>`;
   const btn=$('dailyBtn'); if(btn){ btn.disabled=played; btn.style.opacity=played?0.5:1;
     btn.textContent = played?'☀ Daily done — back tomorrow':'☀ Daily Run'; }
   const cc=$('dailyCode'); if(cc) cc.onclick=()=>{ copyText(code); toast('Daily code copied.',900); };
@@ -2353,15 +2380,13 @@ function renderDaily(){
     const parts=raw.split('-'), c=parts.length>=3?parts[parts.length-1]:raw;
     const seed = /^[0-9]+$/.test(c) ? (parseInt(c,10)>>>0) : codeToSeed(c);
     if(seed) startSeed(seed); };
-  (d.history||[]).slice(0,6).forEach((h,i)=>{ const pb=$('hp'+i); if(pb) pb.onclick=()=>startSeed(h.seed); });
+  (d.history||[]).slice(0,5).forEach((h,i)=>{ const pb=$('hc'+i); if(pb) pb.onclick=()=>startSeed(h.seed); });
 }
-function historyHTML(d){
-  const hs=(d.history||[]).slice(0,6); if(!hs.length) return '';
-  return `<div style="margin-top:8px;font-size:12px;color:var(--muted)">Recent dailies — replay any:</div>`
-    + hs.map((h,i)=>`<div style="font-size:12px;display:flex;gap:10px;align-items:center;color:var(--bone,#f0e7d2);margin-top:2px">`
-      + `<span style="width:82px;color:var(--muted)">${h.day}</span>`
-      + `<span style="width:96px">${h.escaped?'$'+(h.score||0).toLocaleString():'caught'}</span>`
-      + `<button id="hp${i}" style="padding:2px 8px;background:#241d13;color:var(--gold);border:1px solid #46391f;border-radius:5px;cursor:pointer;font-size:11px">Practice</button></div>`).join('');
+// Recent dailies as tiny replayable chips (no vertical list — keeps the panel short).
+function historyChips(d){
+  const hs=(d.history||[]).slice(0,5); if(!hs.length) return '';
+  return hs.map((h,i)=>`<button id="hc${i}" class="hchip" title="replay ${h.day}">`
+    + `${h.escaped?'✔':'✘'} ${h.escaped?'$'+Math.round((h.score||0)/1000)+'k':'—'}</button>`).join('');
 }
 // Minimal Ascension selector on the hideout: harder runs, bigger payout, no new sink.
 function renderAscension(){
