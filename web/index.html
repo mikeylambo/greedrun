@@ -260,6 +260,14 @@
     background:linear-gradient(90deg,var(--gold-deep),var(--gold));transition:width .5s ease;}
   .den-cap{font-size:11.5px;color:var(--muted);text-align:center;margin:5px 0 0;letter-spacing:.03em;}
   .den-cap b{color:var(--gold);font-family:"Cinzel",serif;font-weight:700;letter-spacing:.02em;}
+  .den-perks{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;width:min(560px,96%);margin:6px auto 0;}
+  .denperk{font-size:10.5px;color:var(--muted);border:1px solid #33291a;border-radius:20px;
+    padding:2px 9px;opacity:.55;letter-spacing:.02em;}
+  .denperk.on{opacity:1;border-color:var(--gold-deep);color:var(--fg,#e8dcc0);
+    background:linear-gradient(180deg,rgba(120,86,32,.22),rgba(120,86,32,.06));}
+  .denperk b{color:var(--gold);font-weight:700;}
+  .denperk em{color:var(--muted);font-style:normal;margin-left:5px;}
+  .denperk.on em{color:var(--ok,#7fc98a);}
   /* Hideout daily panel — compact, no vertical scroll */
   .daily-card{margin:8px auto;max-width:520px;padding:10px 12px;border:1px solid var(--panel-line,#46391f);
     border-radius:10px;background:linear-gradient(180deg,#1b160e,#141009);}
@@ -420,6 +428,7 @@
     <div id="hideoutScene"></div>
     <div class="den-bar"><i id="denBarFill"></i></div>
     <div class="den-cap" id="denCap"></div>
+    <div class="den-perks" id="denPerks"></div>
     <div class="bank"><span class="c">Banked gold</span><span id="bankAmt">$0</span></div>
     <div id="notoLine"></div>
     <div id="dailyLine"></div>
@@ -1047,7 +1056,7 @@ function buildWorld(){
   runLootTotal=0; runLootCount=0; vaultCleared=false; alarmFlash=0; lowNoiseRun=true;
   noiseMuffled=false;
   hunterSpawned=false; vertHintShown=false; resetSever();
-  runHeatSeed = clamp(Math.floor(meta.curseDebt/2) - upgLevel('cool'), 0, 3) + ascMods(ascensionLevel).heat + (dailyMutator.heat||0);  // world + ascension + weekly mutator
+  runHeatSeed = clamp(Math.floor(meta.curseDebt/2) - upgLevel('cool') - denCalm(), 0, 3) + ascMods(ascensionLevel).heat + (dailyMutator.heat||0);  // world + den standing + ascension + weekly mutator
   runSpotted=false; runClock=0; peakHeat=0; runDamaged=false;
   runTimeLimit = activeContract && activeContract.type==='timed' ? activeContract.timeLimit : 0;
   currentTheme = THEMES[(activeContract && activeContract.themeKey) || THEME_KEYS[Math.floor(vrng()*THEME_KEYS.length)]];
@@ -2124,6 +2133,7 @@ function endRun(escaped){
   ascNewBest = escaped && ascScore > bestForAsc(ascensionLevel);
   if(ascNewBest){ meta.bestByAsc[ascensionLevel] = ascScore; }
   if(escaped && ascensionLevel>=1 && ascensionLevel===ascUnlocked() && ascensionLevel<ASC_MAX){ meta.ascUnlocked=ascensionLevel+1; }
+  if(escaped && denHeatSink() && meta.curseDebt>0){ meta.curseDebt=clamp(meta.curseDebt-1,0,10); }  // The Den perk: clean escapes cool the world
   if(dailyMode) recordDaily(escaped);
   saveMeta();
   // Danger pays: the hotter the run got, the more everything is worth (risk = reward)
@@ -2190,7 +2200,7 @@ function routeAfterResult(){
   if(runOutcome && pendingHaul.length){ openFence(); return; }
   // no items to haggle over — bank any loose bulk directly, then to the hideout
   if(runOutcome && pendingBulk.n>0){
-    let t=Math.round(pendingBulk.val*sellMult()); if(pendingPerfect) t=Math.round(t*1.4); t=Math.round(t*pendingDangerMult*collGoldMult()*ascMods(ascensionLevel).pay); meta.gold+=t;
+    let t=Math.round(pendingBulk.val*sellMult()); if(pendingPerfect) t=Math.round(t*1.4); t=Math.round(t*pendingDangerMult*collGoldMult()*denBonus()*ascMods(ascensionLevel).pay); meta.gold+=t;
   }
   applyContractRewards();
   pendingHaul=[]; pendingBulk={val:0,n:0};
@@ -2229,13 +2239,14 @@ function renderFence(){
       pendingHaul.forEach((o,oi)=>{ if(oi!==i){ const cur=o.buyers[o.saleIdx]; if(cur&&cur.id==='noble') o.saleIdx=0; } });
     }
     pendingHaul[i].saleIdx=bi; renderFence(); });
-  if(pendingPerfect) total=Math.round(total*1.4); total=Math.round(total*pendingDangerMult*collGoldMult()*ascMods(ascensionLevel).pay);
+  if(pendingPerfect) total=Math.round(total*1.4); total=Math.round(total*pendingDangerMult*collGoldMult()*denBonus()*ascMods(ascensionLevel).pay);
   $('fenceTotal').textContent='$'+total.toLocaleString();
   const noto = curseD>0?`The syndicate\u2019s coin raises your notoriety.`
     : curseD<0?`Returning goods cools the world down.`
     : `Different buyers want different goods.`;
   $('fenceNote').innerHTML = noto
     + (peakHeat>0?` <span style="color:var(--heat)">Danger +${Math.round((pendingDangerMult-1)*100)}% (peaked Heat T${peakHeat}).</span>`:'')
+    + (denBonus()>1?` <span style="color:var(--gold)">${DEN_TIERS[denTier()][1]} +${Math.round((denBonus()-1)*100)}%.</span>`:'')
     + (pendingPerfect?` <span style="color:var(--ok)">Perfect-heist +40%.</span>`:'');
 }
 function bankHaul(){
@@ -2244,7 +2255,7 @@ function bankHaul(){
     if(b.fx==='curse+')curseD++; else if(b.fx==='curse-')curseD--;
     if(b.fx==='keep'){ const tid=KIND_TROPHY[it.kind]; if(tid && collLevel(tid)===0){ meta.collection[tid]=1;
       toast(trophyById(tid).passive+' \u2014 added to the Collection.',1600); } } }
-  if(pendingPerfect) total=Math.round(total*1.4); total=Math.round(total*pendingDangerMult*collGoldMult()*ascMods(ascensionLevel).pay);
+  if(pendingPerfect) total=Math.round(total*1.4); total=Math.round(total*pendingDangerMult*collGoldMult()*denBonus()*ascMods(ascensionLevel).pay);
   meta.gold+=total; meta.curseDebt=clamp(meta.curseDebt+curseD,0,10);
   applyContractRewards();
   pendingHaul=[]; pendingBulk={val:0,n:0};
@@ -2350,6 +2361,18 @@ function denScore(){
   return (meta.runs|0) + u + c*2 + (meta.ascUnlocked|0)*4;
 }
 function denTierIdx(s){ let t=0; for(let i=0;i<DEN_TIERS.length;i++) if(s>=DEN_TIERS[i][0]) t=i; return t; }
+function denTier(){ return denTierIdx(denScore()); }        // current tier index, gameplay-facing
+// The den is not just decor: each tier your standing climbs, the fence pays more,
+// and crossing landmark tiers unlocks a standing perk. These read live off denTier().
+function denBonus(){ return 1 + denTier()*0.04; }           // fence payout: +4% per tier (up to +20%)
+function denHeatSink(){ return denTier()>=2; }              // The Den: a clean escape cools notoriety
+function denCalm(){ return denTier()>=3 ? 1 : 0; }          // Underground: jobs start one Heat tier calmer
+// Perk ladder shown in the hideout — [tier, label, live-state fn]
+const DEN_PERKS=[
+  [1,'Fence network',   ()=>`payouts +${Math.round((denBonus()-1)*100)}%`],
+  [2,'Heat sink',       ()=>'clean escapes cool notoriety −1'],
+  [3,'Calmer starts',   ()=>'jobs begin one Heat tier lower'],
+];
 function goldStackSVG(x,n){ let g=`<g transform="translate(${x},0)">`;
   for(let i=0;i<n;i++){ const y=98-i*7.5;
     g+=`<rect x="0" y="${y}" width="30" height="6.8" rx="2" fill="url(#gbar)"/>`
@@ -2427,13 +2450,18 @@ function renderHideoutScene(){
   const cap=$('denCap'); if(cap) cap.innerHTML = `<b>${DEN_TIERS[ti][1]}</b>` +
     (nx?` · ${nx[0]-s} to <b>${nx[1]}</b>`:` · fully established`);
   const bar=$('denBarFill'); if(bar) bar.style.width=(prog*100).toFixed(0)+'%';
+  const pk=$('denPerks'); if(pk){ pk.innerHTML = DEN_PERKS.map(p=>{
+    const on=ti>=p[0];
+    return `<span class="denperk${on?' on':''}">${on?'✔':'→ '+DEN_TIERS[p[0]][1]} `
+      +`<b>${p[1]}</b><em>${on?p[2]():'locked'}</em></span>`;
+  }).join(''); }
 }
 function renderShop(){
   renderHideoutScene();
   $('bankAmt').textContent='$'+meta.gold.toLocaleString();
   const nl=$('notoLine');
   if(meta.curseDebt>0){
-    const seed=clamp(Math.floor(meta.curseDebt/2)-upgLevel('cool'),0,3);
+    const seed=clamp(Math.floor(meta.curseDebt/2)-upgLevel('cool')-denCalm(),0,3);
     const hunterAt=Math.max(2,4-Math.floor(meta.curseDebt/3));
     nl.style.color='var(--curse-glow)';
     nl.innerHTML=`Notoriety ${meta.curseDebt}`+(seed>0?` \u00b7 jobs start at Heat T${seed}`:'')
