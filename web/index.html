@@ -2203,10 +2203,17 @@ function renderContracts(){
 
 // ---------- persistence (survives reloads via artifact storage; safe if unavailable) ----------
 const SAVE_KEY='greedrun_meta_v1';
+// Persist through the app wrapper's storage if present, else the browser's
+// localStorage — so progress survives reloads on the web build too.
+const store={
+  async get(k){ if(window.storage) return window.storage.get(k); const v=localStorage.getItem(k); return v?{value:v}:null; },
+  async set(k,v){ if(window.storage) return window.storage.set(k,v); localStorage.setItem(k,v); },
+  async del(k){ if(window.storage) return window.storage.delete(k); localStorage.removeItem(k); },
+};
 async function loadMeta(){
   try{
-    if(window.storage){
-      const r=await window.storage.get(SAVE_KEY);
+    {
+      const r=await store.get(SAVE_KEY);
       if(r && r.value){ const d=JSON.parse(r.value);
         meta.gold=d.gold||0; meta.runs=d.runs||0; meta.bestHaul=d.bestHaul||0;
         meta.curseDebt=d.curseDebt||0; if(d.upg) Object.assign(meta.upg,d.upg);
@@ -2220,13 +2227,13 @@ async function loadMeta(){
   if(state==='shop') renderShop();
 }
 async function saveMeta(){
-  try{ if(window.storage) await window.storage.set(SAVE_KEY, JSON.stringify({
+  try{ await store.set(SAVE_KEY, JSON.stringify({
     gold:meta.gold, runs:meta.runs, bestHaul:meta.bestHaul, curseDebt:meta.curseDebt, upg:meta.upg, collection:meta.collection,
     ascUnlocked:meta.ascUnlocked, bestByAsc:meta.bestByAsc, daily:meta.daily })); }
   catch(e){}
 }
 async function wipeMeta(){
-  try{ if(window.storage) await window.storage.delete(SAVE_KEY); }catch(e){}
+  try{ await store.del(SAVE_KEY); }catch(e){}
   meta.gold=0; meta.runs=0; meta.bestHaul=0; meta.curseDebt=0;
   meta.upg={straps:0,boots:0,feet:0,luck:0,landing:0,scanner:0,pockets:0,contacts:0,cool:0,revive:0};
   meta.collection={idol:0,relic:0,jewel:0,relicart:0,heart:0};
@@ -2403,6 +2410,7 @@ window.__greed = {
   get severTele(){ return severTele; }, get severStack(){ return severStack; },
   get carriedValue(){ return carriedValue; }, set carriedValue(v){ carriedValue = v; },
   get runLootTotal(){ return runLootTotal; },
+  saveMeta, loadMeta,
 };
 })();
 </script>
