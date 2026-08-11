@@ -1,0 +1,40 @@
+{
+  "cell": 128,
+  "feet": 118,
+  "cx": 64,
+  "cols": 6,
+  "rows": [
+    "idle_down",
+    "idle_side_l",
+    "idle_up",
+    "run_down",
+    "run_side_l",
+    "run_up",
+    "pickup",
+    "hit",
+    "downed",
+    "run_light_down",
+    "run_light_side_l",
+    "run_light_up",
+    "run_heavy_down",
+    "run_heavy_side_l",
+    "run_heavy_up"
+  ],
+  "frames": {
+    "idle_down": 6,
+    "idle_side_l": 6,
+    "idle_up": 6,
+    "run_down": 6,
+    "run_side_l": 6,
+    "run_up": 6,
+    "pickup": 6,
+    "hit": 5,
+    "downed": 6,
+    "run_light_down": 6,
+    "run_light_side_l": 6,
+    "run_light_up": 6,
+    "run_heavy_down": 6,
+    "run_heavy_side_l": 6,
+    "run_heavy_up": 5
+  }
+}
