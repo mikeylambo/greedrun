@@ -1889,8 +1889,9 @@ const JO_NF={idle_down:6,idle_side_l:6,idle_up:6,run_down:6,run_side_l:6,run_up:
   run_heavy_down:6,run_heavy_side_l:6,run_heavy_up:5};
 const JO_DIRSUF={front:'down',side:'side_l',back:'up'};
 let joWalkPhase=0;                                          // distance-driven so steps never skate
+let JO_STYLE='vector';   // 'vector' = code-drawn ink rig (no assets) · 'atlas' = sprite sheet
 function drawJo(){
-  if(!joAtlas.complete || !joAtlas.naturalWidth){ drawJoVector(); return; }  // atlas not ready
+  if(JO_STYLE==='vector' || !joAtlas.complete || !joAtlas.naturalWidth){ drawJoVector(); return; }  // ink rig / atlas fallback
   const dir=joDir(player.face), tier=joTier(carriedWeight), suf=JO_DIRSUF[dir.key];
   const {x,y}=player, R=player.r;
   const blink = player.inv>0 && Math.floor(player.inv*12)%2===0;
@@ -1925,50 +1926,92 @@ function drawJo(){
   ctx.restore();
   ctx.globalAlpha=1;
 }
+// ===== Code-drawn ink Jo (top-down, no assets) — Darkest-Dungeon register =====
+// Animated by the same joWalkPhase the atlas path uses; facing + load drive the pose.
+const JOI={ ink:'#050404', body:'#15120e', bodyHi:'#241f18', chest:'#333a2b',
+  skin:'#c2a488', hair:'#0b0a08', scarf:'#e2ab30', scarfHi:'#f5c65a', scarfShd:'#9a7420',
+  band:'#33566e', gold:'#e2ab30', boot:'#0c0b09', rim:'#5f6a70' };
 function drawJoVector(){
-  const {x,y}=player, blink = player.inv>0 && Math.floor(player.inv*12)%2===0;
-  const eoff = player.plat>=0 ? -7 : 0;   // height cue when up on a platform
+  const {x,y}=player, R=player.r;
+  const blink = player.inv>0 && Math.floor(player.inv*12)%2===0;
+  const eoff = player.plat>=0 ? -7 : 0;
+  const moved=Math.hypot(player.vx||0,player.vy||0), moving=moved>0.35;
+  if(moving) joWalkPhase += moved*0.09; else joWalkPhase*=0.9;
+  const fx=Math.cos(player.face), fy=Math.sin(player.face);   // facing unit vec
+  const px=-fy, py=fx;                                        // perpendicular (across the shoulders)
+  const step = moving ? Math.sin(joWalkPhase) : Math.sin(tPrev/500)*0.12;
+  const facingUp = fy < -0.35;                                // moving away → see his back
   ctx.save(); ctx.translate(x,y);
   if(blink) ctx.globalAlpha=0.4;
-  // Smoke Step: shimmer aura + translucency
-  if(player.ghost>0){
-    ctx.globalAlpha=0.55+Math.sin(player.ghost*10)*0.1;
+  if(player.ghost>0){ ctx.globalAlpha=0.6+Math.sin(player.ghost*10)*0.1;
     const ga=ctx.createRadialGradient(0,0,4,0,0,30);
     ga.addColorStop(0,'rgba(169,139,255,.5)'); ga.addColorStop(1,'rgba(169,139,255,0)');
-    ctx.fillStyle=ga; ctx.beginPath(); ctx.arc(0,0,30,0,6.28); ctx.fill();
-  }
-  // shadow (stays on the surface below Jo)
-  ctx.fillStyle='rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(0,player.r*0.75,player.r,player.r*0.42,0,0,6.28); ctx.fill();
+    ctx.fillStyle=ga; ctx.beginPath(); ctx.arc(0,0,30,0,6.28); ctx.fill(); }
+  // ground shadow
+  ctx.fillStyle='rgba(0,0,0,.42)'; ctx.beginPath(); ctx.ellipse(0,R*0.82,R*1.02,R*0.4,0,0,6.28); ctx.fill();
   ctx.translate(0,eoff);
-  // loot bag (grows with weight) — behind body
-  const bag = clamp(carriedWeight,0,40);
-  if(bag>0){
-    const bs=6+bag*0.35;
-    ctx.fillStyle='#3a2c16';
-    ctx.beginPath();ctx.ellipse(-Math.cos(player.face)*8,-Math.sin(player.face)*8+2,bs,bs*0.9,0,0,6.28);ctx.fill();
-    ctx.fillStyle='#5a4322';
-    ctx.beginPath();ctx.ellipse(-Math.cos(player.face)*8,-Math.sin(player.face)*8,bs*0.5,bs*0.4,0,0,6.28);ctx.fill();
-  }
-  // scarf (signature) — trails opposite movement
-  const sd=player.face+Math.PI;
-  ctx.fillStyle='#ffcf3f';
-  ctx.beginPath();
-  ctx.moveTo(0,0);
-  ctx.quadraticCurveTo(Math.cos(sd)*14-6, Math.sin(sd)*14, Math.cos(sd)*26, Math.sin(sd)*22-4);
-  ctx.quadraticCurveTo(Math.cos(sd)*18, Math.sin(sd)*10+6, 0,4);
-  ctx.closePath(); ctx.fill();
-  // body
-  ctx.fillStyle='#1e1c1a'; ctx.strokeStyle='#000'; ctx.lineWidth=1.5;
-  ctx.beginPath();ctx.arc(0,0,player.r,0,6.28);ctx.fill();ctx.stroke();
-  // head/hair
-  ctx.fillStyle='#20180f';
-  ctx.beginPath();ctx.arc(Math.cos(player.face)*3,Math.sin(player.face)*3,player.r*0.62,0,6.28);ctx.fill();
-  // scarf collar
-  ctx.fillStyle='#ffcf3f';
-  ctx.beginPath();ctx.arc(0,0,player.r*0.45,0,6.28);ctx.fill();
+  const ink=(w)=>{ ctx.strokeStyle=JOI.ink; ctx.lineWidth=w; ctx.lineJoin='round'; ctx.stroke(); };
+  // loot sack (grows with weight) — behind, opposite facing
+  const bag=clamp(carriedWeight,0,40);
+  if(bag>0){ const bs=5+bag*0.32, bx=-fx*R*0.7, by=-fy*R*0.7;
+    ctx.beginPath(); ctx.ellipse(bx,by,bs,bs*0.92,0,0,6.28); ctx.fillStyle='#110d09'; ctx.fill(); ink(2);
+    ctx.fillStyle=JOI.gold; ctx.beginPath(); ctx.arc(bx+px*2,by+py*2,1.4+bag*0.03,0,6.28); ctx.fill(); }
+  // legs / boots — step along the facing axis
+  for(let i=0;i<2;i++){ const s=(i?1:-1)*step; const side=(i?1:-1)*R*0.34;
+    const lx=px*side + fx*s*R*0.42, ly=py*side + fy*s*R*0.42 + R*0.55;
+    ctx.beginPath(); ctx.ellipse(lx,ly,R*0.24,R*0.3,player.face,0,6.28); ctx.fillStyle=JOI.boot; ctx.fill(); ink(1.6);
+    ctx.fillStyle=JOI.gold; ctx.beginPath(); ctx.arc(lx+fx*2,ly+fy*2,0.9,0,6.28); ctx.fill(); }
+  // body (lean toward facing)
+  const bcx=fx*R*0.12, bcy=fy*R*0.12;
+  ctx.save(); ctx.translate(bcx,bcy); ctx.rotate(player.face+Math.PI/2);
+  ctx.beginPath(); ctx.ellipse(0,0,R*0.62,R*0.74,0,0,6.28); ctx.fillStyle=JOI.body; ctx.fill();
+  // chiaroscuro shade + rim
+  ctx.save(); ctx.clip(); ctx.fillStyle='rgba(3,2,1,.5)'; ctx.fillRect(-R,0,R*2,R); ctx.restore();
+  ctx.beginPath(); ctx.ellipse(0,0,R*0.62,R*0.74,0,0,6.28); ink(2);
+  ctx.strokeStyle=JOI.rim; ctx.lineWidth=1.2; ctx.globalAlpha=.6;
+  ctx.beginPath(); ctx.ellipse(0,-R*0.05,R*0.6,R*0.72,0,-1.9,-0.2); ctx.stroke(); ctx.globalAlpha=1;
+  ctx.restore();
+  // chest panel + belt buckle only when facing the camera
+  if(!facingUp){ ctx.fillStyle=JOI.chest;
+    ctx.beginPath(); ctx.moveTo(bcx-px*R*0.3,bcy-py*R*0.3);
+    ctx.lineTo(bcx+px*R*0.3,bcy+py*R*0.3); ctx.lineTo(bcx+fx*R*0.34,bcy+fy*R*0.34); ctx.closePath(); ctx.fill();
+    ctx.fillStyle=JOI.gold; ctx.beginPath(); ctx.arc(bcx+fx*R*0.1,bcy+fy*R*0.1,1.5,0,6.28); ctx.fill(); }
+  // scarf — collar knot + a gold tail flowing behind and to one side
+  const wob=Math.sin(tPrev/140)*(2+moved*1.2);
+  const nx=px*R*0.32, ny=py*R*0.32;                          // neck anchor (one shoulder)
+  const ex=-fx*R*0.75+px*R*0.7+px*wob, ey=-fy*R*0.75+py*R*0.7+py*wob;  // tail end: behind + side + sway
+  const mx=(nx+ex)/2-fx*R*0.15, my=(ny+ey)/2-fy*R*0.15;
+  ctx.beginPath(); ctx.moveTo(nx,ny);
+  ctx.quadraticCurveTo(mx,my, ex,ey);
+  ctx.quadraticCurveTo(mx-px*R*0.32,my-py*R*0.32, -px*R*0.08,-py*R*0.08);
+  ctx.closePath(); ctx.fillStyle=JOI.scarf; ctx.fill(); ink(1.4);
+  ctx.beginPath(); ctx.ellipse(fx*R*0.28,fy*R*0.28,R*0.42,R*0.3,player.face,0,6.28); ctx.fillStyle=JOI.scarf; ctx.fill(); ink(1.6);
+  ctx.fillStyle=JOI.scarfHi; ctx.beginPath(); ctx.ellipse(fx*R*0.28+px*2,fy*R*0.28+py*2,R*0.22,R*0.12,player.face,0,6.28); ctx.fill();
+  // head — hair cap, headband, face when not facing away
+  const hx=fx*R*0.2, hy2=fy*R*0.2 - R*0.5;
+  ctx.beginPath(); ctx.arc(hx,hy2,R*0.5,0,6.28); ctx.fillStyle=JOI.hair; ctx.fill(); ink(2);
+  // spikes
+  ctx.fillStyle=JOI.hair;
+  for(let k=-2;k<=2;k++){ const a=player.face-Math.PI/2 + k*0.5;
+    ctx.beginPath(); ctx.moveTo(hx+Math.cos(a)*R*0.4,hy2+Math.sin(a)*R*0.4);
+    ctx.lineTo(hx+Math.cos(a)*R*0.72,hy2+Math.sin(a)*R*0.72);
+    ctx.lineTo(hx+Math.cos(a+0.28)*R*0.42,hy2+Math.sin(a+0.28)*R*0.42); ctx.closePath(); ctx.fill(); }
+  if(!facingUp){ // face + eyes toward camera
+    ctx.beginPath(); ctx.ellipse(hx+fx*R*0.18,hy2+fy*R*0.18,R*0.3,R*0.26,player.face,0,6.28);
+    ctx.fillStyle=JOI.skin; ctx.fill(); ink(1.4);
+    ctx.fillStyle=JOI.ink;
+    ctx.beginPath(); ctx.arc(hx+fx*R*0.2+px*R*0.13,hy2+fy*R*0.2+py*R*0.13,1.15,0,6.28);
+    ctx.arc(hx+fx*R*0.2-px*R*0.13,hy2+fy*R*0.2-py*R*0.13,1.15,0,6.28); ctx.fill(); }
+  // headband across the brow + gold emblem on facing side
+  ctx.save(); ctx.translate(hx,hy2); ctx.rotate(player.face+Math.PI/2);
+  ctx.fillStyle=JOI.band; rrPath(ctx,-R*0.5,-R*0.02,R*1.0,R*0.26,R*0.1); ctx.fill(); ink(1.4);
+  ctx.restore();
+  ctx.fillStyle=JOI.gold; ctx.beginPath(); ctx.arc(hx+fx*R*0.42,hy2+fy*R*0.42,R*0.11,0,6.28); ctx.fill();
   ctx.restore();
   ctx.globalAlpha=1;
 }
+function rrPath(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);
+  c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
 
 // ---------- HUD ----------
 const $=id=>document.getElementById(id);
