@@ -994,8 +994,13 @@ function drawRivals(){
     if(rivalHaul>0){ const bx=-Math.cos(rv.face)*rv.r*0.75, by=-Math.sin(rv.face)*rv.r*0.75;
       ctx.beginPath(); ctx.ellipse(bx,by,4+Math.min(rivalHaul/600,4),4,0,0,6.28); ctx.fillStyle='#120e09'; ctx.fill(); strokeInk(1.6);
       ctx.fillStyle='#e2ab30'; ctx.beginPath(); ctx.arc(bx,by,1.2,0,6.28); ctx.fill(); }
+    { const tx=-Math.cos(rv.face),ty=-Math.sin(rv.face),qx=-ty,qy=tx, w=Math.sin(tPrev/150)*1.5;  // violet scarf tail
+      ctx.beginPath(); ctx.moveTo(qx*rv.r*0.3,qy*rv.r*0.3);
+      ctx.quadraticCurveTo(tx*rv.r+qx*w,ty*rv.r+qy*w, tx*rv.r*1.35+qx*rv.r*0.5,ty*rv.r*1.35+qy*rv.r*0.5);
+      ctx.quadraticCurveTo(tx*rv.r*0.7,ty*rv.r*0.7,-qx*rv.r*0.15,-qy*rv.r*0.15);
+      ctx.closePath(); ctx.fillStyle='#7a4fd0'; ctx.fill(); strokeInk(1.3); }
     inkHood(rv.r,'#1a1226',rv.face);
-    inkOrb(rv.r,'#1a1226','200,120,255',rv.face,0.85);
+    inkOrb(rv.r,'#1a1226','200,120,255',rv.face,0.9,560);
     ctx.restore();
   }
 }
@@ -1631,7 +1636,9 @@ function inkHood(r,fill,face){                     // pointed cowl at the back o
   ctx.quadraticCurveTo(bx*r*1.35,by*r*1.35,-px*r*0.72,-py*r*0.72);
   ctx.closePath(); ctx.fillStyle=fill; ctx.fill(); strokeInk(1.8);
 }
-function inkOrb(r,fill,accent,face,glow){          // black chiaroscuro body + glowing threat-eye
+function inkOrb(r,fill,accent,face,glow,pulse){    // black chiaroscuro body + glowing threat-eye
+  const beat = pulse ? Math.sin(tPrev/pulse) : 0;             // pulse=period(ms); 0 = steady
+  const gl = glow*(pulse?0.7+0.3*beat:1), er = r*0.95*(pulse?0.9+0.2*beat:1);
   ctx.beginPath(); ctx.arc(0,0,r,0,6.28); ctx.fillStyle=fill; ctx.fill();
   ctx.save(); ctx.beginPath(); ctx.arc(0,0,r,0,6.28); ctx.clip();
   ctx.fillStyle='rgba(3,2,1,.5)'; ctx.fillRect(-r,0,r*2,r); ctx.restore();
@@ -1639,19 +1646,33 @@ function inkOrb(r,fill,accent,face,glow){          // black chiaroscuro body + g
   ctx.strokeStyle='rgba(122,134,142,.42)'; ctx.lineWidth=1.1;
   ctx.beginPath(); ctx.arc(0,-r*0.04,r*0.94,-2.0,-0.3); ctx.stroke();         // rim light
   const ex=Math.cos(face)*r*0.42, ey=Math.sin(face)*r*0.42;
-  const eg=ctx.createRadialGradient(ex,ey,0,ex,ey,r*0.95);
-  eg.addColorStop(0,`rgba(${accent},${glow})`); eg.addColorStop(1,`rgba(${accent},0)`);
-  ctx.fillStyle=eg; ctx.beginPath(); ctx.arc(ex,ey,r*0.95,0,6.28); ctx.fill();
+  const eg=ctx.createRadialGradient(ex,ey,0,ex,ey,er);
+  eg.addColorStop(0,`rgba(${accent},${gl})`); eg.addColorStop(1,`rgba(${accent},0)`);
+  ctx.fillStyle=eg; ctx.beginPath(); ctx.arc(ex,ey,er,0,6.28); ctx.fill();
   ctx.fillStyle=`rgb(${accent})`; ctx.beginPath(); ctx.arc(ex,ey,r*0.34,0,6.28); ctx.fill();
   ctx.globalAlpha=.55; ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(ex-r*0.1,ey-r*0.11,r*0.12,0,6.28); ctx.fill(); ctx.globalAlpha=1;
 }
-function inkSpikes(r,face,accent){                 // hunter's jagged crown
-  ctx.fillStyle=INK;
-  for(let k=-2;k<=2;k++){ const a=face+Math.PI + k*0.62;
-    ctx.beginPath(); ctx.moveTo(Math.cos(a-0.12)*r*0.8,Math.sin(a-0.12)*r*0.8);
-    ctx.lineTo(Math.cos(a)*r*1.35,Math.sin(a)*r*1.35);
-    ctx.lineTo(Math.cos(a+0.12)*r*0.8,Math.sin(a+0.12)*r*0.8); ctx.closePath(); ctx.fill(); }
+function inkCloak(r,fill){                          // robed sentry drape → reads as a person
+  ctx.beginPath(); ctx.moveTo(-r*0.72,r*0.15);
+  ctx.quadraticCurveTo(-r*0.95,r*1.45,0,r*1.5);
+  ctx.quadraticCurveTo(r*0.95,r*1.45,r*0.72,r*0.15); ctx.closePath();
+  ctx.fillStyle=fill; ctx.fill(); strokeInk(1.7);
 }
+function inkHorns(r){                               // hunter brute — curved horns
+  ctx.fillStyle=INK;
+  for(const sg of [-1,1]){ ctx.beginPath(); ctx.moveTo(sg*r*0.55,-r*0.55);
+    ctx.quadraticCurveTo(sg*r*1.3,-r*1.05,sg*r*0.78,-r*1.55);
+    ctx.quadraticCurveTo(sg*r*0.72,-r*0.95,sg*r*0.25,-r*0.5); ctx.closePath(); ctx.fill(); }
+}
+function inkCrown(r,accent){                        // elite — regal spiked crown, tips glint
+  const y=-r*0.86; ctx.fillStyle=INK; ctx.beginPath(); ctx.moveTo(-r*0.66,y+r*0.22);
+  for(let k=-2;k<=2;k++) ctx.lineTo(k*r*0.33, y-(k%2?r*0.12:r*0.5));
+  ctx.lineTo(r*0.66,y+r*0.22); ctx.closePath(); ctx.fill(); strokeInk(1.2);
+  ctx.fillStyle=`rgb(${accent})`;
+  for(const k of [-2,0,2]){ ctx.beginPath(); ctx.arc(k*r*0.33,y-r*0.5,1.4,0,6.28); ctx.fill(); }
+}
+function inkHex(r){ ctx.beginPath(); for(let i=0;i<6;i++){ const a=i/6*6.2832+0.52;
+  const X=Math.cos(a)*r,Y=Math.sin(a)*r; i?ctx.lineTo(X,Y):ctx.moveTo(X,Y);} ctx.closePath(); }
 function drawSentry(s){
   const seeing=s.hot>0;
   // vision cone
@@ -1667,9 +1688,10 @@ function drawSentry(s){
   // cone edge line
   ctx.strokeStyle=`rgba(${col},${seeing?0.5:0.25})`; ctx.lineWidth=1.5;
   ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(s.ang)*s.view,Math.sin(s.ang)*s.view); ctx.stroke();
-  // housing — inked iron eye on a post, lens looks along the cone
-  ctx.fillStyle='#0a0806'; ctx.beginPath(); ctx.arc(0,0,s.r+4,0,6.28); ctx.fill(); strokeInk(2.3);
-  inkOrb(s.r, '#12100c', seeing?'224,80,63':'232,168,70', s.ang, seeing?1:0.7);
+  // mechanical HEX housing — clearly a device, not a creature; lens tracks the cone
+  inkHex(s.r+5); ctx.fillStyle='#0a0806'; ctx.fill(); strokeInk(2.4);
+  ctx.strokeStyle='rgba(122,134,142,.4)'; ctx.lineWidth=1; inkHex(s.r+1.5); ctx.stroke();
+  inkOrb(s.r*0.82, '#12100c', seeing?'224,80,63':'232,168,70', s.ang, seeing?1:0.7, seeing?200:0);
   ctx.restore();
   if(seeing){ ctx.fillStyle='#ffdf5a'; ctx.font='900 18px "Cinzel"'; ctx.textAlign='center';
     ctx.fillText('!',s.x,s.y-s.r-10); }
@@ -1690,7 +1712,7 @@ function drawPlatforms(){
     ctx.fillRect(p.x, p.y, p.w, p.h);
     // top-left highlight, edges
     ctx.fillStyle='rgba(255,255,255,.07)'; ctx.fillRect(p.x,p.y,p.w,3); ctx.fillRect(p.x,p.y,3,p.h);
-    ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.lineWidth=2; ctx.strokeRect(p.x,p.y,p.w,p.h);
+    ctx.strokeStyle=INK; ctx.lineWidth=2.5; ctx.lineJoin='miter'; ctx.strokeRect(p.x,p.y,p.w,p.h);
     // ledge warning line (warm dashes) — reads as "drop here"
     ctx.strokeStyle='rgba(245,197,66,.28)'; ctx.lineWidth=2; ctx.setLineDash([9,7]);
     ctx.strokeRect(p.x+4,p.y+4,p.w-8,p.h-8); ctx.setLineDash([]);
@@ -1724,7 +1746,7 @@ function drawFloor(){
     ctx.fillRect(w.x,w.y,w.w,w.h);
     ctx.fillStyle=T.top;
     ctx.fillRect(w.x,w.y,w.w,4);
-    ctx.strokeStyle='rgba(0,0,0,.4)'; ctx.lineWidth=2;
+    ctx.strokeStyle=INK; ctx.lineWidth=2.5; ctx.lineJoin='miter';
     ctx.strokeRect(w.x,w.y,w.w,w.h);
   }
 }
@@ -1854,20 +1876,20 @@ function drawGuard(g){
       ctx.lineTo(-g.r*0.05,sg*g.r*1.02); ctx.lineTo(g.r*0.4,sg*g.r*0.48); ctx.closePath(); ctx.fillStyle=INK; ctx.fill(); }
     ctx.restore();
     const ex=Math.cos(g.face)*g.r*0.72, ey=Math.sin(g.face)*g.r*0.72, ac=chasing?'255,82,64':'255,176,40';
-    const eg=ctx.createRadialGradient(ex,ey,0,ex,ey,g.r*0.7); eg.addColorStop(0,`rgba(${ac},1)`); eg.addColorStop(1,`rgba(${ac},0)`);
+    const b1=chasing?0.7+0.3*Math.sin(tPrev/200):1;
+    const eg=ctx.createRadialGradient(ex,ey,0,ex,ey,g.r*0.7); eg.addColorStop(0,`rgba(${ac},${b1})`); eg.addColorStop(1,`rgba(${ac},0)`);
     ctx.fillStyle=eg; ctx.beginPath(); ctx.arc(ex,ey,g.r*0.7,0,6.28); ctx.fill();
     ctx.fillStyle=`rgb(${ac})`; ctx.beginPath(); ctx.arc(ex,ey,2.1,0,6.28); ctx.fill();
   } else if(g.hunter){
-    inkHood(g.r,'#131019',g.face); inkSpikes(g.r,g.face,'224,80,63');
-    inkOrb(g.r,'#131019', chasing?'224,80,63':'212,92,76', g.face, chasing?1:0.85);
+    const R=g.r*1.14; inkHorns(R);                    // brute: bigger + curved horns
+    inkOrb(R,'#131019', chasing?'224,80,63':'214,92,76', g.face, chasing?1:0.9, chasing?180:700);
   } else if(g.elite){
-    inkHood(g.r,'#1e111b',g.face);
-    inkOrb(g.r,'#1e111b','255,110,180',g.face, chasing?1:0.9);
-    ctx.fillStyle='#ff7ab8'; for(let k=-1;k<=1;k++){ const a=g.face+Math.PI+k*0.5;
-      ctx.beginPath(); ctx.arc(Math.cos(a)*g.r*0.96,Math.sin(a)*g.r*0.96,1.5,0,6.28); ctx.fill(); }
+    inkHood(g.r,'#1e111b',g.face); inkCrown(g.r,'255,122,184');   // regal: crowned
+    inkOrb(g.r,'#1e111b','255,110,180',g.face, chasing?1:0.92, chasing?180:640);
   } else {
-    inkHood(g.r,'#171310',g.face);
-    inkOrb(g.r,'#171310', chasing?'224,80,63':looking?'232,168,70':'150,124,80', g.face, chasing?1:looking?0.85:0.5);
+    inkCloak(g.r,'#171310'); inkHood(g.r,'#171310',g.face);       // robed watchman
+    inkOrb(g.r,'#171310', chasing?'224,80,63':looking?'232,168,70':'150,124,80', g.face,
+      chasing?1:looking?0.9:0.5, chasing?200:looking?520:0);
   }
   ctx.restore();
   if(chasing){ ctx.fillStyle='#ffdf5a'; ctx.font='900 18px "Cinzel"'; ctx.textAlign='center';
