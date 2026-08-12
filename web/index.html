@@ -989,11 +989,13 @@ function updateRivals(dt){
 function drawRivals(){
   for(const rv of rivals){
     ctx.save(); ctx.translate(rv.x,rv.y);
-    ctx.fillStyle='rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(0,rv.r*0.7,rv.r,rv.r*0.4,0,0,6.28); ctx.fill();
-    ctx.fillStyle='#33243f'; ctx.beginPath(); ctx.arc(0,0,rv.r,0,6.28); ctx.fill();     // placeholder (sprites last)
-    ctx.strokeStyle='#c86bff'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(0,0,rv.r,0,6.28); ctx.stroke();
-    ctx.fillStyle='#ff9a4a'; ctx.beginPath(); ctx.arc(Math.cos(rv.face)*4,Math.sin(rv.face)*4,rv.r*0.4,0,6.28); ctx.fill();
-    if(rivalHaul>0){ ctx.fillStyle='#6b5a3a'; ctx.beginPath(); ctx.arc(-Math.cos(rv.face)*7,-Math.sin(rv.face)*7,4,0,6.28); ctx.fill(); }
+    ctx.fillStyle='rgba(0,0,0,.42)'; ctx.beginPath(); ctx.ellipse(0,rv.r*0.72,rv.r,rv.r*0.4,0,0,6.28); ctx.fill();
+    // a rival thief — same inked language, violet accent, hauling his own stolen sack
+    if(rivalHaul>0){ const bx=-Math.cos(rv.face)*rv.r*0.75, by=-Math.sin(rv.face)*rv.r*0.75;
+      ctx.beginPath(); ctx.ellipse(bx,by,4+Math.min(rivalHaul/600,4),4,0,0,6.28); ctx.fillStyle='#120e09'; ctx.fill(); strokeInk(1.6);
+      ctx.fillStyle='#e2ab30'; ctx.beginPath(); ctx.arc(bx,by,1.2,0,6.28); ctx.fill(); }
+    inkHood(rv.r,'#1a1226',rv.face);
+    inkOrb(rv.r,'#1a1226','200,120,255',rv.face,0.85);
     ctx.restore();
   }
 }
@@ -1620,6 +1622,36 @@ function draw(){
   }
 }
 
+// ===== shared ink language for the whole cast (heavy black + one threat accent) =====
+const INK='#050404';
+function strokeInk(w){ ctx.strokeStyle=INK; ctx.lineWidth=w; ctx.lineJoin='round'; ctx.stroke(); }
+function inkHood(r,fill,face){                     // pointed cowl at the back of a figure
+  const bx=-Math.cos(face), by=-Math.sin(face), px=-by, py=bx;
+  ctx.beginPath(); ctx.moveTo(px*r*0.72,py*r*0.72);
+  ctx.quadraticCurveTo(bx*r*1.35,by*r*1.35,-px*r*0.72,-py*r*0.72);
+  ctx.closePath(); ctx.fillStyle=fill; ctx.fill(); strokeInk(1.8);
+}
+function inkOrb(r,fill,accent,face,glow){          // black chiaroscuro body + glowing threat-eye
+  ctx.beginPath(); ctx.arc(0,0,r,0,6.28); ctx.fillStyle=fill; ctx.fill();
+  ctx.save(); ctx.beginPath(); ctx.arc(0,0,r,0,6.28); ctx.clip();
+  ctx.fillStyle='rgba(3,2,1,.5)'; ctx.fillRect(-r,0,r*2,r); ctx.restore();
+  ctx.beginPath(); ctx.arc(0,0,r,0,6.28); strokeInk(2.3);
+  ctx.strokeStyle='rgba(122,134,142,.42)'; ctx.lineWidth=1.1;
+  ctx.beginPath(); ctx.arc(0,-r*0.04,r*0.94,-2.0,-0.3); ctx.stroke();         // rim light
+  const ex=Math.cos(face)*r*0.42, ey=Math.sin(face)*r*0.42;
+  const eg=ctx.createRadialGradient(ex,ey,0,ex,ey,r*0.95);
+  eg.addColorStop(0,`rgba(${accent},${glow})`); eg.addColorStop(1,`rgba(${accent},0)`);
+  ctx.fillStyle=eg; ctx.beginPath(); ctx.arc(ex,ey,r*0.95,0,6.28); ctx.fill();
+  ctx.fillStyle=`rgb(${accent})`; ctx.beginPath(); ctx.arc(ex,ey,r*0.34,0,6.28); ctx.fill();
+  ctx.globalAlpha=.55; ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(ex-r*0.1,ey-r*0.11,r*0.12,0,6.28); ctx.fill(); ctx.globalAlpha=1;
+}
+function inkSpikes(r,face,accent){                 // hunter's jagged crown
+  ctx.fillStyle=INK;
+  for(let k=-2;k<=2;k++){ const a=face+Math.PI + k*0.62;
+    ctx.beginPath(); ctx.moveTo(Math.cos(a-0.12)*r*0.8,Math.sin(a-0.12)*r*0.8);
+    ctx.lineTo(Math.cos(a)*r*1.35,Math.sin(a)*r*1.35);
+    ctx.lineTo(Math.cos(a+0.12)*r*0.8,Math.sin(a+0.12)*r*0.8); ctx.closePath(); ctx.fill(); }
+}
 function drawSentry(s){
   const seeing=s.hot>0;
   // vision cone
@@ -1635,13 +1667,9 @@ function drawSentry(s){
   // cone edge line
   ctx.strokeStyle=`rgba(${col},${seeing?0.5:0.25})`; ctx.lineWidth=1.5;
   ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(s.ang)*s.view,Math.sin(s.ang)*s.view); ctx.stroke();
-  // housing
-  ctx.fillStyle='#0c0a06'; ctx.beginPath(); ctx.arc(0,0,s.r+4,0,6.28); ctx.fill();
-  ctx.fillStyle= seeing?'#e0503f':'#caa24a';
-  ctx.beginPath(); ctx.arc(0,0,s.r,0,6.28); ctx.fill();
-  // pupil looks along the cone
-  ctx.fillStyle='#0c0a06';
-  ctx.beginPath(); ctx.arc(Math.cos(s.ang)*4,Math.sin(s.ang)*4,s.r*0.5,0,6.28); ctx.fill();
+  // housing — inked iron eye on a post, lens looks along the cone
+  ctx.fillStyle='#0a0806'; ctx.beginPath(); ctx.arc(0,0,s.r+4,0,6.28); ctx.fill(); strokeInk(2.3);
+  inkOrb(s.r, '#12100c', seeing?'224,80,63':'232,168,70', s.ang, seeing?1:0.7);
   ctx.restore();
   if(seeing){ ctx.fillStyle='#ffdf5a'; ctx.font='900 18px "Cinzel"'; ctx.textAlign='center';
     ctx.fillText('!',s.x,s.y-s.r-10); }
@@ -1782,7 +1810,7 @@ function drawLoot(l){
   const gr=ctx.createRadialGradient(0,0,1,0,0,20*pulse);
   gr.addColorStop(0, c+'88'); gr.addColorStop(1, c+'00');
   ctx.fillStyle=gr; ctx.beginPath(); ctx.arc(0,0,20*pulse,0,6.28); ctx.fill();
-  ctx.fillStyle=c; ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.lineWidth=1.5;
+  ctx.fillStyle=c; ctx.strokeStyle=INK; ctx.lineWidth=2;
   const s=l.kind==='mythic'?9:l.kind==='loud'?7:l.kind==='cursed'?7:5;
   if(l.kind==='valuable'){ // diamond
     ctx.beginPath();ctx.moveTo(0,-s);ctx.lineTo(s,0);ctx.lineTo(0,s);ctx.lineTo(-s,0);ctx.closePath();
@@ -1814,33 +1842,32 @@ function drawGuard(g){
   ctx.fillStyle='rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(0,g.r*0.7,g.r,g.r*0.4,0,0,6.28); ctx.fill();
   if(g.hunter && platAt(g.x,g.y)!==-1) ctx.translate(0,-7);   // it climbed up after you
   if(g.dog){
-    // watchdog: lean low body, pricked ears, amber eye that flares red when it hears you
-    ctx.fillStyle=chasing?'#3a2018':'#241812';
-    ctx.beginPath();ctx.ellipse(0,0,g.r*1.15,g.r*0.8,g.face,0,6.28);ctx.fill();
-    ctx.strokeStyle=chasing?'#e0503f':'#7a5a3a'; ctx.lineWidth=2; ctx.stroke();
-    const ex=Math.cos(g.face), ey=Math.sin(g.face);
-    ctx.fillStyle='#1a1009';
-    ctx.beginPath();ctx.moveTo(ex*g.r-ey*5,ey*g.r+ex*5);ctx.lineTo(ex*(g.r+7),ey*(g.r+7));ctx.lineTo(ex*g.r+ey*2,ey*g.r-ex*2);ctx.fill();
-    ctx.fillStyle=chasing?'#ff5240':'#ffb020';
-    ctx.beginPath();ctx.arc(ex*g.r*0.7,ey*g.r*0.7,2.4,0,6.28);ctx.fill();
+    // watchdog: low lean inked hound, amber eye that flares red when it hears you
+    ctx.save(); ctx.rotate(g.face);
+    ctx.beginPath(); ctx.ellipse(0,0,g.r*1.2,g.r*0.72,0,0,6.28); ctx.fillStyle=chasing?'#20121a':'#161210'; ctx.fill();
+    ctx.save(); ctx.beginPath(); ctx.ellipse(0,0,g.r*1.2,g.r*0.72,0,0,6.28); ctx.clip();
+    ctx.fillStyle='rgba(3,2,1,.5)'; ctx.fillRect(-g.r*1.4,0,g.r*2.8,g.r); ctx.restore();
+    ctx.beginPath(); ctx.ellipse(0,0,g.r*1.2,g.r*0.72,0,0,6.28); strokeInk(2.2);
+    ctx.beginPath(); ctx.moveTo(g.r*0.95,-g.r*0.3); ctx.lineTo(g.r*1.55,0); ctx.lineTo(g.r*0.95,g.r*0.3); ctx.closePath();
+    ctx.fillStyle=chasing?'#20121a':'#161210'; ctx.fill(); strokeInk(1.6);
+    for(const sg of [-1,1]){ ctx.beginPath(); ctx.moveTo(-g.r*0.15,sg*g.r*0.5);
+      ctx.lineTo(-g.r*0.05,sg*g.r*1.02); ctx.lineTo(g.r*0.4,sg*g.r*0.48); ctx.closePath(); ctx.fillStyle=INK; ctx.fill(); }
+    ctx.restore();
+    const ex=Math.cos(g.face)*g.r*0.72, ey=Math.sin(g.face)*g.r*0.72, ac=chasing?'255,82,64':'255,176,40';
+    const eg=ctx.createRadialGradient(ex,ey,0,ex,ey,g.r*0.7); eg.addColorStop(0,`rgba(${ac},1)`); eg.addColorStop(1,`rgba(${ac},0)`);
+    ctx.fillStyle=eg; ctx.beginPath(); ctx.arc(ex,ey,g.r*0.7,0,6.28); ctx.fill();
+    ctx.fillStyle=`rgb(${ac})`; ctx.beginPath(); ctx.arc(ex,ey,2.1,0,6.28); ctx.fill();
   } else if(g.hunter){
-    // bounty hunter: dark iron body, red eye, spiked silhouette
-    ctx.fillStyle=chasing?'#2a1420':'#1c1420';
-    ctx.beginPath();ctx.arc(0,0,g.r,0,6.28);ctx.fill();
-    ctx.strokeStyle='#e0503f'; ctx.lineWidth=2; ctx.beginPath();ctx.arc(0,0,g.r,0,6.28);ctx.stroke();
-    ctx.fillStyle='#ff5240';
-    ctx.beginPath();ctx.arc(Math.cos(g.face)*4,Math.sin(g.face)*4,g.r*0.42,0,6.28);ctx.fill();
+    inkHood(g.r,'#131019',g.face); inkSpikes(g.r,g.face,'224,80,63');
+    inkOrb(g.r,'#131019', chasing?'224,80,63':'212,92,76', g.face, chasing?1:0.85);
   } else if(g.elite){
-    ctx.fillStyle=chasing?'#7a2a4a':'#5a2038';
-    ctx.beginPath();ctx.arc(0,0,g.r,0,6.28);ctx.fill();
-    ctx.strokeStyle='#ff5da8'; ctx.lineWidth=2; ctx.beginPath();ctx.arc(0,0,g.r,0,6.28);ctx.stroke();
-    ctx.fillStyle='#ff7ab8';
-    ctx.beginPath();ctx.arc(Math.cos(g.face)*4,Math.sin(g.face)*4,g.r*0.5,0,6.28);ctx.fill();
+    inkHood(g.r,'#1e111b',g.face);
+    inkOrb(g.r,'#1e111b','255,110,180',g.face, chasing?1:0.9);
+    ctx.fillStyle='#ff7ab8'; for(let k=-1;k<=1;k++){ const a=g.face+Math.PI+k*0.5;
+      ctx.beginPath(); ctx.arc(Math.cos(a)*g.r*0.96,Math.sin(a)*g.r*0.96,1.5,0,6.28); ctx.fill(); }
   } else {
-    ctx.fillStyle=chasing?'#a83a30':looking?'#8a6a3a':'#6f4a3a';
-    ctx.beginPath();ctx.arc(0,0,g.r,0,6.28);ctx.fill();
-    ctx.fillStyle=chasing?'#e0503f':looking?'#caa24a':'#8a5c46';
-    ctx.beginPath();ctx.arc(Math.cos(g.face)*4,Math.sin(g.face)*4,g.r*0.55,0,6.28);ctx.fill();
+    inkHood(g.r,'#171310',g.face);
+    inkOrb(g.r,'#171310', chasing?'224,80,63':looking?'232,168,70':'150,124,80', g.face, chasing?1:looking?0.85:0.5);
   }
   ctx.restore();
   if(chasing){ ctx.fillStyle='#ffdf5a'; ctx.font='900 18px "Cinzel"'; ctx.textAlign='center';
@@ -1940,6 +1967,7 @@ function drawJoVector(){
   const fx=Math.cos(player.face), fy=Math.sin(player.face);   // facing unit vec
   const px=-fy, py=fx;                                        // perpendicular (across the shoulders)
   const step = moving ? Math.sin(joWalkPhase) : Math.sin(tPrev/500)*0.12;
+  const bob = moving ? Math.abs(Math.sin(joWalkPhase))*1.4 : Math.sin(tPrev/650)*0.4;  // upper-body bob / breathe
   const facingUp = fy < -0.35;                                // moving away → see his back
   ctx.save(); ctx.translate(x,y);
   if(blink) ctx.globalAlpha=0.4;
@@ -1958,18 +1986,18 @@ function drawJoVector(){
     ctx.fillStyle=JOI.gold; ctx.beginPath(); ctx.arc(bx+px*2,by+py*2,1.4+bag*0.03,0,6.28); ctx.fill(); }
   // legs / boots — step along the facing axis
   for(let i=0;i<2;i++){ const s=(i?1:-1)*step; const side=(i?1:-1)*R*0.34;
-    const lx=px*side + fx*s*R*0.42, ly=py*side + fy*s*R*0.42 + R*0.55;
+    const lx=px*side + fx*s*R*0.5, ly=py*side + fy*s*R*0.5 + R*0.55;
     ctx.beginPath(); ctx.ellipse(lx,ly,R*0.24,R*0.3,player.face,0,6.28); ctx.fillStyle=JOI.boot; ctx.fill(); ink(1.6);
     ctx.fillStyle=JOI.gold; ctx.beginPath(); ctx.arc(lx+fx*2,ly+fy*2,0.9,0,6.28); ctx.fill(); }
   // body (lean toward facing)
-  const bcx=fx*R*0.12, bcy=fy*R*0.12;
+  const bcx=fx*R*0.12, bcy=fy*R*0.12-bob;
   ctx.save(); ctx.translate(bcx,bcy); ctx.rotate(player.face+Math.PI/2);
-  ctx.beginPath(); ctx.ellipse(0,0,R*0.62,R*0.74,0,0,6.28); ctx.fillStyle=JOI.body; ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0,0,R*0.54,R*0.8,0,0,6.28); ctx.fillStyle=JOI.body; ctx.fill();
   // chiaroscuro shade + rim
   ctx.save(); ctx.clip(); ctx.fillStyle='rgba(3,2,1,.5)'; ctx.fillRect(-R,0,R*2,R); ctx.restore();
-  ctx.beginPath(); ctx.ellipse(0,0,R*0.62,R*0.74,0,0,6.28); ink(2);
+  ctx.beginPath(); ctx.ellipse(0,0,R*0.54,R*0.8,0,0,6.28); ink(2);
   ctx.strokeStyle=JOI.rim; ctx.lineWidth=1.2; ctx.globalAlpha=.6;
-  ctx.beginPath(); ctx.ellipse(0,-R*0.05,R*0.6,R*0.72,0,-1.9,-0.2); ctx.stroke(); ctx.globalAlpha=1;
+  ctx.beginPath(); ctx.ellipse(0,-R*0.05,R*0.52,R*0.78,0,-1.9,-0.2); ctx.stroke(); ctx.globalAlpha=1;
   ctx.restore();
   // chest panel + belt buckle only when facing the camera
   if(!facingUp){ ctx.fillStyle=JOI.chest;
@@ -1988,7 +2016,7 @@ function drawJoVector(){
   ctx.beginPath(); ctx.ellipse(fx*R*0.28,fy*R*0.28,R*0.42,R*0.3,player.face,0,6.28); ctx.fillStyle=JOI.scarf; ctx.fill(); ink(1.6);
   ctx.fillStyle=JOI.scarfHi; ctx.beginPath(); ctx.ellipse(fx*R*0.28+px*2,fy*R*0.28+py*2,R*0.22,R*0.12,player.face,0,6.28); ctx.fill();
   // head — hair cap, headband, face when not facing away
-  const hx=fx*R*0.2, hy2=fy*R*0.2 - R*0.5;
+  const hx=fx*R*0.2, hy2=fy*R*0.2 - R*0.52 - bob;
   ctx.beginPath(); ctx.arc(hx,hy2,R*0.5,0,6.28); ctx.fillStyle=JOI.hair; ctx.fill(); ink(2);
   // spikes
   ctx.fillStyle=JOI.hair;
