@@ -605,6 +605,7 @@ const meta = {
          landing:0, scanner:0, pockets:0, contacts:0, cool:0, revive:0 },
   collection: { idol:0, relic:0, jewel:0, relicart:0, heart:0 },
   ascUnlocked: 0, bestByAsc: {},
+  modsCleared: {},   // vault-modifier ids you've banked a haul under (Modifier Mastery)
   daily: { playedDay:'', playedScore:0, playedEscaped:false, streak:0, bestStreak:0, best:0, history:[] }
 };
 const UPGRADES = [
@@ -765,7 +766,12 @@ const MODIFIERS = [
   { id:'fog',    name:'Dead Fog',     good:'Guards see 45% less',         bad:'but you go in a heart down',  vis:0.55, noise:1,   heat:0, hearts:-1, pay:1,    time:0  },
   { id:'purse',  name:'Heavy Purse',  good:'Start with +1 heart',         bad:'but payouts drop 15%',        vis:1,    noise:1,   heat:0, hearts:1,  pay:0.85, time:0  },
 ];
-let activeMod = MODIFIERS[0];
+let activeMod = MODIFIERS[0], pendingMasteryNew = null;
+const TWISTS = MODIFIERS.filter(m=>m.id!=='clean');
+// Modifier Mastery: bank a haul under a twist to master it — permanent, and each
+// mastered twist pays +3% on every future sale (a steady long-game pull).
+function masteryCount(){ return TWISTS.filter(m=>meta.modsCleared && meta.modsCleared[m.id]).length; }
+function masteryMult(){ return 1 + 0.03*masteryCount(); }
 
 // ---------- game state ----------
 let state = 'menu';   // menu | shop | playing | onemore | decision | result
@@ -2339,6 +2345,11 @@ function endRun(escaped){
   if(ascNewBest){ meta.bestByAsc[ascensionLevel] = ascScore; }
   if(escaped && ascensionLevel>=1 && ascensionLevel===ascUnlocked() && ascensionLevel<ASC_MAX){ meta.ascUnlocked=ascensionLevel+1; }
   if(escaped && denHeatSink() && meta.curseDebt>0){ meta.curseDebt=clamp(meta.curseDebt-1,0,10); }  // The Den perk: clean escapes cool the world
+  // Modifier Mastery: bank any haul under a twist to master it (once, permanent).
+  pendingMasteryNew=null;
+  if(escaped && haulVal>0 && activeMod.id!=='clean' && meta.modsCleared && !meta.modsCleared[activeMod.id]){
+    meta.modsCleared[activeMod.id]=1; pendingMasteryNew=activeMod;
+  }
   if(dailyMode) recordDaily(escaped);
   saveMeta();
   // Danger pays: the hotter the run got, the more everything is worth (risk = reward)
@@ -2371,6 +2382,7 @@ function endRun(escaped){
     `<div>Haul<b>$${haulVal.toLocaleString()}</b></div>`
     + (peakHeat>0?`<div>Danger (T${peakHeat})<b style="color:var(--heat)">+${Math.round((pendingDangerMult-1)*100)}%</b></div>`:'')
     + (perfect?`<div>Clean bonus<b style="color:var(--ok)">+40%</b></div>`:'')
+    + (pendingMasteryNew?`<div>Mastered · ${pendingMasteryNew.name}<b style="color:var(--ok)">${masteryCount()}/${TWISTS.length} · +${Math.round((masteryMult()-1)*100)}% sales</b></div>`:'')
     + contractLine
     + (ascensionLevel>0?`<div>Ascension ${ascensionLevel}<b style="color:var(--purple,#a98bff)">${ascNewBest?'NEW BEST':'★'.repeat(Math.min(ascensionLevel,5))}</b></div>`:'')
     + (wasDaily?`<div>Daily score<b style="color:var(--gold)">${(escaped?dailyScore():0).toLocaleString()}</b></div><div>Streak<b>${meta.daily.streak} day${meta.daily.streak===1?'':'s'}</b></div><div>Share code<b style="letter-spacing:.12em">GR-${dayKey()}-${seedToCode(daySeed(dayKey()))}</b></div>`:'')
@@ -2384,7 +2396,7 @@ function applyContractRewards(){
   if(pendingNotoDown>0){ meta.curseDebt=clamp(meta.curseDebt-pendingNotoDown,0,10); }
   pendingContractReward=0; pendingNotoDown=0;
 }
-function sellMult(){ return (1 + 0.08*upgLevel('contacts') + 0.03*collLevel('idol')) * activeMod.pay; }
+function sellMult(){ return (1 + 0.08*upgLevel('contacts') + 0.03*collLevel('idol')) * activeMod.pay * masteryMult(); }
 // which buyers want a given loot kind, and what they pay / cost
 function buyersFor(kind,value){
   const b=[{id:'black',nm:'Black Market',mult:1.0,fx:null,cls:''}];
@@ -2534,6 +2546,7 @@ async function loadMeta(){
         meta.curseDebt=d.curseDebt||0; if(d.upg) Object.assign(meta.upg,d.upg);
         if(d.collection) Object.assign(meta.collection,d.collection);
         meta.ascUnlocked=d.ascUnlocked||0; if(d.bestByAsc) meta.bestByAsc=d.bestByAsc;
+        if(d.modsCleared) meta.modsCleared=d.modsCleared;
         if(d.daily) Object.assign(meta.daily, d.daily);
       }
       refreshAscUnlock();  // already-maxed saves unlock Ascension 1
@@ -2544,7 +2557,7 @@ async function loadMeta(){
 async function saveMeta(){
   try{ await store.set(SAVE_KEY, JSON.stringify({
     gold:meta.gold, runs:meta.runs, bestHaul:meta.bestHaul, curseDebt:meta.curseDebt, upg:meta.upg, collection:meta.collection,
-    ascUnlocked:meta.ascUnlocked, bestByAsc:meta.bestByAsc, daily:meta.daily })); }
+    ascUnlocked:meta.ascUnlocked, bestByAsc:meta.bestByAsc, modsCleared:meta.modsCleared, daily:meta.daily })); }
   catch(e){}
 }
 async function wipeMeta(){
@@ -2552,7 +2565,7 @@ async function wipeMeta(){
   meta.gold=0; meta.runs=0; meta.bestHaul=0; meta.curseDebt=0;
   meta.upg={straps:0,boots:0,feet:0,luck:0,landing:0,scanner:0,pockets:0,contacts:0,cool:0,revive:0};
   meta.collection={idol:0,relic:0,jewel:0,relicart:0,heart:0};
-  meta.ascUnlocked=0; meta.bestByAsc={}; selectedAscension=0; ascensionLevel=0;
+  meta.ascUnlocked=0; meta.bestByAsc={}; meta.modsCleared={}; selectedAscension=0; ascensionLevel=0;
   meta.daily={ playedDay:'', playedScore:0, playedEscaped:false, streak:0, bestStreak:0, best:0, history:[] };
   renderShop();
 }
@@ -2659,7 +2672,13 @@ function renderHideoutScene(){
     const on=ti>=p[0];
     return `<span class="denperk${on?' on':''}">${on?'✔':'→ '+DEN_TIERS[p[0]][1]} `
       +`<b>${p[1]}</b><em>${on?p[2]():'locked'}</em></span>`;
-  }).join(''); }
+  }).join('');
+    // Modifier Mastery — a long-game track: beat a run under each vault twist.
+    const mn=masteryCount(), full=mn===TWISTS.length;
+    pk.innerHTML += `<span class="denperk${full?' on':''}">${full?'✔':'→'} `
+      +`<b>Modifier Mastery ${mn}/${TWISTS.length}</b>`
+      +`<em>${mn>0?'+'+Math.round((masteryMult()-1)*100)+'% on all sales':'beat a run under each vault twist'}</em></span>`;
+  }
 }
 function renderShop(){
   renderHideoutScene();
@@ -2836,6 +2855,9 @@ window.__greed = {
   get runLootTotal(){ return runLootTotal; },
   saveMeta, loadMeta,
   updateRivals, get rivals(){ return rivals; }, get rivalHaul(){ return rivalHaul; },
+  get MODIFIERS(){ return MODIFIERS; }, get TWISTS(){ return TWISTS; },
+  get activeMod(){ return activeMod; }, set activeMod(v){ activeMod = v; },
+  masteryCount, masteryMult, sellMult, endRun,
 };
 })();
 </script>
