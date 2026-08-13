@@ -82,8 +82,14 @@
      grows to the largest rectangle that fits the viewport, so the whole game
      and HUD stay visible either way — no shrunken portrait strip in landscape. */
   @media (pointer:coarse){
-    #stage{container-type:size;}
+    body{padding:0;}
+    /* Full-bleed: the stage IS the viewport. The canvas buffer (VIEW) is rebuilt
+       to the live screen aspect in JS, so the canvas fills edge-to-edge with no
+       letterbox and no stretch. HUD still scales in container units (cqmin). */
+    #stage{container-type:size;width:100vw;height:100vh;width:100dvw;height:100dvh;
+      aspect-ratio:auto;border-radius:0;box-shadow:none;}
     .credit{display:none;}                                   /* frees the bottom-left corner for the meters */
+    .controls-hint{display:none;}                            /* keyboard hints are irrelevant on touch */
     #hud{padding:calc(3cqmin + env(safe-area-inset-top)) calc(3.4cqmin + env(safe-area-inset-right))
          calc(3cqmin + env(safe-area-inset-bottom)) calc(3.4cqmin + env(safe-area-inset-left));}
     .hearts{font-size:6.4cqmin;gap:1.4cqmin;}
@@ -107,15 +113,6 @@
     #stick .nub{width:14cqmin;height:14cqmin;margin:-7cqmin 0 0 -7cqmin;}
     .prompt{font-size:4.4cqmin;bottom:calc(23cqmin + env(safe-area-inset-bottom));}
   }
-  /* Portrait phone: tall 580:921 stage, sized by the largest rect that fits. */
-  @media (pointer:coarse) and (orientation:portrait){
-    #stage{aspect-ratio:580/921;width:min(96vw, calc(96vh * 580 / 921));}
-  }
-  /* Landscape phone: wide 921:580 stage that fills the screen — the buffer (VIEW)
-     swaps to match, so nothing is stretched and the whole HUD reads at full size. */
-  @media (pointer:coarse) and (orientation:landscape){
-    #stage{aspect-ratio:921/580;height:min(96vh, calc(96vw * 580 / 921));width:auto;}
-  }
 
   .prompt{position:absolute;left:50%;bottom:64px;transform:translateX(-50%);
     font-family:"Cinzel",serif;font-weight:700;font-size:15px;letter-spacing:.06em;
@@ -125,11 +122,28 @@
 
   /* ---------- Overlays ---------- */
   .overlay{position:absolute;inset:0;display:none;flex-direction:column;
-    align-items:center;justify-content:center;text-align:center;padding:6% 8%;
+    align-items:center;justify-content:safe center;text-align:center;padding:6% 8%;
+    overflow-y:auto;-webkit-overflow-scrolling:touch;
     background:radial-gradient(120% 90% at 50% 40%, rgba(20,16,9,.86), rgba(6,5,3,.96));
     backdrop-filter:blur(3px);z-index:5;}
   .overlay.on{display:flex;animation:fade .4s ease;}
   @keyframes fade{from{opacity:0}to{opacity:1}}
+  /* Short landscape phones: compact the menu chrome so a whole screen fits without
+     clipping; anything still too tall scrolls (see .overlay overflow-y:auto). */
+  @media (pointer:coarse) and (orientation:landscape){
+    .overlay{padding:3.5% 6% calc(3.5% + env(safe-area-inset-bottom));}
+    h1.title{font-size:clamp(26px,7.6vh,54px);}
+    h1.title .sub{font-size:.22em;}
+    .eyebrow{font-size:10px;margin-bottom:5px;}
+    .tagline{font-size:13px;margin:8px 0 14px;line-height:1.35;}
+    .btn{padding:9px 22px;font-size:15px;}
+    .btn-row{gap:10px;}
+    .tagline{max-width:52ch;}
+    .howto-grid{gap:8px;margin:12px 0 16px;width:min(620px,96%);}
+    .ht-row{gap:12px;}
+    .ht-key{flex-basis:78px;font-size:12px;}
+    .ht-txt{font-size:12.5px;line-height:1.4;}
+  }
 
   .eyebrow{font-size:12px;letter-spacing:.42em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:10px;}
   h1.title{font-family:"Cinzel",serif;font-weight:900;line-height:.92;
@@ -580,10 +594,16 @@ const JO_COARSE = matchMedia('(pointer:coarse)').matches;
 const VIEW = { w: 0, h: 0 };   // filled by applyView() below (0 → always applies first pass)
 function pickView(){
   if(!JO_COARSE) return { w: 857, h: 571 };
-  return (window.innerWidth > window.innerHeight)
-    ? { w: 921, h: 580 }    // landscape phone
-    : { w: 580, h: 921 };   // portrait phone
+  // Full-bleed phone: match the buffer aspect to the live viewport so the canvas
+  // fills the screen with no letterbox and no stretch. Fix the SHORT side to a
+  // steady resolution; derive the long side from the real aspect (clamped so an
+  // ultrawide/tall device can't blow the buffer out or show too little world).
+  const w=window.innerWidth, h=window.innerHeight, land=w>=h;
+  const S=600, ratio=clampNum(Math.max(w,h)/Math.max(1,Math.min(w,h)), 1.2, 2.35);
+  const long=Math.round(S*ratio);
+  return land ? { w:long, h:S } : { w:S, h:long };
 }
+function clampNum(v,a,b){ return v<a?a:v>b?b:v; }
 // Resize the canvas buffer to the current orientation. The camera re-clamps to
 // VIEW every frame, so a live swap needs no extra bookkeeping — next frame fits.
 function applyView(){
