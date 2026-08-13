@@ -1,5 +1,16 @@
 # Changelog
 
+## Web build — mobile, modifiers & mastery
+
+- Landscape: the phone stage and canvas buffer now follow device orientation,
+  filling the screen instead of shrinking to a portrait strip.
+- Mobile controls: scale-correct joystick (orientation-agnostic), a touch DROP
+  button (the Q-key verb), and pressed feedback on the touch buttons.
+- Vault Modifiers: every free run rolls a risk/reward twist — Still Night,
+  Gilded Vault, Curfew, Dead Fog, Heavy Purse, or a no-twist Clean Job.
+- Modifier Mastery: bank a haul under each twist for a permanent +3%/twist
+  sales bonus; progress persists and shows in the hideout.
+
 ## v0.1.3 — Godot 4.7 type-inference hotfix
 
 - Replaced the untyped `Node` vault parameter in guard and sentry AI with `GreedrunVault`.
