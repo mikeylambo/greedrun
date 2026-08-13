@@ -101,6 +101,8 @@
     .pip{width:5cqmin;height:1.9cqmin;}
     #eBtn{width:20cqmin;height:20cqmin;font-size:3.6cqmin;line-height:1.15;
           right:calc(4cqmin + env(safe-area-inset-right));bottom:calc(4cqmin + env(safe-area-inset-bottom));}
+    #dropBtn{width:14cqmin;height:14cqmin;font-size:3.2cqmin;
+          right:calc(26cqmin + env(safe-area-inset-right));bottom:calc(6.4cqmin + env(safe-area-inset-bottom));}
     #stick{width:34cqmin;height:34cqmin;}
     #stick .nub{width:14cqmin;height:14cqmin;margin:-7cqmin 0 0 -7cqmin;}
     .prompt{font-size:4.4cqmin;bottom:calc(23cqmin + env(safe-area-inset-bottom));}
@@ -357,12 +359,21 @@
     background:rgba(255,255,255,.04);box-shadow:0 0 0 1px rgba(255,255,255,.08) inset;
     display:none;}
   #stick .nub{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;
-    border-radius:50%;background:rgba(255,207,63,.55);box-shadow:0 4px 14px rgba(0,0,0,.4);}
+    border-radius:50%;background:rgba(255,207,63,.55);box-shadow:0 4px 14px rgba(0,0,0,.4);
+    will-change:transform;}
   #eBtn{position:absolute;right:22px;bottom:22px;width:74px;height:74px;border-radius:50%;
     pointer-events:auto;background:linear-gradient(180deg,var(--scarf),var(--gold-deep));
     color:var(--vault);font-family:"Cinzel",serif;font-weight:900;font-size:14px;
     display:none;align-items:center;justify-content:center;letter-spacing:.04em;
-    box-shadow:0 8px 20px rgba(0,0,0,.4);}
+    box-shadow:0 8px 20px rgba(0,0,0,.4);transition:transform .08s, box-shadow .08s, filter .08s;}
+  #eBtn.pressed{transform:scale(.9);filter:brightness(1.12);box-shadow:0 3px 10px rgba(0,0,0,.5);}
+  /* DROP: shed your heaviest carried piece (the touch twin of the Q key). */
+  #dropBtn{position:absolute;right:104px;bottom:28px;width:60px;height:60px;border-radius:50%;
+    pointer-events:auto;background:rgba(20,16,9,.72);box-shadow:0 0 0 1px var(--panel-line) inset,0 8px 20px rgba(0,0,0,.4);
+    color:var(--bone);font-family:"Cinzel",serif;font-weight:700;font-size:12px;letter-spacing:.06em;
+    display:none;align-items:center;justify-content:center;transition:transform .08s, box-shadow .08s, opacity .15s;}
+  #dropBtn.pressed{transform:scale(.9);box-shadow:0 0 0 1px var(--gold-deep) inset,0 3px 10px rgba(0,0,0,.5);}
+  #dropBtn.idle{opacity:.34;}
   .toast{position:absolute;top:52px;left:50%;transform:translateX(-50%);
     font-family:"Cinzel",serif;font-weight:700;font-size:14px;letter-spacing:.04em;
     padding:7px 16px;border-radius:20px;background:rgba(20,16,9,.9);
@@ -548,6 +559,7 @@
   <!-- Touch -->
   <div id="touch">
     <div id="stick"><div class="nub" id="nub"></div></div>
+    <div id="dropBtn">DROP</div>
     <div id="eBtn">HOLD<br>ESC</div>
   </div>
 
@@ -1369,6 +1381,8 @@ function recompute(){
   for(const l of loot){ if(l.got){ carriedValue+=l.value; carriedWeight+=l.weight; carriedNoise+=l.noise; carriedCurse+=l.curse; } }
   heatTier = clamp(Math.floor(carriedValue/650) + Math.floor(carriedCurse/3) + runHeatSeed, 0, 6);
   meta.bestHaul = Math.max(meta.bestHaul, carriedValue);
+  // Dim the touch DROP button when there's no weighted piece to shed.
+  if(isTouch) dropBtn.classList.toggle('idle', carriedWeight<=0);
 }
 
 // derived stats
@@ -1405,8 +1419,8 @@ addEventListener('keyup', e=>keys.delete(e.key.toLowerCase()));
 // touch
 const touchWrap=document.getElementById('touch');
 const stickEl=document.getElementById('stick'), nubEl=document.getElementById('nub');
-const eBtn=document.getElementById('eBtn');
-let touchVec={x:0,y:0}, stickId=null, stickOrig={x:0,y:0}, eHeld=false;
+const eBtn=document.getElementById('eBtn'), dropBtn=document.getElementById('dropBtn');
+let touchVec={x:0,y:0}, stickId=null, stickOrig={x:0,y:0}, eHeld=false, stickR=52;
 const isTouch = matchMedia('(pointer:coarse)').matches;
 
 function stagePt(ev){
@@ -1421,27 +1435,40 @@ canvas.addEventListener('pointerdown', ev=>{
     stickId=ev.pointerId; stickOrig={x:p.px,y:p.py};
     const r=canvas.getBoundingClientRect();
     stickEl.style.display='block';
-    stickEl.style.left=(ev.clientX-r.left-60)+'px';
-    stickEl.style.top=(ev.clientY-r.top-60)+'px';
-    nubEl.style.left='50%'; nubEl.style.top='50%';
+    // Center the ring on the touch and derive nub travel from its RENDERED size, so
+    // the stick feels identical whether CSS sized it in px or cqmin (portrait vs
+    // landscape) — no more hardcoded 60/52 px drifting from the real ring.
+    const half=stickEl.offsetWidth/2 || 60;
+    stickR=half*0.62;
+    stickEl.style.left=(ev.clientX-r.left-half)+'px';
+    stickEl.style.top=(ev.clientY-r.top-half)+'px';
+    nubEl.style.transform='translate(0,0)';
   }
 });
 canvas.addEventListener('pointermove', ev=>{
   if(ev.pointerId!==stickId) return;
   const p=stagePt(ev);
   let dx=p.px-stickOrig.x, dy=p.py-stickOrig.y;
-  const m=Math.hypot(dx,dy)||1, cap=Math.min(m,52);
+  const m=Math.hypot(dx,dy)||1, cap=Math.min(m,stickR);
   const nx=dx/m, ny=dy/m;
-  touchVec={x:nx*(cap/52), y:ny*(cap/52)};
-  nubEl.style.left=(50+nx*cap/1.2)+'%';
-  nubEl.style.top=(50+ny*cap/1.2)+'%';
+  touchVec={x:nx*(cap/stickR), y:ny*(cap/stickR)};
+  nubEl.style.transform=`translate(${nx*cap}px,${ny*cap}px)`;
 });
-function endStick(ev){ if(ev.pointerId===stickId){ stickId=null; touchVec={x:0,y:0}; stickEl.style.display='none'; } }
+function endStick(ev){ if(ev.pointerId===stickId){ stickId=null; touchVec={x:0,y:0}; stickEl.style.display='none'; nubEl.style.transform='translate(0,0)'; } }
 canvas.addEventListener('pointerup', endStick);
 canvas.addEventListener('pointercancel', endStick);
-eBtn.addEventListener('pointerdown', ()=>{eHeld=true;});
-eBtn.addEventListener('pointerup', ()=>{eHeld=false;});
-eBtn.addEventListener('pointerleave', ()=>{eHeld=false;});
+eBtn.addEventListener('pointerdown', ()=>{eHeld=true; eBtn.classList.add('pressed');});
+function eRelease(){ eHeld=false; eBtn.classList.remove('pressed'); }
+eBtn.addEventListener('pointerup', eRelease);
+eBtn.addEventListener('pointerleave', eRelease);
+eBtn.addEventListener('pointercancel', eRelease);
+// DROP — touch twin of the Q key: shed your heaviest carried piece mid-run.
+dropBtn.addEventListener('pointerdown', ev=>{ ev.preventDefault();
+  if(state==='playing'){ dropLoot(); dropBtn.classList.add('pressed'); } });
+function dropRelease(){ dropBtn.classList.remove('pressed'); }
+dropBtn.addEventListener('pointerup', dropRelease);
+dropBtn.addEventListener('pointerleave', dropRelease);
+dropBtn.addEventListener('pointercancel', dropRelease);
 
 // ---------- update ----------
 let extractHold=0, hitStop=0;   // hitStop = brief freeze-frame on impact (game feel)
@@ -2183,7 +2210,7 @@ function startRun(){
   if(ascMods(ascensionLevel).fromStart && !hunterSpawned) spawnHunter();  // A10: hunter from the opening second
   state='playing';
   show(null); $('hud').classList.add('on');
-  if(isTouch){ touchWrap.style.display='block'; eBtn.style.display='flex'; }
+  if(isTouch){ touchWrap.style.display='block'; eBtn.style.display='flex'; dropBtn.style.display='flex'; }
 }
 function openOneMore(){
   state='onemore'; $('hud').classList.remove('on');
