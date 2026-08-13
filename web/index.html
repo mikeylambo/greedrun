@@ -76,10 +76,13 @@
   .pip{width:16px;height:6px;border-radius:2px;background:#2a2016;transition:background .2s;}
   .pip.lit{background:var(--heat);box-shadow:0 0 10px var(--heat);}
   /* Phone readability: larger HUD type, bigger touch targets, safe-area insets */
-  /* Phone: portrait stage that is its own size-container, so the entire HUD scales
-     in container units (cqmin) and never overflows or clips, on any screen. */
+  /* Phone: the stage is its own size-container, so the entire HUD scales in
+     container units (cqmin) and never overflows or clips, on any screen. The
+     stage follows the device orientation (portrait OR landscape) and always
+     grows to the largest rectangle that fits the viewport, so the whole game
+     and HUD stay visible either way — no shrunken portrait strip in landscape. */
   @media (pointer:coarse){
-    #stage{aspect-ratio:580/921;width:min(96vw,62vh);container-type:size;}
+    #stage{container-type:size;}
     .credit{display:none;}                                   /* frees the bottom-left corner for the meters */
     #hud{padding:calc(3cqmin + env(safe-area-inset-top)) calc(3.4cqmin + env(safe-area-inset-right))
          calc(3cqmin + env(safe-area-inset-bottom)) calc(3.4cqmin + env(safe-area-inset-left));}
@@ -101,6 +104,15 @@
     #stick{width:34cqmin;height:34cqmin;}
     #stick .nub{width:14cqmin;height:14cqmin;margin:-7cqmin 0 0 -7cqmin;}
     .prompt{font-size:4.4cqmin;bottom:calc(23cqmin + env(safe-area-inset-bottom));}
+  }
+  /* Portrait phone: tall 580:921 stage, sized by the largest rect that fits. */
+  @media (pointer:coarse) and (orientation:portrait){
+    #stage{aspect-ratio:580/921;width:min(96vw, calc(96vh * 580 / 921));}
+  }
+  /* Landscape phone: wide 921:580 stage that fills the screen — the buffer (VIEW)
+     swaps to match, so nothing is stretched and the whole HUD reads at full size. */
+  @media (pointer:coarse) and (orientation:landscape){
+    #stage{aspect-ratio:921/580;height:min(96vh, calc(96vw * 580 / 921));width:auto;}
   }
 
   .prompt{position:absolute;left:50%;bottom:64px;transform:translateX(-50%);
@@ -548,11 +560,29 @@
 "use strict";
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
-// Phones play in PORTRAIT, filling the screen (big cast, big HUD); desktop keeps a
-// slightly-zoomed 3:2. VIEW == canvas buffer, so pointer mapping (÷VIEW) stays exact.
+// Phones fill the screen in whichever way they're held — PORTRAIT (tall) or
+// LANDSCAPE (wide) — with the buffer swapping to match so the CSS stage never
+// stretches the canvas. Desktop keeps a slightly-zoomed 3:2. VIEW == canvas
+// buffer, so pointer mapping (÷VIEW) stays exact regardless of orientation.
 const JO_COARSE = matchMedia('(pointer:coarse)').matches;
-const VIEW = JO_COARSE ? { w: 580, h: 921 } : { w: 857, h: 571 };
-canvas.width = VIEW.w; canvas.height = VIEW.h;
+const VIEW = { w: 0, h: 0 };   // filled by applyView() below (0 → always applies first pass)
+function pickView(){
+  if(!JO_COARSE) return { w: 857, h: 571 };
+  return (window.innerWidth > window.innerHeight)
+    ? { w: 921, h: 580 }    // landscape phone
+    : { w: 580, h: 921 };   // portrait phone
+}
+// Resize the canvas buffer to the current orientation. The camera re-clamps to
+// VIEW every frame, so a live swap needs no extra bookkeeping — next frame fits.
+function applyView(){
+  const v = pickView();
+  if(v.w === VIEW.w && v.h === VIEW.h) return;
+  VIEW.w = v.w; VIEW.h = v.h;
+  canvas.width = VIEW.w; canvas.height = VIEW.h;
+}
+applyView();
+addEventListener('resize', applyView);
+addEventListener('orientationchange', applyView);
 const WORLD = { w: 2000, h: 1400 };
 let JO_STYLE='vector';   // 'vector' = code-drawn ink rig (no image assets) · 'atlas' = sprite sheet
 
