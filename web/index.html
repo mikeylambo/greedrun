@@ -550,6 +550,7 @@ const JO_COARSE = matchMedia('(pointer:coarse)').matches;
 const VIEW = JO_COARSE ? { w: 580, h: 921 } : { w: 857, h: 571 };
 canvas.width = VIEW.w; canvas.height = VIEW.h;
 const WORLD = { w: 2000, h: 1400 };
+let JO_STYLE='vector';   // 'vector' = code-drawn ink rig (no image assets) · 'atlas' = sprite sheet
 
 // ---------- persistent (session) meta ----------
 const meta = {
@@ -1938,6 +1939,7 @@ const JO_CELL=256, JO_FEET=239, JO_CX=128, JO_SCALE=0.30;
 const JO_HIP=188, JO_LEG_OV=28, JO_LEG_W=142; // cutout: hip line, seam overlap, leg-half width
 const joImg={};
 (function loadJo(){
+  if(JO_STYLE!=='atlas') return;                 // vector rig needs no image assets
   for(const d of ['front','side','back']) for(const t of ['empty','light','heavy']){
     const im=new Image(); im.src=`assets/jo/jo_${d}_${t}.png`; joImg[d+'_'+t]=im;
   }
@@ -1956,7 +1958,7 @@ function joTier(w){ return w<=0 ? 'empty' : w<16 ? 'light' : 'heavy'; }
 
 // ===== Atlas frame renderer (authored animation, replaces the procedural puppet) =====
 const JO_A_CELL=128, JO_A_FEET=118, JO_A_CX=64, JO_A_SCALE=0.62;   // TUNE on-screen size
-const joAtlas=new Image(); joAtlas.src='assets/jo/atlas.png';
+const joAtlas=new Image(); if(JO_STYLE==='atlas') joAtlas.src='assets/jo/atlas.png';
 const JO_ROW={idle_down:0,idle_side_l:1,idle_up:2,run_down:3,run_side_l:4,run_up:5,
   pickup:6,hit:7,downed:8,run_light_down:9,run_light_side_l:10,run_light_up:11,
   run_heavy_down:12,run_heavy_side_l:13,run_heavy_up:14};
@@ -1965,7 +1967,6 @@ const JO_NF={idle_down:6,idle_side_l:6,idle_up:6,run_down:6,run_side_l:6,run_up:
   run_heavy_down:6,run_heavy_side_l:6,run_heavy_up:5};
 const JO_DIRSUF={front:'down',side:'side_l',back:'up'};
 let joWalkPhase=0;                                          // distance-driven so steps never skate
-let JO_STYLE='vector';   // 'vector' = code-drawn ink rig (no assets) · 'atlas' = sprite sheet
 function drawJo(){
   if(JO_STYLE==='vector' || !joAtlas.complete || !joAtlas.naturalWidth){ drawJoVector(); return; }  // ink rig / atlas fallback
   const dir=joDir(player.face), tier=joTier(carriedWeight), suf=JO_DIRSUF[dir.key];
