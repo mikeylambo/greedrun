@@ -76,27 +76,31 @@
   .pip{width:16px;height:6px;border-radius:2px;background:#2a2016;transition:background .2s;}
   .pip.lit{background:var(--heat);box-shadow:0 0 10px var(--heat);}
   /* Phone readability: larger HUD type, bigger touch targets, safe-area insets */
+  /* Phone: portrait stage that is its own size-container, so the entire HUD scales
+     in container units (cqmin) and never overflows or clips, on any screen. */
   @media (pointer:coarse){
-    #stage{aspect-ratio:580/921;width:min(96vw,55vh);}
-    #hud{padding:calc(12px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right))
-         calc(12px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left));}
-    .hearts{font-size:26px;gap:6px;}
-    #objective{font-size:15px;max-width:58vw;}
-    #objective b{font-size:13px;}
-    #timer{font-size:26px;}
-    .value-tag .lbl{font-size:13px;}
-    .value-tag .amt{font-size:36px;}
-    .meters{width:min(360px,54%);bottom:calc(14px + env(safe-area-inset-bottom));}
-    .meter .row{font-size:13px;}
-    .meter .track{height:12px;}
-    .heat-pips{bottom:calc(108px + env(safe-area-inset-bottom));right:calc(16px + env(safe-area-inset-right));}
-    .heat-pips .lbl{font-size:13px;}
-    .pip{width:22px;height:8px;}
-    #eBtn{width:92px;height:92px;font-size:17px;
-          right:calc(20px + env(safe-area-inset-right));bottom:calc(20px + env(safe-area-inset-bottom));}
-    #stick{width:150px;height:150px;}
-    #stick .nub{width:64px;height:64px;margin:-32px 0 0 -32px;}
-    .prompt{font-size:18px;bottom:calc(76px + env(safe-area-inset-bottom));}
+    #stage{aspect-ratio:580/921;width:min(96vw,62vh);container-type:size;}
+    .credit{display:none;}                                   /* frees the bottom-left corner for the meters */
+    #hud{padding:calc(3cqmin + env(safe-area-inset-top)) calc(3.4cqmin + env(safe-area-inset-right))
+         calc(3cqmin + env(safe-area-inset-bottom)) calc(3.4cqmin + env(safe-area-inset-left));}
+    .hearts{font-size:6.4cqmin;gap:1.4cqmin;}
+    #objective{font-size:3.5cqmin;max-width:52cqmin;margin-top:2cqmin;}
+    #objective b{font-size:3.1cqmin;}
+    #timer{font-size:6.4cqmin;margin-top:1.5cqmin;}
+    .value-tag .lbl{font-size:3.1cqmin;white-space:nowrap;}
+    .value-tag .amt{font-size:8.6cqmin;}
+    .meters{width:52cqmin;left:3.4cqmin;bottom:calc(3.4cqmin + env(safe-area-inset-bottom));gap:2cqmin;}
+    .meter .row{font-size:3.1cqmin;margin-bottom:1cqmin;}
+    .meter .track{height:2.6cqmin;}
+    .heat-pips{right:calc(3.4cqmin + env(safe-area-inset-right));
+               bottom:calc(30cqmin + env(safe-area-inset-bottom));}
+    .heat-pips .lbl{font-size:3.1cqmin;margin-bottom:1.2cqmin;}
+    .pip{width:5cqmin;height:1.9cqmin;}
+    #eBtn{width:20cqmin;height:20cqmin;font-size:3.6cqmin;line-height:1.15;
+          right:calc(4cqmin + env(safe-area-inset-right));bottom:calc(4cqmin + env(safe-area-inset-bottom));}
+    #stick{width:34cqmin;height:34cqmin;}
+    #stick .nub{width:14cqmin;height:14cqmin;margin:-7cqmin 0 0 -7cqmin;}
+    .prompt{font-size:4.4cqmin;bottom:calc(23cqmin + env(safe-area-inset-bottom));}
   }
 
   .prompt{position:absolute;left:50%;bottom:64px;transform:translateX(-50%);
