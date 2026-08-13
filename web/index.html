@@ -75,6 +75,29 @@
   .pips{display:flex;gap:5px;justify-content:flex-end;}
   .pip{width:16px;height:6px;border-radius:2px;background:#2a2016;transition:background .2s;}
   .pip.lit{background:var(--heat);box-shadow:0 0 10px var(--heat);}
+  /* Phone readability: larger HUD type, bigger touch targets, safe-area insets */
+  @media (pointer:coarse){
+    #stage{aspect-ratio:580/921;width:min(96vw,55vh);}
+    #hud{padding:calc(12px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right))
+         calc(12px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left));}
+    .hearts{font-size:26px;gap:6px;}
+    #objective{font-size:15px;max-width:58vw;}
+    #objective b{font-size:13px;}
+    #timer{font-size:26px;}
+    .value-tag .lbl{font-size:13px;}
+    .value-tag .amt{font-size:36px;}
+    .meters{width:min(360px,54%);bottom:calc(14px + env(safe-area-inset-bottom));}
+    .meter .row{font-size:13px;}
+    .meter .track{height:12px;}
+    .heat-pips{bottom:calc(108px + env(safe-area-inset-bottom));right:calc(16px + env(safe-area-inset-right));}
+    .heat-pips .lbl{font-size:13px;}
+    .pip{width:22px;height:8px;}
+    #eBtn{width:92px;height:92px;font-size:17px;
+          right:calc(20px + env(safe-area-inset-right));bottom:calc(20px + env(safe-area-inset-bottom));}
+    #stick{width:150px;height:150px;}
+    #stick .nub{width:64px;height:64px;margin:-32px 0 0 -32px;}
+    .prompt{font-size:18px;bottom:calc(76px + env(safe-area-inset-bottom));}
+  }
 
   .prompt{position:absolute;left:50%;bottom:64px;transform:translateX(-50%);
     font-family:"Cinzel",serif;font-weight:700;font-size:15px;letter-spacing:.06em;
@@ -521,7 +544,11 @@
 "use strict";
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
-const VIEW = { w: 960, h: 640 };
+// Phones play in PORTRAIT, filling the screen (big cast, big HUD); desktop keeps a
+// slightly-zoomed 3:2. VIEW == canvas buffer, so pointer mapping (÷VIEW) stays exact.
+const JO_COARSE = matchMedia('(pointer:coarse)').matches;
+const VIEW = JO_COARSE ? { w: 580, h: 921 } : { w: 857, h: 571 };
+canvas.width = VIEW.w; canvas.height = VIEW.h;
 const WORLD = { w: 2000, h: 1400 };
 
 // ---------- persistent (session) meta ----------
