@@ -752,6 +752,21 @@ const BOONS = {
 };
 const BOON_KEYS = Object.keys(BOONS);
 
+// ---------- vault modifiers (per-run risk/reward twist) ----------
+// Each job (free runs only) rolls a condition with a clear upside and downside,
+// so no two nights read the same. vis=guard-sight ×, noise=loot-loudness ×,
+// heat=extra starting Heat, hearts=starting-heart delta, pay=payout ×,
+// time=vault-collapse seconds (0 = none). Index 0 is the no-twist "Clean Job".
+const MODIFIERS = [
+  { id:'clean',  name:'Clean Job',    good:'The vault sleeps tonight.',   bad:'',                            vis:1,    noise:1,   heat:0, hearts:0,  pay:1,    time:0  },
+  { id:'still',  name:'Still Night',  good:'Guards see 30% less',         bad:'but your loot is 40% louder', vis:0.70, noise:1.40, heat:0, hearts:0,  pay:1,    time:0  },
+  { id:'gilded', name:'Gilded Vault', good:'Every payout +35%',           bad:'but you start one Heat hotter',vis:1,    noise:1,   heat:1, hearts:0,  pay:1.35, time:0  },
+  { id:'curfew', name:'Curfew',       good:'Payouts +45%',                bad:'but the vault collapses in 90s',vis:1,    noise:1,   heat:0, hearts:0,  pay:1.45, time:90 },
+  { id:'fog',    name:'Dead Fog',     good:'Guards see 45% less',         bad:'but you go in a heart down',  vis:0.55, noise:1,   heat:0, hearts:-1, pay:1,    time:0  },
+  { id:'purse',  name:'Heavy Purse',  good:'Start with +1 heart',         bad:'but payouts drop 15%',        vis:1,    noise:1,   heat:0, hearts:1,  pay:0.85, time:0  },
+];
+let activeMod = MODIFIERS[0];
+
 // ---------- game state ----------
 let state = 'menu';   // menu | shop | playing | onemore | decision | result
 let walls = [], loot = [], guards = [], sentries = [], particles = [], floaters = [];
@@ -1137,9 +1152,14 @@ function buildWorld(){
   runLootTotal=0; runLootCount=0; vaultCleared=false; alarmFlash=0; lowNoiseRun=true;
   noiseMuffled=false;
   hunterSpawned=false; vertHintShown=false; resetSever();
-  runHeatSeed = clamp(Math.floor(meta.curseDebt/2) - upgLevel('cool') - denCalm(), 0, 3) + ascMods(ascensionLevel).heat + (dailyMutator.heat||0);  // world + den standing + ascension + weekly mutator
+  // Roll this run's vault modifier. Free runs only — contracts and dailies carry
+  // their own structure. Seeded from vrng() so a given vault always reads the same.
+  if(activeContract==null && !dailyMode){
+    activeMod = vrng()<0.30 ? MODIFIERS[0] : MODIFIERS[1 + Math.floor(vrng()*(MODIFIERS.length-1))];
+  } else activeMod = MODIFIERS[0];
+  runHeatSeed = clamp(Math.floor(meta.curseDebt/2) - upgLevel('cool') - denCalm(), 0, 3) + ascMods(ascensionLevel).heat + (dailyMutator.heat||0) + activeMod.heat;  // world + den standing + ascension + weekly mutator + vault modifier
   runSpotted=false; runClock=0; peakHeat=0; runDamaged=false;
-  runTimeLimit = activeContract && activeContract.type==='timed' ? activeContract.timeLimit : 0;
+  runTimeLimit = activeContract && activeContract.type==='timed' ? activeContract.timeLimit : (activeMod.time||0);
   currentTheme = THEMES[(activeContract && activeContract.themeKey) || THEME_KEYS[Math.floor(vrng()*THEME_KEYS.length)]];
 
   const T=44; // wall thickness
@@ -1198,7 +1218,7 @@ function buildWorld(){
   player = {
     x:pSpot.x, y:pSpot.y, r:14, vx:0, vy:0, face:0,
     baseSpeed: 2.85 * (1 + 0.11*upgLevel('feet')),
-    maxHp: 3 + upgLevel('luck'), hp: 3 + upgLevel('luck'),
+    maxHp: Math.max(1, 3 + upgLevel('luck') + activeMod.hearts), hp: Math.max(1, 3 + upgLevel('luck') + activeMod.hearts),
     inv:0, bag:0, ghost:0, plat:-1, usedRevive:false
   };
 
@@ -1392,8 +1412,8 @@ function speedNow(){
   const pen = clamp(carriedWeight*strapMul, 0, capPen);
   return player.baseSpeed*(1-pen);
 }
-function noiseNow(){ return noiseMuffled ? 0 : carriedNoise * Math.max(0.2, 1 - 0.18*upgLevel('boots')); }
-function detectRadius(){ return (92 + noiseNow()*6 + heatTier*9) * Math.max(0.55, 1 - 0.06*collLevel('relic')) * ascMods(ascensionLevel).det; }
+function noiseNow(){ return noiseMuffled ? 0 : carriedNoise * Math.max(0.2, 1 - 0.18*upgLevel('boots')) * activeMod.noise; }
+function detectRadius(){ return (92 + noiseNow()*6 + heatTier*9) * Math.max(0.55, 1 - 0.06*collLevel('relic')) * ascMods(ascensionLevel).det * activeMod.vis; }
 function guardSpeed(){ return (1.5 + heatTier*0.16 + carriedCurse*0.03) * ascMods(ascensionLevel).gs; }
 
 // ---------- input ----------
@@ -2180,6 +2200,8 @@ function syncHud(){
     let ok=false; try{ ok=activeContract.check(); }catch(e){}
     objEl.innerHTML=`<b>Job \u00b7 ${activeContract.title}</b><br>${activeContract.desc}`
       + (ok?` <span style="color:var(--ok)">\u2713</span>`:'');
+  } else if(activeMod.id!=='clean'){
+    objEl.innerHTML=`<b>${activeMod.name}</b><br>${activeMod.good}<span style="color:var(--muted)"> \u2014 ${activeMod.bad}</span>`;
   } else objEl.innerHTML='';
   if(runTimeLimit>0){
     const left=Math.max(0,runTimeLimit-runClock);
@@ -2211,6 +2233,7 @@ function startRun(){
   state='playing';
   show(null); $('hud').classList.add('on');
   if(isTouch){ touchWrap.style.display='block'; eBtn.style.display='flex'; dropBtn.style.display='flex'; }
+  if(activeMod.id!=='clean') toast(`${activeMod.name}: ${activeMod.good} ${activeMod.bad}`.trim(), 2600);
 }
 function openOneMore(){
   state='onemore'; $('hud').classList.remove('on');
@@ -2361,7 +2384,7 @@ function applyContractRewards(){
   if(pendingNotoDown>0){ meta.curseDebt=clamp(meta.curseDebt-pendingNotoDown,0,10); }
   pendingContractReward=0; pendingNotoDown=0;
 }
-function sellMult(){ return 1 + 0.08*upgLevel('contacts') + 0.03*collLevel('idol'); }
+function sellMult(){ return (1 + 0.08*upgLevel('contacts') + 0.03*collLevel('idol')) * activeMod.pay; }
 // which buyers want a given loot kind, and what they pay / cost
 function buyersFor(kind,value){
   const b=[{id:'black',nm:'Black Market',mult:1.0,fx:null,cls:''}];
