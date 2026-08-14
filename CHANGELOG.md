@@ -1,5 +1,25 @@
 # Changelog
 
+## Web build — playtest telemetry & economy re-centering
+
+- **Playtest telemetry**: every run (escape, capture, or abandon) is logged
+  locally — location, layout, modifier, job, ascension, outcome and death
+  cause, duration, haul vs banked, peak Heat, Vault-Remembers seconds, hits
+  taken, loot secured, tool usage, epithet earned. "Copy playtest report" in
+  the hideout aggregates it into paste-able text (escape rates, deaths by
+  cause, per-location/modifier tallies, tool usage, recent-run lines).
+  Kept to the last 80 runs; cleared by Reset progress.
+- **Economy audit** (`npm run audit:econ`, committed): drives the real
+  run→fence→bank pipeline headless across meta stages and grab policies.
+  Findings: income growth FRESH→MAX is ×3.97 (on-target vs the handoff's
+  ×4 intent), but every decent haul pinned Heat T6 because vaults roughly
+  doubled in value since the 650/tier dial was set — flattening danger pay
+  into a constant and making Vault-Remembers routine.
+- **Tuning**: Heat re-centered at $900 of carried value per tier (was 650).
+  Modest hauls now ride T3–4; T6 and THE VAULT REMEMBERS are reserved for
+  genuinely greedy runs. Further economy dials deliberately wait for real
+  playtest telemetry.
+
 ## Web build — endgame: The Vault Remembers, Legendary Heist & skill lanes
 
 - **THE VAULT REMEMBERS** (Heat T6, the GDD's max-heat tier): at full Heat the

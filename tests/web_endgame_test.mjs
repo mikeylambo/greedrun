@@ -151,6 +151,21 @@ if (fin.state !== 'result') fails.push('extraction did not complete through the 
 else if (!/2,400/.test(fin.stats)) fails.push('result screen missing the $2,400 contract payout');
 else log.push('heist: extracted through the 1.1s awakened hold, contract paid $2,400');
 
+// ---- telemetry: the heist run above must be in the run log, and the report reads ----
+const tele = await page.evaluate(() => {
+  const G = window.__greed;
+  const last = G.runLog[G.runLog.length - 1];
+  return { n: G.runLog.length, last, report: G.buildReport() };
+});
+if (!tele.n) fails.push('run log recorded nothing');
+else {
+  const r = tele.last;
+  if (r.out !== 'escape' || r.con !== 'heart' || !r.heart) fails.push('run log record wrong: ' + JSON.stringify(r));
+  if (!(r.awake > 0)) fails.push('vault-remembers time not tracked in the log');
+  if (!/PLAYTEST REPORT/.test(tele.report) || !/RECENT RUNS/.test(tele.report)) fails.push('report missing sections');
+  else log.push('telemetry: heist run logged (escape, heart, awake ' + r.awake + 's) and report builds');
+}
+
 log.forEach(l => console.log(l));
 if (pageErrors.length) { console.log('PAGE ERRORS:'); pageErrors.forEach(e => console.log('  ' + e)); }
 if (fails.length) { console.log('FAILURES:'); fails.forEach(f => console.log('  ' + f)); }

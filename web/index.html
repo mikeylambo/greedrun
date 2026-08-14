@@ -548,6 +548,7 @@
       <button class="btn ghost" id="collectionBtn">The Collection</button>
     </div>
     <div class="controls-hint">Spend banked gold on gear. Everything you fence here rides with you into the next run.
+      &nbsp;·&nbsp; <span id="logBtn" style="pointer-events:auto;cursor:pointer;color:var(--muted);text-decoration:underline;text-underline-offset:2px">Copy playtest report (<span id="logN">0</span> runs)</span>
       &nbsp;·&nbsp; <span id="resetBtn" style="pointer-events:auto;cursor:pointer;color:var(--muted);text-decoration:underline;text-underline-offset:2px">Reset progress</span></div>
   </div>
 
@@ -910,6 +911,8 @@ let flashCurse=0;
 let rings=[], joSquash=0, dustT=0, lastChargeStep=-1;   // juice: impact rings, squash timer, footstep dust, escape-charge tick
 // THE VAULT REMEMBERS (Heat T6): the building itself joins the hunt
 let vaultAwake=false, whisperT=0, awakeSeverT=0, sealNagT=0;
+// playtest telemetry: per-run counters (reset each build) + a persistent run log
+let hitsTaken=0, awakeTime=0, toolUses=0;
 // Legendary Heist (multi-stage): 0 none · 1 case · 2 take · 3 latches · 4 escape
 let heistStage=0, latches=[];
 
@@ -1306,6 +1309,7 @@ function buildWorld(){
   joSquash=0; dustT=0; lastChargeStep=-1;
   baits=[]; toolMark=null; smokeT=0;
   vaultAwake=false; whisperT=0; awakeSeverT=0; sealNagT=0; heistStage=0; latches=[];
+  hitsTaken=0; awakeTime=0; toolUses=0;
   toolCharges = (meta.equippedTool && ownsTool(meta.equippedTool)) ? toolById(meta.equippedTool).uses + (capOn('trickster')?1:0) : 0;
   seenOneMore=false; heartRevealed=false; runOutcome=null; flashCurse=0;
   carriedValue=carriedWeight=carriedNoise=carriedCurse=0; heatTier=0;
@@ -1600,12 +1604,12 @@ function landDrop(){
     if(g.state!=='chase'){ g.state='investigate'; g.lkp={x:player.x,y:player.y}; g.searchT=g.hunter?3:2.2; any=true; } } }
   if(w>=8) toast(any?'Heavy landing \u2014 heard!':'You hit hard.',1000);
   // fall damage when very loaded
-  if(w>=20 && player.inv<=0){ player.hp--; player.inv=1.1; runDamaged=true;
+  if(w>=20 && player.inv<=0){ player.hp--; player.inv=1.1; runDamaged=true; hitsTaken++;
     S.hit(); ring(player.x,player.y,'#e0503f',{vr:200,life:0.45});
     floaters.push({x:player.x,y:player.y-20,txt:'\u2212\u2665 hard landing',life:1,col:'#e0503f'});
     if(player.hp<=0){
       if(upgLevel('revive')>0 && !player.usedRevive){ player.usedRevive=true; player.hp=1; player.inv=2; S.revive(); toast('Second wind \u2014 back on your feet.',1500); }
-      else endRun(false);
+      else endRun(false,'hard landing');
     } }
 }
 let vertHintT=0;
@@ -1615,7 +1619,10 @@ function vertHint(msg){ if(vertHintShown) return; vertHintShown=true; toast(msg,
 function recompute(){
   carriedValue=carriedWeight=carriedNoise=carriedCurse=0;
   for(const l of loot){ if(l.got){ carriedValue+=(l.spotted?40:l.value); carriedWeight+=l.weight; carriedNoise+=l.noise; carriedCurse+=l.curse; } }
-  heatTier = clamp(Math.floor(carriedValue/650) + Math.floor(carriedCurse/3) + runHeatSeed, 0, 6);
+  // TUNE — value-per-Heat-tier. Re-centered 650→900 (econ audit): vaults roughly
+  // doubled in total value since 650 was set, which pinned every decent haul at
+  // T6 — flattening danger pay into a constant and making Vault-Remembers routine.
+  heatTier = clamp(Math.floor(carriedValue/900) + Math.floor(carriedCurse/3) + runHeatSeed, 0, 6);
   // Legendary Heist: while the Heart is in your bag, the vault KNOWS (locked T6)
   if(activeContract && activeContract.type==='heart' && loot.some(l=>l.type==='heart'&&l.got)) heatTier=6;
   meta.bestHaul = Math.max(meta.bestHaul, carriedValue);
@@ -1850,7 +1857,7 @@ function useTool(){
     for(let i=0;i<12;i++) particles.push(mkP(player.x,player.y,'#a98bff'));
     toolMark=null; S.portalGo(); toast('Snap — back at the marker.',1000); used=true;
   }
-  if(used){ toolCharges--; syncToolUI(); }
+  if(used){ toolCharges--; toolUses++; syncToolUI(); }
 }
 function syncToolUI(){
   const id=meta.equippedTool, t=id&&ownsTool(id)?toolById(id):null;
@@ -1940,6 +1947,7 @@ function updateVaultRemembers(dt){
     vaultAwake=false; toast('The vault settles. It hasn’t forgotten.',1400);
   }
   if(!vaultAwake) return;
+  awakeTime+=dt;
   whisperT-=dt;
   if(whisperT<=0){ whisperT=2.5;                       // the pulse: every warden learns where you are
     ring(player.x,player.y,'#e0503f',{r0:8,vr:340,life:0.7,lw:2});
@@ -2030,12 +2038,12 @@ function updateHazards(dt){
       ring(pr.x,pr.y,'#c9b37a',{vr:170,life:0.35});
       for(let i=0;i<8;i++)particles.push(mkP(pr.x+rand(-20,20),pr.y+rand(-14,14),'#6b5a3a'));
       if(player.plat===-1 && player.inv<=0 && dist2(player.x,player.y,pr.x,pr.y)<(pr.r+player.r*0.4)**2){
-        player.hp--; player.inv=1.2; runDamaged=true; joSquash=Math.max(joSquash,0.55);
+        player.hp--; player.inv=1.2; runDamaged=true; joSquash=Math.max(joSquash,0.55); hitsTaken++;
         S.hit(); shake=14; hitStop=Math.max(hitStop,0.08);
         floaters.push({x:player.x,y:player.y-20,txt:'−♥ CRUSHED',life:1,col:'#e0503f'});
         if(player.hp<=0){
           if(upgLevel('revive')>0 && !player.usedRevive){ player.usedRevive=true; player.hp=1; player.inv=2; S.revive(); toast('Second wind — back on your feet.',1500); }
-          else { endRun(false); return true; }
+          else { endRun(false,'coin press'); return true; }
         }
       }
       for(const g of guards){ if(!g.stun && dist2(g.x,g.y,pr.x,pr.y)<(pr.r+g.r*0.4)**2){
@@ -2054,7 +2062,7 @@ function update(dt){
   if(state!=='playing') return;
   runClock+=dt;
   if(heatTier>peakHeat) peakHeat=heatTier;
-  if(runTimeLimit>0 && runClock>=runTimeLimit){ toast('The vault collapsed!',1600); shake=20; endRun(false); return; }
+  if(runTimeLimit>0 && runClock>=runTimeLimit){ toast('The vault collapsed!',1600); shake=20; endRun(false,'collapse'); return; }
   // input vector
   let ix=0, iy=0;
   if(keys.has('w')||keys.has('arrowup'))iy-=1;
@@ -2184,7 +2192,7 @@ function update(dt){
 
     // contact — grunts only reach ground-level Jo; the Hunter reaches you anywhere
     if(g.hitCd<=0 && player.inv<=0 && !ghosting && (player.plat===-1 || g.hunter) && dist2(g.x,g.y,player.x,player.y) < (g.r+player.r)**2){
-      player.hp-- ; player.inv=1.1; g.hitCd=0.8; shake=14; hitStop=Math.max(hitStop,0.07); runDamaged=true;
+      player.hp-- ; player.inv=1.1; g.hitCd=0.8; shake=14; hitStop=Math.max(hitStop,0.07); runDamaged=true; hitsTaken++;
       S.hit(); joSquash=Math.max(joSquash,0.45); ring(player.x,player.y,'#e0503f',{vr:220,life:0.45});
       const kx=player.x-g.x, ky=player.y-g.y, km=Math.hypot(kx,ky)||1, push=26;
       if(isOpen(player.x+kx/km*push, player.y, player.r)) player.x+=kx/km*push;
@@ -2200,7 +2208,7 @@ function update(dt){
       if(player.hp<=0){
         if(upgLevel('revive')>0 && !player.usedRevive){ player.usedRevive=true; player.hp=1; player.inv=2; shake=18;
           alarmFlash=1; S.revive(); toast('Second wind \u2014 back on your feet.',1500); }
-        else { endRun(false); return; }
+        else { endRun(false, g.hunter?'hunter':g.elite?'elite':g.dog?'watchdog':'guard'); return; }
       }
     }
   }
@@ -2991,7 +2999,7 @@ function epithet(escaped){
   if(carriedValue>=1500) return 'MASTER LOOTER';
   return 'OPPORTUNIST';
 }
-function endRun(escaped){
+function endRun(escaped, cause){
   const wasDaily=dailyMode;
   runOutcome=escaped; state='result';
   if(escaped) S.escape(); else S.caught();
@@ -3038,6 +3046,17 @@ function endRun(escaped){
     pendingContractInfo={title:activeContract.title, done, reward:activeContract.reward};
     if(done){ pendingContractReward=activeContract.reward; pendingNotoDown=activeContract.notoDown||0; }
   }
+
+  // telemetry: one compact record per run (bank amount fills in after the fence)
+  logRun({ t:Date.now(), seed:vaultSeed, thm:currentThemeKey, lay:currentLayout, mod:activeMod.id,
+    con:activeContract?activeContract.type:(wasDaily?'daily':'free'),
+    conOk:pendingContractInfo?pendingContractInfo.done:null, asc:ascensionLevel,
+    out:escaped?'escape':'caught', cause:escaped?null:(cause||'caught'), dur:Math.round(runClock),
+    haul:haulVal, bank:null, pk:peakHeat, awake:Math.round(awakeTime), hits:hitsTaken,
+    sec:loot.filter(l=>l.got).length, tot:runLootCount,
+    tool:meta.equippedTool||null, tuse:toolUses, ep:repEarned,
+    hunter:hunterSpawned, spotted:runSpotted, clear:vaultCleared,
+    heart:loot.some(l=>l.type==='heart'&&l.got), rival:rivalHaul });
 
   $('resEyebrow').textContent = perfect ? 'Perfect Heist \u00b7 Vault Cleared'
     : escaped ? (heartRevealed?'Extraction \u00b7 Vault Heart secured':'Extraction') : 'Caught';
@@ -3109,7 +3128,8 @@ function routeAfterResult(){
   // no items to haggle over — bank any loose bulk directly, then to the hideout
   if(runOutcome && pendingBulk.n>0){
     let t=Math.round(pendingBulk.val*sellMult()); if(pendingPerfect) t=Math.round(t*1.4); t=Math.round(t*pendingDangerMult*collGoldMult()*denBonus()*ascMods(ascensionLevel).pay); meta.gold+=t;
-  }
+    logBank(t);
+  } else if(runOutcome) logBank(0);
   applyContractRewards();
   pendingHaul=[]; pendingBulk={val:0,n:0};
   saveMeta(); openShop();
@@ -3165,6 +3185,7 @@ function bankHaul(){
       toast(trophyById(tid).passive+' \u2014 added to the Collection.',1600); } } }
   if(pendingPerfect) total=Math.round(total*1.4); total=Math.round(total*pendingDangerMult*collGoldMult()*denBonus()*ascMods(ascensionLevel).pay);
   meta.gold+=total; meta.curseDebt=clamp(meta.curseDebt+curseD,0,10);
+  logBank(total);
   S.cash();
   applyContractRewards();
   pendingHaul=[]; pendingBulk={val:0,n:0};
@@ -3221,6 +3242,49 @@ function renderContracts(){
   });
 }
 
+// ---------- playtest telemetry: a local run log you can hand straight to a designer ----------
+// Every run records where it happened, what twisted it, how it ended and what it
+// paid. "Copy playtest report" in the hideout aggregates it into paste-able text.
+const LOG_KEY='greedrun_runlog_v1';
+let runLog=[]; try{ runLog=JSON.parse(localStorage.getItem(LOG_KEY)||'[]'); }catch(e){}
+function saveLog(){ try{ localStorage.setItem(LOG_KEY,JSON.stringify(runLog)); }catch(e){} }
+function logRun(rec){ runLog.push(rec); if(runLog.length>80) runLog=runLog.slice(-80); saveLog(); }
+function logBank(amount){ const r=runLog[runLog.length-1]; if(r && r.bank==null){ r.bank=amount; saveLog(); } }
+function buildReport(){
+  const L=runLog; if(!L.length) return 'GREEDRUN PLAYTEST REPORT — no runs recorded yet.';
+  const esc=L.filter(r=>r.out==='escape'), died=L.filter(r=>r.out==='caught');
+  const pct=(a,b)=>b?Math.round(a/b*100)+'%':'—';
+  const avg=(arr,f)=>arr.length?Math.round(arr.reduce((a,r)=>a+(f(r)||0),0)/arr.length):0;
+  const tally=(arr,f)=>{ const m={}; for(const r of arr){ const k=f(r)==null?'—':f(r); m[k]=(m[k]|0)+1; }
+    return Object.entries(m).sort((a,b)=>b[1]-a[1]).map(([k,v])=>k+'×'+v).join(' · ')||'—'; };
+  const mmss=s=>Math.floor((s||0)/60)+':'+String((s||0)%60).padStart(2,'0');
+  const withCon=L.filter(r=>r.conOk!=null);
+  let out='GREEDRUN PLAYTEST REPORT · '+L.length+' runs\n';
+  out+='escapes '+esc.length+'/'+L.length+' ('+pct(esc.length,L.length)+') · avg run '+mmss(avg(L,r=>r.dur))
+    +' · avg hits/run '+avg(L,r=>r.hits)+'\n';
+  out+='avg haul (escaped) $'+avg(esc,r=>r.haul).toLocaleString()
+    +' · avg banked $'+avg(esc.filter(r=>r.bank!=null),r=>r.bank).toLocaleString()+'\n';
+  out+='deaths: '+(died.length?tally(died,r=>r.cause):'none')+'\n';
+  out+='peak heat avg T'+avg(L,r=>r.pk)+' · vault-remembers runs '+L.filter(r=>r.awake>0).length
+    +' · hunter seen '+pct(L.filter(r=>r.hunter).length,L.length)+'\n';
+  out+='locations: '+tally(L,r=>r.thm)+'\n';
+  out+='modifiers: '+tally(L,r=>r.mod)+'\n';
+  out+='jobs: '+tally(L,r=>r.con)+' · contract success '+(withCon.length?pct(withCon.filter(r=>r.conOk).length,withCon.length):'—')+'\n';
+  out+='tools: '+tally(L.filter(r=>r.tool),r=>r.tool)+' · avg uses/run (equipped) '+avg(L.filter(r=>r.tool),r=>r.tuse)+'\n';
+  out+='epithets: '+tally(L.filter(r=>r.ep),r=>r.ep)+'\n';
+  out+='\nRECENT RUNS\n';
+  for(const r of L.slice(-15)){
+    out+=(r.out==='escape'?'✔':r.out==='abandon'?'∅':'✘')+' '
+      +(r.out==='escape'?('$'+(r.haul||0).toLocaleString()+(r.bank!=null?'→$'+r.bank.toLocaleString():'')):(r.cause||r.out))
+      +' · '+r.thm+'/'+(r.mod||'clean')+' · '+r.con+(r.conOk===true?'✓':r.conOk===false?'✗':'')
+      +(r.asc?' · A'+r.asc:'')
+      +' · T'+r.pk+(r.awake?' (awake '+r.awake+'s)':'')+' · '+r.sec+'/'+r.tot
+      +(r.tool?' · '+r.tool+'×'+r.tuse:'')+' · '+mmss(r.dur)
+      +(r.ep?' · '+r.ep:'')+'\n';
+  }
+  return out;
+}
+
 // ---------- persistence (survives reloads via artifact storage; safe if unavailable) ----------
 const SAVE_KEY='greedrun_meta_v1';
 // Persist through the app wrapper's storage if present, else the browser's
@@ -3264,6 +3328,7 @@ async function wipeMeta(){
   meta.tools={smoke:0,decoy:0,grapple:0,lockpick:0,portal:0}; meta.equippedTool=''; meta.rep={};
   meta.ascUnlocked=0; meta.bestByAsc={}; meta.modsCleared={}; selectedAscension=0; ascensionLevel=0;
   meta.daily={ playedDay:'', playedScore:0, playedEscaped:false, streak:0, bestStreak:0, best:0, history:[] };
+  runLog=[]; try{ localStorage.removeItem(LOG_KEY); }catch(e){}
   renderShop();
 }
 // ---------- The hideout scene: a den that visibly grows with your standing ----------
@@ -3379,6 +3444,7 @@ function renderHideoutScene(){
 }
 function renderShop(){
   renderHideoutScene();
+  const ln=$('logN'); if(ln) ln.textContent=runLog.length;
   $('bankAmt').textContent='$'+meta.gold.toLocaleString();
   const nl=$('notoLine');
   if(meta.curseDebt>0){
@@ -3517,6 +3583,7 @@ $('continueBtn').onclick=routeAfterResult;
 $('escapeNow').onclick=()=>endRun(true);
 $('stayGreedy').onclick=resumeGreedy;
 $('bankBtn').onclick=bankHaul;
+$('logBtn').onclick=()=>{ copyText(buildReport()); toast('Playtest report copied — paste it to Claude.',1500); };
 let resetArmed=false;
 $('resetBtn').onclick=()=>{ const el=$('resetBtn');
   if(!resetArmed){ resetArmed=true; el.textContent='Tap again to wipe everything';
@@ -3549,6 +3616,13 @@ function renderStats(){
 }
 function resumeGame(){ if(state!=='paused') return; state='playing'; show(null); $('hud').classList.add('on'); }
 function abandonRun(){ touchWrap.style.display='none'; $('hud').classList.remove('on');
+  logRun({ t:Date.now(), seed:vaultSeed, thm:currentThemeKey, lay:currentLayout, mod:activeMod.id,
+    con:activeContract?activeContract.type:'free', conOk:null, asc:ascensionLevel,
+    out:'abandon', cause:null, dur:Math.round(runClock), haul:carriedValue, bank:0,
+    pk:peakHeat, awake:Math.round(awakeTime), hits:hitsTaken,
+    sec:loot.filter(l=>l.got).length, tot:runLootCount,
+    tool:meta.equippedTool||null, tuse:toolUses, ep:null,
+    hunter:hunterSpawned, spotted:runSpotted, clear:vaultCleared, heart:false, rival:rivalHaul });
   toast('Run abandoned \u2014 you walk out with nothing.',1600); openShop(); }
 function openHowTo(from){ howtoFrom=from; show('howto'); }
 $('pauseBtn').onclick=pauseGame;
@@ -3626,6 +3700,12 @@ window.__greed = {
   get heistStage(){ return heistStage; }, get latches(){ return latches; },
   exitSealed, extractNeed, capOn, searchMul, startRun,
   get activeContract(){ return activeContract; }, set activeContract(v){ activeContract=v; },
+  // telemetry / economy-audit surface
+  buildReport, get runLog(){ return runLog; },
+  set selectedAscension(v){ selectedAscension=v; },
+  get peakHeat(){ return peakHeat; }, set peakHeat(v){ peakHeat=v; },
+  get heatTier(){ return heatTier; },
+  get vaultCleared(){ return vaultCleared; }, set vaultCleared(v){ vaultCleared=v; },
 };
 })();
 </script>

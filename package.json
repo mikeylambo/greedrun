@@ -8,6 +8,7 @@
     "test:location": "node tests/web_location_test.mjs",
     "test:tools": "node tests/web_tools_test.mjs",
     "test:endgame": "node tests/web_endgame_test.mjs",
+    "audit:econ": "node tests/econ_audit.mjs",
     "test": "node tests/web_region_test.mjs && node tests/web_juice_test.mjs && node tests/web_location_test.mjs && node tests/web_tools_test.mjs && node tests/web_endgame_test.mjs"
   },
   "devDependencies": {
