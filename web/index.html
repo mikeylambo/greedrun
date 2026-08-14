@@ -105,13 +105,9 @@
                bottom:calc(30cqmin + env(safe-area-inset-bottom));}
     .heat-pips .lbl{font-size:3.1cqmin;margin-bottom:1.2cqmin;}
     .pip{width:5cqmin;height:1.9cqmin;}
-    #eBtn{width:20cqmin;height:20cqmin;font-size:3.6cqmin;line-height:1.15;
-          right:calc(4cqmin + env(safe-area-inset-right));bottom:calc(4cqmin + env(safe-area-inset-bottom));}
-    #dropBtn{width:14cqmin;height:14cqmin;font-size:3.2cqmin;
-          right:calc(26cqmin + env(safe-area-inset-right));bottom:calc(6.4cqmin + env(safe-area-inset-bottom));}
-    #stick{width:34cqmin;height:34cqmin;}
-    #stick .nub{width:14cqmin;height:14cqmin;margin:-7cqmin 0 0 -7cqmin;}
-    .prompt{font-size:4.4cqmin;bottom:calc(23cqmin + env(safe-area-inset-bottom));}
+    /* Touch-control sizing lives AFTER the base #stick/#eBtn/#dropBtn rules (search
+       "--ctl") so it actually wins on source order — these ID rules can't be
+       overridden from here because the base defs come later in the file. */
   }
 
   .prompt{position:absolute;left:50%;bottom:64px;transform:translateX(-50%);
@@ -388,6 +384,25 @@
     display:none;align-items:center;justify-content:center;transition:transform .08s, box-shadow .08s, opacity .15s;}
   #dropBtn.pressed{transform:scale(.9);box-shadow:0 0 0 1px var(--gold-deep) inset,0 3px 10px rgba(0,0,0,.5);}
   #dropBtn.idle{opacity:.34;}
+  /* Touch controls scale together off one clamped unit (--ctl): comfortable on
+     phones, capped so they don't balloon on tablets, and their offsets track the
+     same unit so DROP never overlaps HOLD. Placed AFTER the base #stick/#eBtn/
+     #dropBtn defs so these equal-specificity ID rules win on source order (the
+     old cqmin rules up in the coarse block were dead — base defs came later). */
+  @media (pointer:coarse){
+    #stage{--ctl:clamp(58px, 15cqmin, 94px);}
+    #stick{width:calc(var(--ctl)*1.9);height:calc(var(--ctl)*1.9);}
+    #eBtn{width:calc(var(--ctl)*1.1);height:calc(var(--ctl)*1.1);
+      font-size:calc(var(--ctl)*0.19);line-height:1.1;
+      right:calc(var(--ctl)*0.3 + env(safe-area-inset-right));
+      bottom:calc(var(--ctl)*0.3 + env(safe-area-inset-bottom));}
+    #dropBtn{width:calc(var(--ctl)*0.86);height:calc(var(--ctl)*0.86);
+      font-size:calc(var(--ctl)*0.2);
+      right:calc(var(--ctl)*1.55 + env(safe-area-inset-right));
+      bottom:calc(var(--ctl)*0.42 + env(safe-area-inset-bottom));}
+    .prompt{font-size:calc(var(--ctl)*0.32);
+      bottom:calc(var(--ctl)*1.6 + env(safe-area-inset-bottom));}
+  }
   .toast{position:absolute;top:52px;left:50%;transform:translateX(-50%);
     font-family:"Cinzel",serif;font-weight:700;font-size:14px;letter-spacing:.04em;
     padding:7px 16px;border-radius:20px;background:rgba(20,16,9,.9);
