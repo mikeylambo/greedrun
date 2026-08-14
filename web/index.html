@@ -480,6 +480,7 @@
       <div class="ht-row"><div class="ht-key">Grab</div><div class="ht-txt">Walk over loot to pocket it. Everything you carry is <em>Greed Load</em> — it makes you richer, but slower, louder, more marked, and more hunted.</div></div>
       <div class="ht-row"><div class="ht-key">Decide</div><div class="ht-txt">Glowing artifacts stop you for a choice: take it whole for gold, pry it for clean scraps, or spend it for <em>power</em> — a boon that bends the run.</div></div>
       <div class="ht-row"><div class="ht-key">Watch</div><div class="ht-txt">Guards chase what they see and give up when they lose you. Swiveling <em>sentries</em> can't see through walls — use cover, read the sweep.</div></div>
+      <div class="ht-row"><div class="ht-key">Places</div><div class="ht-txt">Every location fights differently. <em>Flood water</em> slows you but swallows your noise. <em>Wind</em> shoves everyone. The <em>dark</em> hides all but your lantern &mdash; and you. The Mint&rsquo;s <em>presses</em> crush whatever lingers, guards included.</div></div>
       <div class="ht-row"><div class="ht-key">Climb</div><div class="ht-txt">Walk up a <em>staircase</em> to reach high ground &mdash; guards can&rsquo;t follow you up. Step off a <em>ledge</em> to drop fast, but a loaded landing is loud and can cost a heart.</div></div>
       <div class="ht-row"><div class="ht-key">Escape</div><div class="ht-txt">The glowing exit is where you started. Hold it to leave and <em>bank</em> your haul. Get caught and the vault keeps everything.</div></div>
       <div class="ht-row"><div class="ht-key">Heat</div><div class="ht-txt">The more you carry, the hotter it gets &mdash; guards grow faster and sharper-eyed, and at high Heat a <em>Bounty Hunter</em> enters. But danger pays: a hotter run sells for more.</div></div>
@@ -829,14 +830,23 @@ let flashCurse=0;
 let rings=[], joSquash=0, dustT=0, lastChargeStep=-1;   // juice: impact rings, squash timer, footstep dust, escape-charge tick
 
 // ---------- location themes (visual identity per job) ----------
+// Each location now FIGHTS differently (see the hazards block): water, wind,
+// darkness, presses. hint feeds the HUD objective line so the identity reads.
 const THEMES = {
-  treasury: { name:'the Sunken Treasury',  floor:'#15120c', wall:'#241d13', top:'#2f2617', plat:'#3a2f1d', grid:'rgba(255,255,255,.03)' },
-  fortress: { name:'the Cliffside Fortress',floor:'#0f1418', wall:'#1e2830', top:'#2b3742', plat:'#354553', grid:'rgba(180,210,255,.045)' },
-  undercity:{ name:'the Undercity Vaults',  floor:'#130f0c', wall:'#2a2018', top:'#3a2c1e', plat:'#463525', grid:'rgba(255,190,140,.035)' },
-  mint:     { name:'the Old Mint',          floor:'#161510', wall:'#2c2a1c', top:'#3a3726', plat:'#48442e', grid:'rgba(245,220,120,.045)' },
+  treasury: { name:'the Sunken Treasury',  hint:'flood water slows you — and swallows your noise',       floor:'#15120c', wall:'#241d13', top:'#2f2617', plat:'#3a2f1d', grid:'rgba(255,255,255,.03)' },
+  fortress: { name:'the Cliffside Fortress',hint:'the wind shoves everyone on the ramparts',             floor:'#0f1418', wall:'#1e2830', top:'#2b3742', plat:'#354553', grid:'rgba(180,210,255,.045)' },
+  undercity:{ name:'the Undercity Vaults',  hint:'pitch dark — you carry the only lantern',              floor:'#130f0c', wall:'#2a2018', top:'#3a2c1e', plat:'#463525', grid:'rgba(255,190,140,.035)' },
+  mint:     { name:'the Old Mint',          hint:'the presses never stopped — time your crossings',      floor:'#161510', wall:'#2c2a1c', top:'#3a3726', plat:'#48442e', grid:'rgba(245,220,120,.045)' },
 };
 const THEME_KEYS = Object.keys(THEMES);
-let currentTheme = THEMES.treasury;
+let currentTheme = THEMES.treasury, currentThemeKey = 'treasury';
+let forcedTheme = null;   // headless-test hook: pin the location before build
+
+// ---------- location hazards (the map itself fights you, per location) ----------
+let pools=[], presses=[], dark=false, inWater=false;
+let gust={next:0, warnT:0, activeT:0, dir:0};   // fortress wind cycle
+function poolAt(x,y){ for(const p of pools) if(x>=p.x&&x<=p.x+p.w&&y>=p.y&&y<=p.y+p.h) return true; return false; }
+function onCam(x,y){ return x>cam.x-60&&x<cam.x+VIEW.w+60&&y>cam.y-60&&y<cam.y+VIEW.h+60; }
 
 // ---------- contracts (standing jobs) ----------
 let activeContract=null, offeredContracts=[];
@@ -1207,7 +1217,8 @@ function buildWorld(){
   runHeatSeed = clamp(Math.floor(meta.curseDebt/2) - upgLevel('cool') - denCalm(), 0, 3) + ascMods(ascensionLevel).heat + (dailyMutator.heat||0) + activeMod.heat;  // world + den standing + ascension + weekly mutator + vault modifier
   runSpotted=false; runClock=0; peakHeat=0; runDamaged=false;
   runTimeLimit = activeContract && activeContract.type==='timed' ? activeContract.timeLimit : (activeMod.time||0);
-  currentTheme = THEMES[(activeContract && activeContract.themeKey) || THEME_KEYS[Math.floor(vrng()*THEME_KEYS.length)]];
+  currentThemeKey = (activeContract && activeContract.themeKey) || forcedTheme || THEME_KEYS[Math.floor(vrng()*THEME_KEYS.length)];
+  currentTheme = THEMES[currentThemeKey];
 
   const T=44; // wall thickness
   walls.push({x:0,y:0,w:WORLD.w,h:T});
@@ -1229,7 +1240,7 @@ function buildWorld(){
 
   // raised platforms (mesas) with a staircase on one side — placed before loot so nothing spawns on them
   platforms=[];
-  const platN = clamp(Math.round((2 + (vrng()<0.6?1:0)) * areaScale), 2, 4);
+  const platN = clamp(Math.round((2 + (vrng()<0.6?1:0)) * areaScale) + (currentThemeKey==='fortress'?1:0), 2, 5);
   for(let i=0;i<platN;i++){
     for(let t=0;t<40;t++){
       const w=Math.round(vr(180,300)), h=Math.round(vr(160,260));
@@ -1252,6 +1263,30 @@ function buildWorld(){
       cand.stair=st; platforms.push(cand); break;
     }
   }
+
+  // location hazards — what makes this location THIS location (all seeded)
+  pools=[]; presses=[]; dark=false; inWater=false;
+  gust={next:6+vr(0,4), warnT:0, activeT:0, dir:0};
+  if(currentThemeKey==='treasury'){
+    // flood pools: wading is slow but quiet — stealth routes through the water
+    const poolN=clamp(Math.round(3*areaScale),3,5);
+    for(let i=0;i<poolN;i++){
+      for(let t=0;t<40;t++){
+        const w=Math.round(vr(170,300)), h=Math.round(vr(130,220));
+        const x=Math.round(vr(380,WORLD.w-w-90)), y=Math.round(vr(110,WORLD.h-h-110));
+        let bad=false;
+        for(const wl of walls){ if(x<wl.x+wl.w+16&&x+w>wl.x-16&&y<wl.y+wl.h+16&&y+h>wl.y-16){bad=true;break;} }
+        if(!bad) for(const p of platforms){ if(x<p.x+p.w+30&&x+w>p.x-30&&y<p.y+p.h+30&&y+h>p.y-30){bad=true;break;} }
+        if(bad) continue;
+        pools.push({x,y,w,h}); break;
+      }
+    }
+  } else if(currentThemeKey==='mint'){
+    // coin presses: idle → warn → SLAM on a staggered cycle; crush you, stun guards
+    const pn=2+Math.floor(vrng()*3), spots=[];
+    for(let i=0;i<pn;i++){ const s=openSpot(40,260,spots); spots.push(s);
+      presses.push({x:s.x,y:s.y,r:38, t:-vr(0.5,3.5), phase:'idle'}); }
+  } else if(currentThemeKey==='undercity'){ dark=true; }   // you carry the only lantern
 
   // portal = the entrance, on the left. The good loot is deep right.
   // Spawn inside the middle-left room, off any partition line (an even-row grid
@@ -1461,10 +1496,10 @@ function speedNow(){
   const strapMul = 0.011 * Math.max(0.32, 1 - 0.14*upgLevel('straps'));
   const capPen = Math.max(0.34, 0.66 - 0.07*upgLevel('pockets'));
   const pen = clamp(carriedWeight*strapMul, 0, capPen);
-  return player.baseSpeed*(1-pen);
+  return player.baseSpeed*(1-pen)*(inWater?0.75:1);              // wading is slow…
 }
-function noiseNow(){ return noiseMuffled ? 0 : carriedNoise * Math.max(0.2, 1 - 0.18*upgLevel('boots')) * activeMod.noise; }
-function detectRadius(){ return (92 + noiseNow()*6 + heatTier*9) * Math.max(0.55, 1 - 0.06*collLevel('relic')) * ascMods(ascensionLevel).det * activeMod.vis; }
+function noiseNow(){ return (noiseMuffled ? 0 : carriedNoise * Math.max(0.2, 1 - 0.18*upgLevel('boots')) * activeMod.noise) * (inWater?0.45:1); }  // …but the water swallows your clinking
+function detectRadius(){ return (92 + noiseNow()*6 + heatTier*9) * Math.max(0.55, 1 - 0.06*collLevel('relic')) * ascMods(ascensionLevel).det * activeMod.vis * (dark?0.85:1); }  // guards are in the dark too
 function guardSpeed(){ return (1.5 + heatTier*0.16 + carriedCurse*0.03) * ascMods(ascensionLevel).gs; }
 
 // ---------- audio: a tiny procedural WebAudio kit (no assets — stays self-contained) ----------
@@ -1544,6 +1579,12 @@ const S={
   cash(){ [1319,1760].forEach((f,i)=>tone(f,f,0.16,{type:'triangle',vol:0.13,delay:i*0.07})); nburst(0.06,0.1,3000,{hp:true}); },
   revive(){ [262,330,392,523].forEach((f,i)=>tone(f,f,0.3,{type:'triangle',vol:0.12,delay:i*0.08})); },
   omen(){ tone(233,466,1.0,{vol:0.1,at:0.3}); tone(240,480,1.0,{vol:0.07,at:0.3,delay:0.05}); },
+  // location hazards
+  splash(){ nburst(0.18,0.22,900); tone(300,140,0.16,{vol:0.1}); },
+  gust(){ nburst(1.6,0.16,600); nburst(1.2,0.12,1400,{hp:true,delay:0.2}); },
+  pressWarn(){ tone(220,220,0.09,{type:'square',vol:0.09}); tone(220,220,0.09,{type:'square',vol:0.09,delay:0.16}); },
+  pressSlam(){ nburst(0.22,0.5,700); tone(90,42,0.3,{vol:0.4}); },
+  drip(){ tone(1400+Math.random()*600,320,0.16,{vol:0.045,bus:musBus}); },
 };
 let nextBeat=0;
 function musicTick(){
@@ -1552,6 +1593,7 @@ function musicTick(){
   musBus.gain.setTargetAtTime(playing?0.32:0, AC.currentTime, playing?0.6:0.25);
   chaseG.gain.setTargetAtTime(playing&&anyChase?0.09:0, AC.currentTime, 0.5);
   if(!playing) return;
+  if(dark && Math.random()<0.012) S.drip();   // undercity: far-off water, now and then
   const now=AC.currentTime;
   if(now>=nextBeat){
     const iv=Math.max(0.5, 1.9-heatTier*0.23);               // TUNE — Heat quickens the pulse
@@ -1646,6 +1688,60 @@ dropBtn.addEventListener('pointerup', dropRelease);
 dropBtn.addEventListener('pointerleave', dropRelease);
 dropBtn.addEventListener('pointercancel', dropRelease);
 
+// ---------- location hazards: update (returns true if the run ended) ----------
+function updateHazards(dt){
+  // Sunken Treasury: wading — slow but quiet, with splashes on the transitions
+  const wasWet=inWater;
+  inWater = player.plat===-1 && poolAt(player.x,player.y);
+  if(inWater!==wasWet){ S.splash(); for(let i=0;i<6;i++)particles.push(mkP(player.x,player.y+4,'#7fc9c9')); }
+  if(inWater && (Math.abs(player.vx)+Math.abs(player.vy))>0.5 && Math.random()<dt*7)
+    ring(player.x,player.y+4,'rgba(160,220,230,.5)',{r0:3,vr:26,life:0.6,lw:1.5});
+  // Cliffside Fortress: telegraphed gusts shove every ground creature
+  if(currentThemeKey==='fortress'){
+    if(gust.activeT>0){
+      gust.activeT-=dt;
+      const gx=Math.cos(gust.dir), gy=Math.sin(gust.dir), push=1.35*dt*60;
+      if(player.plat===-1){ attemptMove(player.x+gx*push, player.y); attemptMove(player.x, player.y+gy*push); }
+      for(const g of guards){ if(platAt(g.x,g.y)===-1){
+        if(isOpenGround(g.x+gx*push*0.8,g.y,g.r)) g.x+=gx*push*0.8;
+        if(isOpenGround(g.x,g.y+gy*push*0.8,g.r)) g.y+=gy*push*0.8; } }
+      if(Math.random()<dt*30) particles.push({x:cam.x+Math.random()*VIEW.w, y:cam.y+Math.random()*VIEW.h,
+        vx:gx*10, vy:gy*10, life:0.5, col:'rgba(215,230,245,.4)', r:1.6, g:0});
+    } else if(gust.warnT>0){
+      gust.warnT-=dt;
+      if(gust.warnT<=0) gust.activeT=2.2;
+    } else if((gust.next-=dt)<=0){
+      gust.next=8+Math.random()*6; gust.warnT=1.1; gust.dir=Math.random()*6.283;
+      S.gust(); toast('The wind picks up…',900);
+    }
+  }
+  // The Old Mint: presses — idle → warn (shadow grows) → SLAM; crushes you, stuns guards
+  for(const pr of presses){
+    pr.t+=dt;
+    if(pr.phase==='idle' && pr.t>=2.8){ pr.phase='warn'; pr.t=0; if(onCam(pr.x,pr.y)) S.pressWarn(); }
+    else if(pr.phase==='warn' && pr.t>=1.0){ pr.phase='slam'; pr.t=0;
+      if(onCam(pr.x,pr.y)){ S.pressSlam(); shake=Math.max(shake,6); }
+      ring(pr.x,pr.y,'#c9b37a',{vr:170,life:0.35});
+      for(let i=0;i<8;i++)particles.push(mkP(pr.x+rand(-20,20),pr.y+rand(-14,14),'#6b5a3a'));
+      if(player.plat===-1 && player.inv<=0 && dist2(player.x,player.y,pr.x,pr.y)<(pr.r+player.r*0.4)**2){
+        player.hp--; player.inv=1.2; runDamaged=true; joSquash=Math.max(joSquash,0.55);
+        S.hit(); shake=14; hitStop=Math.max(hitStop,0.08);
+        floaters.push({x:player.x,y:player.y-20,txt:'−♥ CRUSHED',life:1,col:'#e0503f'});
+        if(player.hp<=0){
+          if(upgLevel('revive')>0 && !player.usedRevive){ player.usedRevive=true; player.hp=1; player.inv=2; S.revive(); toast('Second wind — back on your feet.',1500); }
+          else { endRun(false); return true; }
+        }
+      }
+      for(const g of guards){ if(!g.stun && dist2(g.x,g.y,pr.x,pr.y)<(pr.r+g.r*0.4)**2){
+        g.stun=2.5; g.state='patrol'; g.alert=0;      // bait a chase through a press — it pays
+        floaters.push({x:g.x,y:g.y-16,txt:'clang!',life:0.9,col:'#c9b37a'}); } }
+    }
+    else if(pr.phase==='slam' && pr.t>=0.45){ pr.phase='rise'; pr.t=0; }
+    else if(pr.phase==='rise' && pr.t>=0.8){ pr.phase='idle'; pr.t=0; }
+  }
+  return false;
+}
+
 // ---------- update ----------
 let extractHold=0, hitStop=0;   // hitStop = brief freeze-frame on impact (game feel)
 function update(dt){
@@ -1674,6 +1770,7 @@ function update(dt){
   if(player.ghost>0) player.ghost-=dt;
   updateSever(dt);                        // greed closes the vault behind you
   updateRivals(dt);                       // a rival thief works the vault too
+  if(updateHazards(dt)) return;           // water / wind / darkness / presses per location
 
   // camera
   // camera leads the way you're moving, then eases — reads as intent, not lag
@@ -1737,6 +1834,7 @@ function update(dt){
   const detR=detectRadius(), gSpd=guardSpeed();
   const ghosting = player.ghost>0;
   for(const g of guards){
+    if(g.stun>0){ g.stun-=dt; continue; }   // pressed flat — deaf, blind, harmless for a beat
     if(g.hitCd>0) g.hitCd-=dt;
     const gDet = g.dog ? detR*0.9 : g.hunter ? detR*1.25 : g.elite ? detR*1.2 : detR;
     const gBase = g.dog ? gSpd*1.32 : g.hunter ? gSpd*1.10 : g.elite ? gSpd*1.12 : gSpd;
@@ -1768,7 +1866,7 @@ function update(dt){
       const nav = navTarget(vgraph, g.x, g.y, tx, ty);
       let dx=nav.x-g.x, dy=nav.y-g.y; const d=Math.hypot(dx,dy)||1;
       dx/=d; dy/=d; g.face=Math.atan2(dy,dx);
-      const step=spd*dt*60;
+      const step=spd*dt*60*(poolAt(g.x,g.y)?0.8:1);   // guards wade slowly too
       const passable = g.hunter ? isOpen : isOpenGround;   // the Hunter can climb; grunts can't
       if(passable(g.x+dx*step,g.y,g.r)) g.x+=dx*step;
       else if(passable(g.x, g.y+ (dy>0?step:-step), g.r)) g.y+= (dy>0?step:-step);
@@ -1866,6 +1964,7 @@ function draw(){
   ctx.translate(-cam.x+sx, -cam.y+sy);
 
   drawFloor();
+  drawPresses();
   drawPlatforms();
   // portal
   drawPortal();
@@ -1891,6 +1990,15 @@ function draw(){
     ctx.fillText(f.txt,f.x,f.y); }
   ctx.globalAlpha=1;
   ctx.restore();
+
+  // Undercity darkness — Jo carries the only lantern (screen space)
+  if(dark){
+    const px=player.x-cam.x, py=player.y-cam.y;
+    const lr=210+Math.sin(tPrev/420)*8;                       // the lantern breathes a little
+    const dg=ctx.createRadialGradient(px,py,lr*0.45,px,py,lr*2.1);
+    dg.addColorStop(0,'rgba(4,3,2,0)'); dg.addColorStop(0.55,'rgba(4,3,2,.55)'); dg.addColorStop(1,'rgba(4,3,2,.86)');
+    ctx.fillStyle=dg; ctx.fillRect(0,0,VIEW.w,VIEW.h);
+  }
 
   // curse vignette (screen space)
   const cv = Math.min(1, carriedCurse/12) + flashCurse*0.5;
@@ -1988,6 +2096,28 @@ function drawSentry(s){
     ctx.fillText('!',s.x,s.y-s.r-10); }
 }
 
+// The Old Mint's coin presses: a floor plate whose shadow grows as the head
+// drops — the shadow IS the telegraph, then the slammed head fills the plate.
+function drawPresses(){
+  for(const pr of presses){
+    if(!onCam(pr.x,pr.y)) continue;
+    ctx.fillStyle='rgba(0,0,0,.25)'; ctx.beginPath(); ctx.arc(pr.x,pr.y,pr.r,0,6.28); ctx.fill();
+    ctx.strokeStyle='#57452a'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(pr.x,pr.y,pr.r,0,6.28); ctx.stroke();
+    if(pr.phase==='warn'){ const k=Math.min(1,pr.t/1.0);
+      ctx.fillStyle=`rgba(20,12,6,${0.25+0.4*k})`; ctx.beginPath(); ctx.arc(pr.x,pr.y,pr.r*(0.3+0.7*k),0,6.28); ctx.fill();
+      ctx.strokeStyle=`rgba(224,80,63,${0.45+0.4*Math.sin(tPrev/90)})`; ctx.lineWidth=2.5;
+      ctx.beginPath(); ctx.arc(pr.x,pr.y,pr.r+3,0,6.28); ctx.stroke(); }
+    else if(pr.phase==='slam'||pr.phase==='rise'){
+      const up=pr.phase==='rise'?Math.min(1,pr.t/0.8):0;
+      ctx.fillStyle='#3a3020'; ctx.beginPath(); ctx.arc(pr.x,pr.y-up*26,pr.r*0.96,0,6.28); ctx.fill();
+      ctx.strokeStyle=INK; ctx.lineWidth=2.5; ctx.stroke();
+      ctx.fillStyle='#57452a'; ctx.beginPath(); ctx.arc(pr.x,pr.y-up*26,pr.r*0.55,0,6.28); ctx.fill();
+      ctx.fillStyle='#c9b37a'; for(let k=0;k<4;k++){ const a=k*1.57+0.78;
+        ctx.beginPath(); ctx.arc(pr.x+Math.cos(a)*pr.r*0.75, pr.y-up*26+Math.sin(a)*pr.r*0.75, 2.2,0,6.28); ctx.fill(); }
+    }
+  }
+}
+
 function drawPlatforms(){
   const T=currentTheme;
   for(const p of platforms){
@@ -2030,6 +2160,15 @@ function drawFloor(){
   for(let x=x0;x<cam.x+VIEW.w;x+=80){ ctx.moveTo(x,cam.y); ctx.lineTo(x,cam.y+VIEW.h); }
   for(let y=y0;y<cam.y+VIEW.h;y+=80){ ctx.moveTo(cam.x,y); ctx.lineTo(cam.x+VIEW.w,y); }
   ctx.stroke();
+  // flood pools (Sunken Treasury) — dark water with drifting shimmer lines
+  for(const p of pools){
+    if(p.x+p.w<cam.x||p.x>cam.x+VIEW.w||p.y+p.h<cam.y||p.y>cam.y+VIEW.h) continue;
+    ctx.fillStyle='rgba(38,84,96,.55)'; ctx.fillRect(p.x,p.y,p.w,p.h);
+    ctx.strokeStyle='rgba(140,210,220,.35)'; ctx.lineWidth=2; ctx.strokeRect(p.x,p.y,p.w,p.h);
+    ctx.strokeStyle='rgba(160,220,230,.18)'; ctx.lineWidth=1.5;
+    for(let k=0;k<3;k++){ const yy=p.y+p.h*(0.25+0.25*k)+Math.sin(tPrev/700+k*2+p.x)*3;
+      ctx.beginPath(); ctx.moveTo(p.x+8,yy); ctx.lineTo(p.x+p.w-8,yy); ctx.stroke(); }
+  }
   // walls
   for(const w of walls){
     if(w.x+w.w<cam.x||w.x>cam.x+VIEW.w||w.y+w.h<cam.y||w.y>cam.y+VIEW.h) continue;
@@ -2189,7 +2328,9 @@ function drawGuard(g){
       chasing?1:looking?0.9:0.5, chasing?200:looking?520:0);
   }
   ctx.restore();
-  if(chasing){ ctx.fillStyle='#ffdf5a'; ctx.font='900 18px "Cinzel"'; ctx.textAlign='center';
+  if(g.stun>0){ ctx.fillStyle='#c9b37a'; ctx.font='900 16px "Cinzel"'; ctx.textAlign='center';
+    ctx.fillText('✶',g.x,g.y-g.r-6); }
+  else if(chasing){ ctx.fillStyle='#ffdf5a'; ctx.font='900 18px "Cinzel"'; ctx.textAlign='center';
     ctx.fillText('!',g.x,g.y-g.r-6); }
   else if(looking){ ctx.fillStyle='#e6b84a'; ctx.font='900 17px "Cinzel"'; ctx.textAlign='center';
     ctx.fillText('?',g.x,g.y-g.r-6); }
@@ -2390,8 +2531,9 @@ function syncHud(){
     objEl.innerHTML=`<b>Job \u00b7 ${activeContract.title}</b><br>${activeContract.desc}`
       + (ok?` <span style="color:var(--ok)">\u2713</span>`:'');
   } else if(activeMod.id!=='clean'){
-    objEl.innerHTML=`<b>${activeMod.name}</b><br>${activeMod.good}<span style="color:var(--muted)"> \u2014 ${activeMod.bad}</span>`;
-  } else objEl.innerHTML='';
+    objEl.innerHTML=`<b>${activeMod.name}</b><br>${activeMod.good}<span style="color:var(--muted)"> \u2014 ${activeMod.bad}</span>`
+      +`<br><span style="color:var(--muted)">${currentTheme.name}</span>`;
+  } else objEl.innerHTML=`<b>${currentTheme.name}</b><br><span style="color:var(--muted)">${currentTheme.hint}</span>`;
   if(runTimeLimit>0){
     const left=Math.max(0,runTimeLimit-runClock);
     tEl.textContent=`${Math.floor(left/60)}:${String(Math.floor(left%60)).padStart(2,'0')}`;
@@ -3056,6 +3198,11 @@ window.__greed = {
     master:masterBus?masterBus.gain.value:-1, mus:musBus?musBus.gain.value:-1 }; },
   get state(){ return state; },
   get rings(){ return rings; }, get particles(){ return particles; },
+  // location-identity surface: force a theme, then poke its hazards directly
+  set forcedTheme(v){ forcedTheme=v; }, get currentThemeKey(){ return currentThemeKey; },
+  get pools(){ return pools; }, get presses(){ return presses; }, get gust(){ return gust; },
+  get dark(){ return dark; }, get inWater(){ return inWater; },
+  updateHazards, poolAt, speedNow, noiseNow,
 };
 })();
 </script>

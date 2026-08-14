@@ -1,5 +1,25 @@
 # Changelog
 
+## Web build — location identity (every map fights differently)
+
+- The four contract locations are no longer just palettes — each has a
+  signature hazard, shown on the HUD objective line:
+  - **Sunken Treasury** — flood pools: wading is 25% slower but swallows 55%
+    of your loot noise (guards wade slower too). Splashes and ripples.
+  - **Cliffside Fortress** — telegraphed wind gusts shove every ground
+    creature (you and guards alike), plus one extra mesa to climb.
+  - **Undercity Vaults** — pitch dark: you see a breathing lantern radius
+    around Jo; in exchange, guards spot you 15% later. Distant drips.
+  - **Old Mint** — coin presses on staggered warn→slam cycles: getting
+    caught under one costs a heart, but a guard caught under one is
+    stunned — bait chases through the presses.
+- Free runs roll a location too, so the identity shows up everywhere; the
+  How to Play screen documents it under "Places".
+- New headless suite `tests/web_location_test.mjs` (`npm run test:location`)
+  forces each theme and verifies pool slow/muffle ratios, gust cycles that
+  move an idle player, the exact 0.85× dark-detection factor, and press
+  crush/stun behavior.
+
 ## Web build — game-feel pass (audio & juice)
 
 - Procedural audio: a fully synthesized WebAudio kit (no assets) — 22 named
