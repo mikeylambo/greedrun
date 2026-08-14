@@ -28,7 +28,9 @@ await page.waitForTimeout(150);
 const res = await page.evaluate(async () => {
   const G = window.__greed;
   const out = { fails: [], log: [] };
-  const equip = id => { G.meta.tools[id] = 1; G.meta.equippedTool = id; };
+  // own ONLY the tool under test — owning all five lights the Trickster capstone (+1 charge)
+  const equip = id => { G.meta.tools = { smoke: 0, decoy: 0, grapple: 0, lockpick: 0, portal: 0 };
+    G.meta.tools[id] = 1; G.meta.equippedTool = id; };
 
   // ---- Smoke Bomb: breaks a chase, silences the bag ----
   equip('smoke'); G.build(3);

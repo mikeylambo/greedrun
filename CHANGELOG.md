@@ -1,5 +1,31 @@
 # Changelog
 
+## Web build — endgame: The Vault Remembers, Legendary Heist & skill lanes
+
+- **THE VAULT REMEMBERS** (Heat T6, the GDD's max-heat tier): at full Heat the
+  building itself joins the hunt — a pulse every 2.5s hands your position to
+  every guard (visible ripple), sentries sweep 50% faster and see 25%
+  further, the vault slams its own loop doors on a timer, and the exit takes
+  1.1s to force instead of 0.6s. Shed greed below T6 and it settles. The
+  Heat label flips to "THE VAULT REMEMBERS" while active.
+- **Legendary Heist is now multi-stage**: intel reveals the Heart from the
+  start; Stage 1 case the chamber → Stage 2 take the Heart (the vault locks
+  to T6 while you carry it) → Stage 3 the exit BOLTS itself and two
+  seal-latches spawn — break both (each screams an alarm) to open the way.
+  Reward raised $1,700 → $2,400. Stage progress lives on the HUD objective.
+- **Skill lanes** (GDD skill tree): the 10 upgrades are grouped into Thief,
+  Smuggler, Mastermind and Treasure Hunter lanes, with the Workbench as the
+  Trickster lane. Maxing a lane earns a capstone: Cold Trail (chases give up
+  30% sooner), Bottomless Bags (first 8 weight carries free), The Long Game
+  (contracts +15%), Appraiser's Eye (a fake can't inflate your Heat — the
+  noble scam still works), Sleight of Hand (+1 tool charge per job).
+- Fixed a shop-layout bug: once the hideout grew taller than the stage, the
+  upgrade/tool grids (the overlay's only shrinkable flex items) collapsed to
+  zero height — they now keep natural height and the overlay scrolls.
+- New suite `tests/web_endgame_test.mjs` (`npm run test:endgame`) covers the
+  T6 wake/settle cycle, all five capstones, and the full heist: stages 1→4
+  and extraction through the extended hold, live through real frames.
+
 ## Web build — the Workbench, the Gilded Fake & Reputation (GDD items)
 
 - **The Workbench (Jo's tool kit)**: five buy-once tools at the hideout; one
