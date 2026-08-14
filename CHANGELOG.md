@@ -1,5 +1,21 @@
 # Changelog
 
+## Web build — game-feel pass (audio & juice)
+
+- Procedural audio: a fully synthesized WebAudio kit (no assets) — 22 named
+  cues covering pickups (pitch scales with value), hits, shatters, alarms,
+  the Hunter's entrance, sever groan/slam/reopen, landings, drops, the
+  escape-hold charge, win/loss stingers, cash and UI ticks.
+- Ambient bed: a low drone under every run, a heartbeat that quickens with
+  Heat, and a tremolo layer that fades in while any guard is chasing.
+- Mute: the M key or the new 🔊 HUD button toggles sound; the choice persists.
+- Visual juice: expanding impact rings on hits/alarms/door slams, footstep
+  dust, squash-and-stretch on Jo for hits and landings, a pulsing last-heart
+  vignette, and a visible progress ring while holding the exit.
+- New headless suite `tests/web_juice_test.mjs` (`npm run test:juice`) covers
+  audio unlock, every cue, the ambient ramp, fx spawn/decay, pickup/drop
+  wiring, mute, and silent no-op behavior when audio never unlocks.
+
 ## Web build — mobile, modifiers & mastery
 
 - Landscape: the phone stage and canvas buffer now follow device orientation,

@@ -3,7 +3,9 @@
   "private": true,
   "description": "Dev tooling for the GreedRun web build (region tests).",
   "scripts": {
-    "test:web": "node tests/web_region_test.mjs"
+    "test:web": "node tests/web_region_test.mjs",
+    "test:juice": "node tests/web_juice_test.mjs",
+    "test": "node tests/web_region_test.mjs && node tests/web_juice_test.mjs"
   },
   "devDependencies": {
     "playwright-core": "^1.62.1"

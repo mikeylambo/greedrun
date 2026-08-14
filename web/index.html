@@ -429,6 +429,7 @@
           <div class="amt" id="haul">$0</div>
           <div class="lbl" id="secured" style="margin-top:4px">0 / 0 secured</div>
         </div>
+        <div class="iconbtn" id="muteBtn" title="Sound on/off">🔊</div>
         <div class="iconbtn" id="pauseBtn" title="Pause">
           <svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
         </div>
@@ -466,7 +467,7 @@
     <div class="controls-hint">
       One finger. <em style="color:var(--scarf);font-style:normal">Drag anywhere to move.</em>
       &nbsp;·&nbsp; Grab loot, then get back to the exit alive.<br>
-      On a keyboard: <kbd>W A S D</kbd> / arrows to move, hold <kbd>E</kbd> at the exit.
+      On a keyboard: <kbd>W A S D</kbd> / arrows to move, hold <kbd>E</kbd> at the exit. <kbd>M</kbd> toggles sound.
     </div>
   </div>
 
@@ -825,6 +826,7 @@ let player, portal, cam = {x:0,y:0};
 let carriedValue=0, carriedWeight=0, carriedNoise=0, carriedCurse=0, heatTier=0;
 let seenOneMore=false, heartRevealed=false, runOutcome=null, shake=0, tPrev=0;
 let flashCurse=0;
+let rings=[], joSquash=0, dustT=0, lastChargeStep=-1;   // juice: impact rings, squash timer, footstep dust, escape-charge tick
 
 // ---------- location themes (visual identity per job) ----------
 const THEMES = {
@@ -1054,7 +1056,8 @@ function triggerSever(){
   if(!cands.length) return;                          // no fair target → sever nothing
   severTele={door:cands[Math.floor(vrng()*cands.length)], t:SEVER_TELEGRAPH};
   severTele.door.state='warn'; severCooldown=SEVER_COOLDOWN;
-  toast('A shutter groans somewhere behind you…',1200);   // audio hook: sever_telegraphed
+  S.severWarn();
+  toast('A shutter groans somewhere behind you…',1200);
 }
 function commitSever(d){
   d.state='closed'; walls.push(d.plug); severStack.push(d);
@@ -1062,15 +1065,17 @@ function commitSever(d){
   const bi=vgraph.adj[d.b].indexOf(d.a); if(bi>=0) vgraph.adj[d.b].splice(bi,1);
   shake=Math.max(shake,9); alarmFlash=Math.max(alarmFlash,0.5); hitStop=Math.max(hitStop,0.05);
   for(let i=0;i<10;i++) particles.push(mkP(d.center.x,d.center.y,'#6b5a3a'));
+  S.severSlam(); ring(d.center.x,d.center.y,'#e0a060',{vr:260,life:0.5,lw:4});
   if(!isOpen(player.x,player.y,player.r)) unstick(player);
-  toast('A vault door slams shut.',1100);                 // audio hook: sever_committed (positional)
+  toast('A vault door slams shut.',1100);
 }
 function reopenLast(){
   const d=severStack.pop(); if(!d) return;
   d.state='open'; const i=walls.indexOf(d.plug); if(i>=0) walls.splice(i,1);
   vgraph.adj[d.a].push(d.b); vgraph.adj[d.b].push(d.a);
   for(let k=0;k<8;k++) particles.push(mkP(d.center.x,d.center.y,'#8fe39a'));
-  toast('A shutter grinds back open.',1000);              // audio hook: sever_reversed
+  S.severOpen();
+  toast('A shutter grinds back open.',1000);
 }
 function updateSever(dt){
   if(!vgraph) return;
@@ -1187,7 +1192,8 @@ function buildWorld(){
   WORLD.h = 1550 + Math.round(vr(0,650));
   if(dailyMutator.size){ WORLD.w=Math.round(WORLD.w*dailyMutator.size); WORLD.h=Math.round(WORLD.h*dailyMutator.size); }
   const areaScale = (WORLD.w*WORLD.h)/(2000*1400);
-  walls=[]; loot=[]; guards=[]; sentries=[]; particles=[]; floaters=[]; rivals=[]; rivalHaul=0;
+  walls=[]; loot=[]; guards=[]; sentries=[]; particles=[]; floaters=[]; rings=[]; rivals=[]; rivalHaul=0;
+  joSquash=0; dustT=0; lastChargeStep=-1;
   seenOneMore=false; heartRevealed=false; runOutcome=null; flashCurse=0;
   carriedValue=carriedWeight=carriedNoise=carriedCurse=0; heatTier=0;
   runLootTotal=0; runLootCount=0; vaultCleared=false; alarmFlash=0; lowNoiseRun=true;
@@ -1383,6 +1389,7 @@ function summonElites(x,y){
       state:'chase',alert:1,face:0,hitCd:0,lkp:{x:player.x,y:player.y},searchT:3});
   }
   shake=Math.max(shake,10); alarmFlash=1;
+  S.hunter(); ring(x,y,'#ff5da8',{vr:320,life:0.6,lw:4});
 }
 
 function spawnHunter(){
@@ -1394,6 +1401,7 @@ function spawnHunter(){
   guards.push({x:sp.x,y:sp.y,r:15,hunter:true,wps:[{x:sp.x,y:sp.y}],wi:0,
     state:'investigate',alert:1,face:0,hitCd:0,lkp:{x:player.x,y:player.y},searchT:5});
   alarmFlash=1; shake=Math.max(shake,12);
+  S.hunter();
   toast('A BOUNTY HUNTER has entered the vault.',2200);
 }
 
@@ -1416,10 +1424,11 @@ function attemptMove(tx,ty){
   }
 }
 function landDrop(){
-  shake=Math.max(shake,7);
+  shake=Math.max(shake,7); joSquash=Math.max(joSquash,0.5);
   for(let i=0;i<8;i++)particles.push(mkP(player.x,player.y+6,'#6b5a3a'));
   if(upgLevel('landing')>0) return;                 // Cat's Landing: silent, no damage
   const w=carriedWeight;
+  S.land(w>=8);
   // landing noise: nearby ground guards come to investigate
   const heard=200 + w*9; let any=false;
   for(const g of guards){ if(dist2(g.x,g.y,player.x,player.y) < heard*heard){
@@ -1427,9 +1436,10 @@ function landDrop(){
   if(w>=8) toast(any?'Heavy landing \u2014 heard!':'You hit hard.',1000);
   // fall damage when very loaded
   if(w>=20 && player.inv<=0){ player.hp--; player.inv=1.1; runDamaged=true;
+    S.hit(); ring(player.x,player.y,'#e0503f',{vr:200,life:0.45});
     floaters.push({x:player.x,y:player.y-20,txt:'\u2212\u2665 hard landing',life:1,col:'#e0503f'});
     if(player.hp<=0){
-      if(upgLevel('revive')>0 && !player.usedRevive){ player.usedRevive=true; player.hp=1; player.inv=2; toast('Second wind \u2014 back on your feet.',1500); }
+      if(upgLevel('revive')>0 && !player.usedRevive){ player.usedRevive=true; player.hp=1; player.inv=2; S.revive(); toast('Second wind \u2014 back on your feet.',1500); }
       else endRun(false);
     } }
 }
@@ -1457,6 +1467,110 @@ function noiseNow(){ return noiseMuffled ? 0 : carriedNoise * Math.max(0.2, 1 - 
 function detectRadius(){ return (92 + noiseNow()*6 + heatTier*9) * Math.max(0.55, 1 - 0.06*collLevel('relic')) * ascMods(ascensionLevel).det * activeMod.vis; }
 function guardSpeed(){ return (1.5 + heatTier*0.16 + carriedCurse*0.03) * ascMods(ascensionLevel).gs; }
 
+// ---------- audio: a tiny procedural WebAudio kit (no assets — stays self-contained) ----------
+// Everything is synthesized: enveloped oscillators with pitch slides, filtered noise
+// bursts, and a heat-driven ambient bed (low drone + a heartbeat that quickens with
+// Heat + a tremolo that fades in while any guard is chasing). The context unlocks on
+// the first gesture (autoplay policy); M / the 🔊 button toggles mute (persisted).
+let AC=null, masterBus=null, sfxBus=null, musBus=null, chaseG=null, noiseBuf=null, anyChase=false;
+let audioMuted=false; try{ audioMuted=localStorage.getItem('greedrun_muted')==='1'; }catch(e){}
+function audioInit(){
+  if(AC) return;
+  const Ctor=window.AudioContext||window.webkitAudioContext; if(!Ctor) return;
+  try{
+    AC=new Ctor();
+    masterBus=AC.createGain(); masterBus.gain.value=audioMuted?0:0.5; masterBus.connect(AC.destination);
+    sfxBus=AC.createGain(); sfxBus.gain.value=0.9; sfxBus.connect(masterBus);
+    musBus=AC.createGain(); musBus.gain.value=0;   musBus.connect(masterBus);
+    noiseBuf=AC.createBuffer(1,AC.sampleRate|0,AC.sampleRate|0);
+    const d=noiseBuf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+    // ambient bed: two detuned low saws through a dark lowpass — a slow beating drone…
+    const lp=AC.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=130; lp.Q.value=0.8;
+    const dg=AC.createGain(); dg.gain.value=0.16; lp.connect(dg); dg.connect(musBus);
+    for(const f of [55,55.7]){ const o=AC.createOscillator(); o.type='sawtooth'; o.frequency.value=f; o.connect(lp); o.start(); }
+    // …plus a chase tremolo (bandpassed saw, gain wobbled at 6.5Hz) gated by anyChase
+    const co=AC.createOscillator(); co.type='sawtooth'; co.frequency.value=220;
+    const bp=AC.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=880; bp.Q.value=8;
+    const ta=AC.createGain(); ta.gain.value=0.5;
+    const tr=AC.createOscillator(); tr.frequency.value=6.5; const tg=AC.createGain(); tg.gain.value=0.5;
+    tr.connect(tg); tg.connect(ta.gain);
+    chaseG=AC.createGain(); chaseG.gain.value=0;
+    co.connect(bp); bp.connect(ta); ta.connect(chaseG); chaseG.connect(musBus);
+    co.start(); tr.start();
+    setInterval(musicTick,90);
+  }catch(e){ AC=null; }
+}
+// one enveloped oscillator; pitch slides f→f2 over t seconds
+function tone(f,f2,t,o){
+  if(!AC) return; o=o||{};
+  const t0=AC.currentTime+(o.delay||0), os=AC.createOscillator(), g=AC.createGain();
+  os.type=o.type||'sine'; os.frequency.setValueAtTime(Math.max(20,f),t0);
+  os.frequency.exponentialRampToValueAtTime(Math.max(20,f2||f),t0+t);
+  g.gain.setValueAtTime(0.0001,t0); g.gain.exponentialRampToValueAtTime(o.vol||0.2,t0+(o.at||0.008));
+  g.gain.exponentialRampToValueAtTime(0.0001,t0+t);
+  os.connect(g); g.connect(o.bus||sfxBus); os.start(t0); os.stop(t0+t+0.03);
+}
+// filtered noise burst — thuds (lowpass) and shatters/hisses (hp: highpass)
+function nburst(t,vol,fc,o){
+  if(!AC) return; o=o||{};
+  const t0=AC.currentTime+(o.delay||0), s=AC.createBufferSource(), g=AC.createGain(), f=AC.createBiquadFilter();
+  s.buffer=noiseBuf; f.type=o.hp?'highpass':'lowpass'; f.frequency.value=fc;
+  g.gain.setValueAtTime(vol,t0); g.gain.exponentialRampToValueAtTime(0.0001,t0+t);
+  s.connect(f); f.connect(g); g.connect(o.bus||sfxBus); s.start(t0); s.stop(t0+t+0.03);
+}
+// Named cues — every game-feel beat routes through here so the mix reads as one kit.
+const S={
+  ui(){ tone(640,520,0.06,{type:'triangle',vol:0.08}); },
+  pickup(v){ const p=clamp((v||60)/900,0,1);                  // richer loot → brighter chime
+    tone(520+p*240,760+p*420,0.1,{type:'triangle',vol:0.15});
+    tone(1040+p*480,1520+p*840,0.14,{vol:0.09,delay:0.05}); },
+  living(){ tone(920,1380,0.07,{type:'square',vol:0.07}); tone(1380,980,0.1,{vol:0.09,delay:0.08}); },
+  artifact(){ [392,494,587].forEach((f,i)=>tone(f,f,0.55,{vol:0.08,at:0.06,delay:i*0.07})); },
+  shrine(){ [311,392,466].forEach((f,i)=>tone(f,f*0.99,0.6,{vol:0.08,at:0.08,delay:i*0.08})); },
+  boon(){ tone(660,1320,0.3,{type:'triangle',vol:0.12}); tone(990,1980,0.34,{vol:0.07,delay:0.08}); },
+  hit(){ nburst(0.16,0.5,900); tone(150,55,0.22,{vol:0.4}); },
+  shatter(){ nburst(0.3,0.4,2400,{hp:true}); [1568,1245,988].forEach((f,i)=>tone(f,f*0.92,0.12,{type:'triangle',vol:0.1,delay:i*0.05})); },
+  alarm(){ for(let i=0;i<2;i++){ tone(740,740,0.11,{type:'square',vol:0.11,delay:i*0.14}); tone(988,988,0.11,{type:'square',vol:0.11,delay:i*0.14+0.06}); } },
+  hunter(){ tone(58,52,1.1,{type:'sawtooth',vol:0.3,at:0.2}); tone(87,78,1.1,{type:'sawtooth',vol:0.18,at:0.25,delay:0.05}); nburst(0.5,0.2,300,{delay:0.1}); },
+  severWarn(){ tone(90,62,0.7,{type:'sawtooth',vol:0.16,at:0.1}); nburst(0.5,0.12,240); },
+  severSlam(){ nburst(0.3,0.7,500); tone(70,36,0.4,{vol:0.5}); },
+  severOpen(){ tone(62,96,0.55,{type:'sawtooth',vol:0.14,at:0.08}); nburst(0.4,0.12,340); },
+  drop(){ nburst(0.12,0.25,600); tone(180,120,0.1,{vol:0.14}); },
+  land(hard){ nburst(0.14,hard?0.5:0.3,hard?520:800); if(hard) tone(120,60,0.18,{vol:0.3}); },
+  charge(n){ tone(340+n*70,340+n*70,0.07,{type:'triangle',vol:0.1}); },
+  escape(){ [523,659,784,1047].forEach((f,i)=>tone(f,f,0.28,{type:'triangle',vol:0.14,delay:i*0.09})); },
+  caught(){ [392,311,233,175].forEach((f,i)=>tone(f,f*0.97,0.34,{type:'sawtooth',vol:0.1,delay:i*0.12})); nburst(0.5,0.3,400,{delay:0.1}); },
+  clear(){ [659,784,988,1319].forEach((f,i)=>tone(f,f,0.22,{type:'triangle',vol:0.13,delay:i*0.07})); },
+  cash(){ [1319,1760].forEach((f,i)=>tone(f,f,0.16,{type:'triangle',vol:0.13,delay:i*0.07})); nburst(0.06,0.1,3000,{hp:true}); },
+  revive(){ [262,330,392,523].forEach((f,i)=>tone(f,f,0.3,{type:'triangle',vol:0.12,delay:i*0.08})); },
+  omen(){ tone(233,466,1.0,{vol:0.1,at:0.3}); tone(240,480,1.0,{vol:0.07,at:0.3,delay:0.05}); },
+};
+let nextBeat=0;
+function musicTick(){
+  if(!AC) return;
+  const playing = state==='playing';
+  musBus.gain.setTargetAtTime(playing?0.32:0, AC.currentTime, playing?0.6:0.25);
+  chaseG.gain.setTargetAtTime(playing&&anyChase?0.09:0, AC.currentTime, 0.5);
+  if(!playing) return;
+  const now=AC.currentTime;
+  if(now>=nextBeat){
+    const iv=Math.max(0.5, 1.9-heatTier*0.23);               // TUNE — Heat quickens the pulse
+    nextBeat=Math.max(nextBeat+iv, now+0.05);
+    const v=0.5+heatTier*0.08;                                // heartbeat: lub-dub on the music bus
+    tone(52,40,0.16,{vol:v,bus:musBus}); tone(50,38,0.13,{vol:v*0.7,delay:0.14,bus:musBus});
+  }
+}
+function toggleMute(){
+  audioMuted=!audioMuted; try{ localStorage.setItem('greedrun_muted',audioMuted?'1':'0'); }catch(e){}
+  if(AC&&masterBus) masterBus.gain.setTargetAtTime(audioMuted?0:0.5, AC.currentTime, 0.02);
+  syncMuteUI();
+}
+function syncMuteUI(){ const b=document.getElementById('muteBtn'); if(b) b.textContent=audioMuted?'🔇':'🔊'; }
+// unlock on the very first gesture, whatever it is (capture phase beats the handlers)
+const audioUnlock=()=>{ audioInit(); if(AC&&AC.state==='suspended') AC.resume(); };
+addEventListener('pointerdown', audioUnlock, {capture:true});
+addEventListener('keydown', audioUnlock, {capture:true});
+
 // ---------- input ----------
 addEventListener('keydown', e=>{
   const k=e.key.toLowerCase();
@@ -1472,6 +1586,7 @@ function dropLoot(){
   if(!best) return;
   best.got=false; best.x=player.x; best.y=player.y; best.plat=player.plat;
   recompute();
+  S.drop();
   floaters.push({x:player.x,y:player.y-20,txt:'dropped '+(best.name||best.type),life:1,col:'#f0e7d2'});
   for(let i=0;i<6;i++) particles.push(mkP(player.x,player.y+4,'#6b5a3a'));
 }
@@ -1553,6 +1668,8 @@ function update(dt){
   attemptMove(player.x+ix*sp, player.y);  // x axis (handles climb/drop)
   attemptMove(player.x, player.y+iy*sp);  // y axis
   player.vx=ix*sp; player.vy=iy*sp;
+  // footstep dust — running kicks up motes behind the stride
+  if(m>0.3){ dustT-=dt; if(dustT<=0){ dustT=0.11; particles.push(mkDust(player.x-ix*9, player.y+player.r*0.6)); } }
   if(player.inv>0) player.inv-=dt;
   if(player.ghost>0) player.ghost-=dt;
   updateSever(dt);                        // greed closes the vault behind you
@@ -1588,8 +1705,11 @@ function update(dt){
       if(l.kind==='shrine'){ l.got=true; applyBoon(l.boon); heatTier=clamp(heatTier+1,0,6);
         flashCurse=Math.max(flashCurse||0,0.6); shake=Math.max(shake,6); hitStop=Math.max(hitStop,0.04);
         for(let i=0;i<14;i++)particles.push(mkP(l.x,l.y,'#a98bff'));
+        S.shrine();
         toast('You take the offering — the vault stirs. (+Heat)',1600); continue; }
       l.got=true; recompute();
+      if(l.kind==='living') S.living(); else S.pickup(l.value);
+      ring(l.x,l.y,'#f5c542',{r0:4,vr:90,life:0.3,lw:2});
       if(l.kind==='living'){ toast('Cornered the Skitterjewel!', 1100);
         for(let i=0;i<10;i++)particles.push(mkP(l.x,l.y,'#8fe39a')); }
       if(l.kind==='royal'){ summonElites(l.x,l.y); flashCurse=1;
@@ -1600,7 +1720,7 @@ function update(dt){
       if(l.curse>0){ flashCurse=1; toast('Marked goods \u2014 the vault turns hostile.', 1100); }
       // 100% payoff: everything (including the revealed Heart) is now in the bag
       if(!vaultCleared && loot.every(x=>x.got||x.stolen)){
-        vaultCleared=true; alarmFlash=1;
+        vaultCleared=true; alarmFlash=1; S.clear();
         toast('VAULT EMPTY \u00b7 every last coin. Now RUN.', 2000);
         for(const g of guards){ g.state='chase'; g.alert=1; }
       }
@@ -1659,24 +1779,26 @@ function update(dt){
     // contact — grunts only reach ground-level Jo; the Hunter reaches you anywhere
     if(g.hitCd<=0 && player.inv<=0 && !ghosting && (player.plat===-1 || g.hunter) && dist2(g.x,g.y,player.x,player.y) < (g.r+player.r)**2){
       player.hp-- ; player.inv=1.1; g.hitCd=0.8; shake=14; hitStop=Math.max(hitStop,0.07); runDamaged=true;
+      S.hit(); joSquash=Math.max(joSquash,0.45); ring(player.x,player.y,'#e0503f',{vr:220,life:0.45});
       const kx=player.x-g.x, ky=player.y-g.y, km=Math.hypot(kx,ky)||1, push=26;
       if(isOpen(player.x+kx/km*push, player.y, player.r)) player.x+=kx/km*push;
       if(isOpen(player.x, player.y+ky/km*push, player.r)) player.y+=ky/km*push;
       unstick(player);
       // Fragile loot shatters when you take a hit
       const frag=loot.find(l=>l.kind==='fragile'&&l.got);
-      if(frag){ frag.got=false; recompute();
+      if(frag){ frag.got=false; recompute(); S.shatter();
         for(let i=0;i<12;i++)particles.push(mkP(player.x,player.y,'#dfeaf5'));
         floaters.push({x:player.x,y:player.y-20,txt:'shattered!',life:1,col:'#dfeaf5'});
         toast('The Porcelain Relic shattered.',1100);
       } else floaters.push({x:player.x,y:player.y-20,txt:'CAUGHT!',life:0.9,col:'#e0503f'});
       if(player.hp<=0){
         if(upgLevel('revive')>0 && !player.usedRevive){ player.usedRevive=true; player.hp=1; player.inv=2; shake=18;
-          alarmFlash=1; toast('Second wind \u2014 back on your feet.',1500); }
+          alarmFlash=1; S.revive(); toast('Second wind \u2014 back on your feet.',1500); }
         else { endRun(false); return; }
       }
     }
   }
+  anyChase = guards.some(g=>g.state==='chase');   // gates the chase-tremolo music layer
 
   // GDD Heat ladder: at high heat, a Bounty Hunter enters — and notoriety brings it sooner
   const hunterAt = Math.max(1, Math.max(2, 4 - Math.floor(meta.curseDebt/3)) - ascMods(ascensionLevel).hun);
@@ -1695,6 +1817,7 @@ function update(dt){
       if(s.cd<=0){ // trip the alarm
         s.cd=2.2; alarmFlash=1; shake=Math.max(shake,10); runSpotted=true;
         heatTier=clamp(heatTier+1,0,6);
+        S.alarm(); ring(s.x,s.y,'#e0503f',{vr:280,life:0.55,lw:4});
         toast('SPOTTED \u2014 alarm!', 1200);
         // wake the two nearest patrol guards toward you
         [...guards].sort((a,b)=>dist2(a.x,a.y,player.x,player.y)-dist2(b.x,b.y,player.x,player.y))
@@ -1709,15 +1832,20 @@ function update(dt){
   document.getElementById('prompt').classList.toggle('on', nearPortal && seenOneMore);
   if(nearPortal && wantEsc && seenOneMore){
     extractHold+=dt; shake=Math.max(shake,3);
+    const cs=Math.floor(extractHold/0.1);                       // rising tick per tenth of the hold
+    if(cs>lastChargeStep){ lastChargeStep=cs; S.charge(cs); }
     if(extractHold>=0.6){ endRun(true); return; }
-  } else extractHold=Math.max(0,extractHold-dt*2);
+  } else { extractHold=Math.max(0,extractHold-dt*2); lastChargeStep=-1; }
 
   // fx decay
   if(shake>0) shake*=Math.pow(0.001,dt);
   if(flashCurse>0) flashCurse=Math.max(0,flashCurse-dt*0.8);
   if(alarmFlash>0) alarmFlash=Math.max(0,alarmFlash-dt*1.6);
-  for(const p of particles){ p.x+=p.vx*dt*60; p.y+=p.vy*dt*60; p.vy+=0.15*dt*60; p.life-=dt*1.4; }
+  if(joSquash>0) joSquash=Math.max(0,joSquash-dt*3.2);
+  for(const p of particles){ p.x+=p.vx*dt*60; p.y+=p.vy*dt*60; if(p.g!==0) p.vy+=0.15*dt*60; p.life-=dt*1.4; }
   particles=particles.filter(p=>p.life>0);
+  for(const q of rings){ q.r+=q.vr*dt; q.life-=dt; }
+  rings=rings.filter(q=>q.life>0);
   for(const f of floaters){ f.y-=24*dt; f.life-=dt; }
   floaters=floaters.filter(f=>f.life>0);
   portal.spin+=dt*1.6;
@@ -1725,6 +1853,9 @@ function update(dt){
   syncHud();
 }
 function mkP(x,y,col){ return {x,y,vx:rand(-2.4,2.4),vy:rand(-3.2,-0.4),life:rand(.5,1),col}; }
+function mkDust(x,y){ return {x,y,vx:rand(-0.5,0.5),vy:rand(-0.8,-0.2),life:rand(.3,.55),col:'#8a7a5c',r:rand(1.4,2.6),g:0}; }
+// expanding impact ring — the visual exclamation mark on hits, alarms and slams
+function ring(x,y,col,o){ o=o||{}; rings.push({x,y,r:o.r0||6,vr:o.vr||150,life:o.life||0.4,max:o.life||0.4,col,lw:o.lw||3}); }
 
 // ---------- render ----------
 function draw(){
@@ -1748,9 +1879,12 @@ function draw(){
   for(const g of guards) drawGuard(g);
   // player
   if(state==='playing'||state==='onemore'||state==='decision'||state==='paused') drawJo();
-  // particles / floaters
+  // particles / rings / floaters
   for(const p of particles){ ctx.globalAlpha=clamp(p.life,0,1); ctx.fillStyle=p.col;
-    ctx.beginPath();ctx.arc(p.x,p.y,3,0,6.28);ctx.fill(); }
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r||3,0,6.28);ctx.fill(); }
+  for(const q of rings){ const a=clamp(q.life/q.max,0,1); ctx.globalAlpha=a*0.8;
+    ctx.strokeStyle=q.col; ctx.lineWidth=q.lw*a+0.5;
+    ctx.beginPath(); ctx.arc(q.x,q.y,q.r,0,6.28); ctx.stroke(); }
   ctx.globalAlpha=1;
   ctx.font='700 16px "Cinzel", serif'; ctx.textAlign='center';
   for(const f of floaters){ ctx.globalAlpha=clamp(f.life,0,1); ctx.fillStyle=f.col;
@@ -1769,6 +1903,13 @@ function draw(){
   if(heatTier>=3){
     ctx.fillStyle=`rgba(224,80,63,${(heatTier-2)*0.05})`;
     ctx.fillRect(0,0,VIEW.w,VIEW.h);
+  }
+  // last-heart pulse — the screen itself worries when one hit ends the run
+  if(state==='playing' && player.hp===1){
+    const p=0.5+0.5*Math.sin(tPrev/280);
+    const hg=ctx.createRadialGradient(VIEW.w/2,VIEW.h/2,VIEW.h*0.36, VIEW.w/2,VIEW.h/2,VIEW.h*0.85);
+    hg.addColorStop(0,'rgba(0,0,0,0)'); hg.addColorStop(1,`rgba(224,80,63,${0.10+p*0.14})`);
+    ctx.fillStyle=hg; ctx.fillRect(0,0,VIEW.w,VIEW.h);
   }
   // alarm flash (sentry trip / vault cleared)
   if(alarmFlash>0.02){
@@ -1915,6 +2056,12 @@ function drawPortal(){
   const g=ctx.createRadialGradient(x,y,4,x,y,portal.r);
   g.addColorStop(0,'rgba(255,231,168,.5)'); g.addColorStop(1,'rgba(245,197,66,0)');
   ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,portal.r,0,6.28); ctx.fill();
+  // escape-hold progress ring — the door visibly "charges" while you hold it
+  if(extractHold>0){
+    ctx.strokeStyle='#ffe7a8'; ctx.lineWidth=4; ctx.lineCap='round';
+    ctx.beginPath(); ctx.arc(x,y,portal.r+12,-Math.PI/2,-Math.PI/2+Math.min(1,extractHold/0.6)*6.283);
+    ctx.stroke(); ctx.lineCap='butt';
+  }
   ctx.fillStyle='#ffe7a8'; ctx.font='600 12px "Barlow Semi Condensed"'; ctx.textAlign='center';
   ctx.fillText('EXIT', x, y-portal.r-8);
 }
@@ -2142,6 +2289,7 @@ function drawJoVector(){
   const bob = moving ? Math.abs(Math.sin(joWalkPhase))*1.4 : Math.sin(tPrev/650)*0.4;  // upper-body bob / breathe
   const facingUp = fy < -0.35;                                // moving away → see his back
   ctx.save(); ctx.translate(x,y);
+  if(joSquash>0){ const s=joSquash*0.3; ctx.scale(1+s,1-s); } // impact squash (hits, landings)
   if(blink) ctx.globalAlpha=0.4;
   if(player.ghost>0){ ctx.globalAlpha=0.6+Math.sin(player.ghost*10)*0.1;
     const ga=ctx.createRadialGradient(0,0,4,0,0,30);
@@ -2277,7 +2425,7 @@ function startRun(){
   if(activeMod.id!=='clean') toast(`${activeMod.name}: ${activeMod.good} ${activeMod.bad}`.trim(), 2600);
 }
 function openOneMore(){
-  state='onemore'; $('hud').classList.remove('on');
+  state='onemore'; $('hud').classList.remove('on'); S.omen();
   $('omtCarry').textContent='Carrying $'+carriedValue.toLocaleString()+' \u00b7 yours for certain if you leave now';
   show('onemore');
 }
@@ -2287,13 +2435,13 @@ function resumeGreedy(){
     floaters.push({x:h.x,y:h.y,txt:'VAULT HEART',life:2,col:'#a98bff'}); heartRevealed=true; }
   heatTier=Math.max(heatTier,4);
   for(const g of guards){ g.state='chase'; g.alert=1; }
-  flashCurse=1; toast('The vault wakes \u2014 every eye turns to you.',1600);
+  flashCurse=1; S.alarm(); toast('The vault wakes \u2014 every eye turns to you.',1600);
   state='playing'; $('hud').classList.add('on'); show(null);
 }
 
 // ---------- branching loot ----------
 let pendingArtifact=null;function openDecision(l){
-  pendingArtifact=l; state='decision'; $('hud').classList.remove('on');
+  pendingArtifact=l; state='decision'; $('hud').classList.remove('on'); S.artifact();
   eHeld=false; touchVec={x:0,y:0};
   $('decTitle').textContent=l.name;
   $('decFlavor').textContent=l.flavor;
@@ -2327,12 +2475,13 @@ function resolveArtifact(pick){
   if(l.value>0) floaters.push({x:l.x,y:l.y,txt:'+$'+l.value,life:1.2,col:'#f5c542'});
   for(let i=0;i<14;i++)particles.push(mkP(l.x,l.y,'#a98bff'));
   if(!vaultCleared && loot.every(x=>x.got||x.stolen)){
-    vaultCleared=true; alarmFlash=1; toast('VAULT EMPTY \u00b7 every last coin. Now RUN.',2000);
+    vaultCleared=true; alarmFlash=1; S.clear(); toast('VAULT EMPTY \u00b7 every last coin. Now RUN.',2000);
     for(const g of guards){ g.state='chase'; g.alert=1; }
   }
   pendingArtifact=null; state='playing'; $('hud').classList.add('on'); show(null);
 }
 function applyBoon(key){
+  S.boon();
   if(key==='sense'){
     const h=loot.find(l=>l.type==='heart'); if(h&&h.hidden){ h.hidden=false;
       floaters.push({x:h.x,y:h.y,txt:'VAULT HEART',life:2,col:'#a98bff'}); heartRevealed=true; }
@@ -2358,6 +2507,7 @@ function epithet(escaped){
 function endRun(escaped){
   const wasDaily=dailyMode;
   runOutcome=escaped; state='result';
+  if(escaped) S.escape(); else S.caught();
   $('hud').classList.remove('on'); document.getElementById('prompt').classList.remove('on');
   touchWrap.style.display='none';
   meta.runs++;
@@ -2509,6 +2659,7 @@ function bankHaul(){
       toast(trophyById(tid).passive+' \u2014 added to the Collection.',1600); } } }
   if(pendingPerfect) total=Math.round(total*1.4); total=Math.round(total*pendingDangerMult*collGoldMult()*denBonus()*ascMods(ascensionLevel).pay);
   meta.gold+=total; meta.curseDebt=clamp(meta.curseDebt+curseD,0,10);
+  S.cash();
   applyContractRewards();
   pendingHaul=[]; pendingBulk={val:0,n:0};
   saveMeta();
@@ -2543,7 +2694,7 @@ function renderCollection(){
   }
   g.querySelectorAll('.rbtn[data-t]').forEach(el=>el.onclick=()=>{
     const t=trophyById(el.dataset.t), cost=restoreCost(t);
-    if(meta.gold>=cost && collLevel(t.id)<t.max){ meta.gold-=cost; meta.collection[t.id]=collLevel(t.id)+1;
+    if(meta.gold>=cost && collLevel(t.id)<t.max){ meta.gold-=cost; meta.collection[t.id]=collLevel(t.id)+1; S.cash();
       toast(t.passive+' restored \u2014 Lv '+collLevel(t.id),1200); saveMeta(); renderCollection(); }
   });
 }
@@ -2737,7 +2888,7 @@ function renderShop(){
                                  : `<div class="eff">Next ${effLabel(u.id,1)}</div>`; }
     el.innerHTML=`<div class="nm">${u.nm}</div><div class="ds">${u.ds}</div>${effLine}
       <div class="cost">${maxed?'\u2713 MAX':'$'+cost.toLocaleString()}</div>${lvlTag}`;
-    if(!maxed&&afford){ el.onclick=()=>{ meta.gold-=cost; meta.upg[u.id]=lvl+1;
+    if(!maxed&&afford){ el.onclick=()=>{ meta.gold-=cost; meta.upg[u.id]=lvl+1; S.cash();
       const wasLocked=ascUnlocked()<1; refreshAscUnlock(); if(wasLocked&&ascUnlocked()>=1) toast('Difficulty Ascension unlocked \u2014 every upgrade maxed.',1600);
       toast(u.nm+(u.max>1?` \u2014 Lv ${lvl+1}`:' acquired')+'.',1100); saveMeta(); renderShop(); }; }
     grid.appendChild(el);
@@ -2846,15 +2997,21 @@ function abandonRun(){ touchWrap.style.display='none'; $('hud').classList.remove
   toast('Run abandoned \u2014 you walk out with nothing.',1600); openShop(); }
 function openHowTo(from){ howtoFrom=from; show('howto'); }
 $('pauseBtn').onclick=pauseGame;
+$('muteBtn').onclick=toggleMute; syncMuteUI();
+// one shared click cue for every interactive element (the same gesture unlocks audio)
+document.addEventListener('pointerdown', e=>{
+  if(e.target.closest && e.target.closest('.btn,.choice,.job,.buyer,.iconbtn,.rbtn,.hchip')) S.ui();
+});
 $('resumeBtn').onclick=resumeGame;
 $('abandonBtn').onclick=abandonRun;
 $('howtoBtn').onclick=()=>openHowTo('menu');
 $('pauseHowto').onclick=()=>openHowTo('paused');
 $('howtoBack').onclick=()=>{ show(howtoFrom); if(howtoFrom==='paused'){/* stay paused */} };
-// keyboard pause toggle
+// keyboard pause + mute toggles
 addEventListener('keydown', e=>{
   const k=e.key.toLowerCase();
   if(k==='escape'||k==='p'){ if(state==='playing') pauseGame(); else if(state==='paused') resumeGame(); }
+  if(k==='m' && !(e.target && e.target.tagName==='INPUT')) toggleMute();
 });
 
 // ---------- loop ----------
@@ -2893,6 +3050,12 @@ window.__greed = {
   get MODIFIERS(){ return MODIFIERS; }, get TWISTS(){ return TWISTS; },
   get activeMod(){ return activeMod; }, set activeMod(v){ activeMod = v; },
   masteryCount, masteryMult, sellMult, endRun,
+  // juice surface: audio kit + fx buffers, so headless tests can poke the cues
+  S, audioInit, toggleMute, ring,
+  get audioDebug(){ return { ac:!!AC, ctxState:AC?AC.state:'none', muted:audioMuted,
+    master:masterBus?masterBus.gain.value:-1, mus:musBus?musBus.gain.value:-1 }; },
+  get state(){ return state; },
+  get rings(){ return rings; }, get particles(){ return particles; },
 };
 })();
 </script>
