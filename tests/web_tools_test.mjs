@@ -144,6 +144,31 @@ const res = await page.evaluate(async () => {
   return out;
 });
 
+// ---- DROP regression (live frames): a dropped piece must NOT re-grab next frame ----
+// The original bug: dropLoot left the item at Jo's feet with no grace, so the
+// pickup loop reclaimed it one frame later and DROP looked like a no-op.
+await page.evaluate(() => {
+  const G = window.__greed;
+  G.meta.equippedTool = ''; G.activeContract = null; G.startRun();
+  const items = G.loot.filter(l => !l.got && !l.hidden && l.plat === -1 && l.weight > 0
+    && !['artifact', 'shrine', 'living'].includes(l.kind));
+  items.sort((a, b) => ((a.x - G.portal.x) ** 2 + (a.y - G.portal.y) ** 2) - ((b.x - G.portal.x) ** 2 + (b.y - G.portal.y) ** 2));
+  const it = items[0]; window.__dropIdx = G.loot.indexOf(it);
+  it.got = true; G.player.x = it.x; G.player.y = it.y; G.player.plat = -1; G.player.inv = 999;
+  G.dropLoot();
+});
+await page.waitForTimeout(450);          // real frames — the old bug re-grabbed here
+let dl = await page.evaluate(() => { const G = window.__greed; const it = G.loot[window.__dropIdx];
+  return { got: it.got, grace: it.dropCd > 0 }; });
+if (dl.got) res.fails.push('DROP bug regressed: item re-grabbed during the grace window');
+await page.waitForTimeout(1000);         // grace expires
+await page.evaluate(() => { const G = window.__greed; const it = G.loot[window.__dropIdx];
+  G.player.inv = 999; G.player.x = it.x; G.player.y = it.y; G.player.plat = -1; });
+await page.waitForTimeout(250);
+dl = await page.evaluate(() => window.__greed.loot[window.__dropIdx].got || window.__greed.loot[window.__dropIdx].stolen);
+if (!dl) res.fails.push('dropped item not re-grabbable after the grace expired');
+else res.log.push('drop: grace window holds, item re-grabbable after it expires');
+
 res.log.forEach(l => console.log(l));
 if (pageErrors.length) { console.log('PAGE ERRORS:'); pageErrors.forEach(e => console.log('  ' + e)); }
 if (res.fails.length) { console.log('FAILURES:'); res.fails.forEach(f => console.log('  ' + f)); }

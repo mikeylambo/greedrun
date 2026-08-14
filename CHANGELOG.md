@@ -1,5 +1,31 @@
 # Changelog
 
+## Web build — playtest round 1 fixes (iPhone)
+
+- **Crisp rendering**: the canvas now oversamples by devicePixelRatio (capped
+  2×) and draws through a render-scale transform — landscape on a phone was
+  rendering at 600px and upscaling (blurry). Same world view, sharp pixels.
+- **DROP actually works**: dropped loot was re-grabbed by the pickup loop one
+  frame later, making the button look dead. Dropped pieces now toss slightly
+  behind Jo with a 1.2s re-grab grace (live-frame regression test added).
+- **Audio on iPhone**: opted into the `playback` audio session so the ring/
+  silent switch no longer mutes the game — the likely "no SFX" culprit. Also
+  added a distinct "spotted!" sting when any guard first starts chasing
+  (rate-limited), and the chase tremolo layer is louder.
+- **Undercity readability**: bigger lantern, lighter darkness curve — walls
+  and loot glows stay legible on a phone at max brightness.
+- **Results fit portrait**: the stat row wraps instead of overflowing
+  offscreen; verified zero scroll on a 390×844 viewport.
+- **Hideout declutter**: Daily / Choose Job / Collection buttons moved up
+  under the banked gold; den perk chips moved below the daily card.
+- **Luxuriant feel**: every screen transition now blooms in with a golden
+  wash + scale; the extraction number pulses with a win glow and counts up
+  from $0; banked gold rolls to its new value instead of snapping.
+- **Touch correctness**: the escape prompt says "hold the gold button" on
+  touch instead of "Hold E"; long-press no longer pops iOS text selection.
+- **Offscreen-threat compass**: pulsing edge arrows track the rival thief
+  (violet) and the Bounty Hunter (red) when they're off screen.
+
 ## Web build — playtest telemetry & economy re-centering
 
 - **Playtest telemetry**: every run (escape, capture, or abandon) is logged
