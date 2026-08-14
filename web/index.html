@@ -384,6 +384,13 @@
     display:none;align-items:center;justify-content:center;transition:transform .08s, box-shadow .08s, opacity .15s;}
   #dropBtn.pressed{transform:scale(.9);box-shadow:0 0 0 1px var(--gold-deep) inset,0 3px 10px rgba(0,0,0,.5);}
   #dropBtn.idle{opacity:.34;}
+  /* TOOL: fire the equipped Workbench tool (the touch twin of Space). */
+  #toolBtn{position:absolute;right:178px;bottom:28px;width:60px;height:60px;border-radius:50%;
+    pointer-events:auto;background:rgba(20,16,9,.72);box-shadow:0 0 0 1px var(--panel-line) inset,0 8px 20px rgba(0,0,0,.4);
+    color:var(--scarf);font-family:"Cinzel",serif;font-weight:700;font-size:11px;letter-spacing:.04em;line-height:1.25;
+    display:none;align-items:center;justify-content:center;text-align:center;transition:transform .08s, box-shadow .08s, opacity .15s;}
+  #toolBtn.pressed{transform:scale(.9);box-shadow:0 0 0 1px var(--gold-deep) inset,0 3px 10px rgba(0,0,0,.5);}
+  #toolBtn.idle{opacity:.34;}
   /* Touch controls scale together off one clamped unit (--ctl): comfortable on
      phones, capped so they don't balloon on tablets, and their offsets track the
      same unit so DROP never overlaps HOLD. Placed AFTER the base #stick/#eBtn/
@@ -400,6 +407,10 @@
       font-size:calc(var(--ctl)*0.2);
       right:calc(var(--ctl)*1.55 + env(safe-area-inset-right));
       bottom:calc(var(--ctl)*0.42 + env(safe-area-inset-bottom));}
+    #toolBtn{width:calc(var(--ctl)*0.86);height:calc(var(--ctl)*0.86);
+      font-size:calc(var(--ctl)*0.18);
+      right:calc(var(--ctl)*2.55 + env(safe-area-inset-right));
+      bottom:calc(var(--ctl)*0.5 + env(safe-area-inset-bottom));}
     .prompt{font-size:calc(var(--ctl)*0.32);
       bottom:calc(var(--ctl)*1.6 + env(safe-area-inset-bottom));}
   }
@@ -422,6 +433,7 @@
         <div class="hearts" id="hearts"></div>
         <div id="objective"></div>
         <div id="timer"></div>
+        <div id="toolHud" style="display:none;margin-top:7px;font-size:12px;letter-spacing:.05em;color:var(--muted);text-shadow:0 1px 3px rgba(0,0,0,.7)"></div>
       </div>
       <div style="display:flex;gap:12px;align-items:flex-start">
         <div class="value-tag">
@@ -481,6 +493,8 @@
       <div class="ht-row"><div class="ht-key">Decide</div><div class="ht-txt">Glowing artifacts stop you for a choice: take it whole for gold, pry it for clean scraps, or spend it for <em>power</em> — a boon that bends the run.</div></div>
       <div class="ht-row"><div class="ht-key">Watch</div><div class="ht-txt">Guards chase what they see and give up when they lose you. Swiveling <em>sentries</em> can't see through walls — use cover, read the sweep.</div></div>
       <div class="ht-row"><div class="ht-key">Places</div><div class="ht-txt">Every location fights differently. <em>Flood water</em> slows you but swallows your noise. <em>Wind</em> shoves everyone. The <em>dark</em> hides all but your lantern &mdash; and you. The Mint&rsquo;s <em>presses</em> crush whatever lingers, guards included.</div></div>
+      <div class="ht-row"><div class="ht-key">Tools</div><div class="ht-txt">The hideout&rsquo;s <em>Workbench</em> sells tools; one rides per job, with limited charges. Tap <em>TOOL</em> (or Space) to use it &mdash; smoke, a decoy, a grapple, lockpicks, even a portable portal. Never required; always greedy.</div></div>
+      <div class="ht-row"><div class="ht-key">Word</div><div class="ht-txt">Escapes earn you a name &mdash; earn it twice and the street starts talking. Your kind of work seeks you out at <em>+25% pay</em>, and one buyer starts paying you like they know you. And mind the <em>Gilded Fake</em>: it reads rich in the bag, fences for pennies&hellip; unless you find a buyer who can&rsquo;t tell. Dropped, its glitter makes fine bait.</div></div>
       <div class="ht-row"><div class="ht-key">Climb</div><div class="ht-txt">Walk up a <em>staircase</em> to reach high ground &mdash; guards can&rsquo;t follow you up. Step off a <em>ledge</em> to drop fast, but a loaded landing is loud and can cost a heart.</div></div>
       <div class="ht-row"><div class="ht-key">Escape</div><div class="ht-txt">The glowing exit is where you started. Hold it to leave and <em>bank</em> your haul. Get caught and the vault keeps everything.</div></div>
       <div class="ht-row"><div class="ht-key">Heat</div><div class="ht-txt">The more you carry, the hotter it gets &mdash; guards grow faster and sharper-eyed, and at high Heat a <em>Bounty Hunter</em> enters. But danger pays: a hotter run sells for more.</div></div>
@@ -512,8 +526,11 @@
     <div class="den-perks" id="denPerks"></div>
     <div class="bank"><span class="c">Banked gold</span><span id="bankAmt">$0</span></div>
     <div id="notoLine"></div>
+    <div id="repLine" style="margin-top:6px;font-size:12.5px;letter-spacing:.03em;line-height:1.5"></div>
     <div id="dailyLine"></div>
     <div class="fence-grid" id="fenceGrid"></div>
+    <div class="stat-head" style="width:min(560px,94%);text-align:center;margin-top:4px">The Workbench &middot; one tool rides per job &middot; Space / TOOL to use</div>
+    <div class="fence-grid" id="toolGrid" style="margin-top:10px"></div>
     <div class="btn-row">
       <button class="btn" id="dailyBtn">☀ Daily Run</button>
       <button class="btn" id="nextRunBtn">Choose Tonight&rsquo;s Job →</button>
@@ -590,6 +607,7 @@
   <!-- Touch -->
   <div id="touch">
     <div id="stick"><div class="nub" id="nub"></div></div>
+    <div id="toolBtn">TOOL</div>
     <div id="dropBtn">DROP</div>
     <div id="eBtn">HOLD<br>ESC</div>
   </div>
@@ -641,6 +659,8 @@ const meta = {
   upg: { straps:0, boots:0, feet:0, luck:0,
          landing:0, scanner:0, pockets:0, contacts:0, cool:0, revive:0 },
   collection: { idol:0, relic:0, jewel:0, relicart:0, heart:0 },
+  tools: { smoke:0, decoy:0, grapple:0, lockpick:0, portal:0 }, equippedTool:'',
+  rep: {},           // epithet -> times earned; the street remembers (reputation system)
   ascUnlocked: 0, bestByAsc: {},
   modsCleared: {},   // vault-modifier ids you've banked a haul under (Modifier Mastery)
   daily: { playedDay:'', playedScore:0, playedEscaped:false, streak:0, bestStreak:0, best:0, history:[] }
@@ -659,6 +679,35 @@ const UPGRADES = [
 ];
 function upgLevel(id){ return meta.upg[id]|0; }                 // works for old boolean saves too
 function upgCost(u){ return Math.round(u.base * Math.pow(1.55, upgLevel(u.id))); }
+
+// ===== The Workbench: Jo's tool kit (GDD §Progression/Tools) =====
+// Buy once at the hideout; ONE tool rides per job with limited charges, fired by
+// the optional TOOL button / Space — never required to finish a run (north star).
+const TOOLS = [
+  { id:'smoke',   nm:'Smoke Bomb',      short:'SMOKE', cost:1400, uses:2, ds:'Vanish in a burst — nearby guards lose you, and your loot goes silent for 3s.' },
+  { id:'decoy',   nm:'Decoy Bag',       short:'DECOY', cost:1200, uses:2, ds:'Toss a glittering fake ahead. Guards who aren’t already on you go look.' },
+  { id:'grapple', nm:'Grapple Hook',    short:'HOOK',  cost:1600, uses:3, ds:'Snag the nearest loose treasure in sight and reel it in — even off a ledge, even the Skitterjewel.' },
+  { id:'lockpick',nm:'Lockpick Kit',    short:'PICK',  cost:1300, uses:1, ds:'Crack the nearest sealed shutter back open without shedding a coin.' },
+  { id:'portal',  nm:'Portable Portal', short:'PORT',  cost:4200, uses:1, ds:'Plant a marker anywhere. Use it again — from anywhere — to snap back to it.' },
+];
+function toolById(id){ return TOOLS.find(t=>t.id===id); }
+function ownsTool(id){ return !!(meta.tools && meta.tools[id]); }
+let toolCharges=0, toolMark=null, smokeT=0, baits=[];   // per-run tool state
+
+// ===== Reputation: the street remembers (GDD §Reputation System) =====
+// Escaped-run epithets accumulate; a dominant one (earned 2+ times) becomes your
+// STANDING: matching contracts seek you out at +25%, and one buyer knows your name.
+const REP_INFO = {
+  'GENTLEMAN THIEF': { types:['silent','untouched'], buyer:'noble', tag:'Nervous clients ask for you by name.' },
+  'TOMB RAIDER':     { types:['sweep','heart'],      buyer:'black', tag:'Clean-sweep work finds its way to you.' },
+  'PHANTOM BURGLAR': { types:['heart','hot'],        buyer:'cult',  tag:'Legend-chasers pay to be part of the story.' },
+  'MASTER LOOTER':   { types:['quota','timed'],      buyer:'cult',  tag:'The big-volume clients trust your bag.' },
+};
+function repDominant(){
+  let best=null, bc=1;   // needs 2+ earns to become your standing
+  for(const k in (meta.rep||{})){ if(!REP_INFO[k]) continue; const c=meta.rep[k]|0; if(c>bc){ bc=c; best=k; } }
+  return best;
+}
 
 // ===== Difficulty Ascension (ported from AscensionModifiers.gd) =====
 // One editable table of run modifiers per level; level 0 is a standard run (identity),
@@ -770,6 +819,9 @@ const LOOT_TYPES = {
   living:{ name:'Skitterjewel',     value:380,  weight:3, noise:2, curse:0, kind:'living' },
   royal: { name:'Crown Jewels',     value:720,  weight:5, noise:3, curse:0, kind:'royal' },
   fragile:{ name:'Porcelain Relic', value:560,  weight:2, noise:0, curse:0, kind:'fragile' },
+  // Fake Loot (GDD): reads rich in the bag (raises Heat!), fences for pennies —
+  // unless you pass it to the Noble. Dropped, its glitter baits nearby guards.
+  fake:  { name:'Gilded Fake',      value:520,  weight:2, noise:0, curse:0, kind:'fake' },
   heart: { name:'Vault Heart',      value:2600, weight:11,noise:6, curse:6, kind:'mythic' },
 };
 
@@ -885,15 +937,29 @@ const CONTRACT_MAKERS = [
     desc:'Let it get dangerous \u2014 push the vault to Heat T4 or higher, then escape.',
     reward:1050, check:()=>peakHeat>=4 }),
 ];
+const TYPE_MAKER={quota:0,silent:1,steal:2,sweep:3,timed:4,recovery:5,heart:6,untouched:7,hot:8};
+function mkContract(i){
+  const c=CONTRACT_MAKERS[i]();
+  const tk=THEME_KEYS[Math.floor(Math.random()*THEME_KEYS.length)];
+  c.themeKey=tk; c.location=THEMES[tk].name;
+  c.title=({quota:'Smuggling Run',silent:'Silent Job',steal:'Contract Theft',
+    sweep:'Clean Sweep',timed:'Timed Raid',recovery:'Recovery Job',
+    heart:'Legendary Heist',untouched:'Ghost Job',hot:'Bounty Run'})[c.type];
+  return c;
+}
 function genContracts(n){
   const idx=[...CONTRACT_MAKERS.keys()].sort(()=>Math.random()-0.5).slice(0,n);
-  return idx.map(i=>{ const c=CONTRACT_MAKERS[i]();
-    const tk=THEME_KEYS[Math.floor(Math.random()*THEME_KEYS.length)];
-    c.themeKey=tk; c.location=THEMES[tk].name;
-    c.title=({quota:'Smuggling Run',silent:'Silent Job',steal:'Contract Theft',
-      sweep:'Clean Sweep',timed:'Timed Raid',recovery:'Recovery Job',
-      heart:'Legendary Heist',untouched:'Ghost Job',hot:'Bounty Run'})[c.type];
-    return c; });
+  const list=idx.map(mkContract);
+  // Reputation shapes the board: your kind of work seeks you out, and pays +25%.
+  const dom=repDominant();
+  if(dom){ const R=REP_INFO[dom];
+    if(!list.some(c=>R.types.includes(c.type))){
+      const t=R.types[Math.floor(Math.random()*R.types.length)];
+      list[list.length-1]=mkContract(TYPE_MAKER[t]);
+    }
+    for(const c of list){ if(R.types.includes(c.type)){ c.reward=Math.round(c.reward*1.25); c.repJob=dom; } }
+  }
+  return list;
 }
 
 const keys = new Set();
@@ -1079,14 +1145,15 @@ function commitSever(d){
   if(!isOpen(player.x,player.y,player.r)) unstick(player);
   toast('A vault door slams shut.',1100);
 }
-function reopenLast(){
-  const d=severStack.pop(); if(!d) return;
+function reopenDoor(d){
+  const si=severStack.indexOf(d); if(si>=0) severStack.splice(si,1);
   d.state='open'; const i=walls.indexOf(d.plug); if(i>=0) walls.splice(i,1);
   vgraph.adj[d.a].push(d.b); vgraph.adj[d.b].push(d.a);
   for(let k=0;k<8;k++) particles.push(mkP(d.center.x,d.center.y,'#8fe39a'));
   S.severOpen();
   toast('A shutter grinds back open.',1000);
 }
+function reopenLast(){ const d=severStack[severStack.length-1]; if(d) reopenDoor(d); }
 function updateSever(dt){
   if(!vgraph) return;
   severCooldown=Math.max(0,severCooldown-dt);
@@ -1204,6 +1271,8 @@ function buildWorld(){
   const areaScale = (WORLD.w*WORLD.h)/(2000*1400);
   walls=[]; loot=[]; guards=[]; sentries=[]; particles=[]; floaters=[]; rings=[]; rivals=[]; rivalHaul=0;
   joSquash=0; dustT=0; lastChargeStep=-1;
+  baits=[]; toolMark=null; smokeT=0;
+  toolCharges = (meta.equippedTool && ownsTool(meta.equippedTool)) ? toolById(meta.equippedTool).uses : 0;
   seenOneMore=false; heartRevealed=false; runOutcome=null; flashCurse=0;
   carriedValue=carriedWeight=carriedNoise=carriedCurse=0; heatTier=0;
   runLootTotal=0; runLootCount=0; vaultCleared=false; alarmFlash=0; lowNoiseRun=true;
@@ -1328,6 +1397,8 @@ function buildWorld(){
   if(vrng()<0.7){ const s=deepSpot(placed,0.55,0.5); add('royal',s.x,s.y); }
   // Fragile Loot: valuable, but it shatters if a guard lands a hit on you
   if(vrng()<0.7){ const s=deepSpot(placed,0.35,0.35); add('fragile',s.x,s.y); }
+  // Fake Loot: glitters like the real thing; the fence knows better
+  if(vrng()<0.7){ const s=deepSpot(placed,0.3,0.3); add('fake',s.x,s.y); }
 
   // NEW: 1-2 decision artifacts (branching loot) in the mid-deep vault
   const artCount = 1 + (vrng()<0.6?1:0);
@@ -1357,6 +1428,28 @@ function buildWorld(){
   if(vgraph){ const p=openSpotInRegion(vgraph.deepestRoom(),null); if(p) hSpot=p; }
   add('heart', hSpot.x, hSpot.y);
   if(upgLevel('scanner')>0){ heartRevealed=true; } else { loot[loot.length-1].hidden=true; }
+
+  // Reachability guarantee: arena layouts can (rarely) wall off a pocket. Flood-
+  // fill open ground from the entrance and move any sealed-in ground loot to a
+  // reachable spot — Clean Sweep must always be possible. All seeded (openSpot).
+  {
+    const R=24, cols=Math.ceil(WORLD.w/R), K=(cx,cy)=>cy*cols+cx;
+    const open=new Set(); const s0=K((portal.x/R)|0,(portal.y/R)|0);
+    open.add(s0); const st=[s0];
+    while(st.length){ const k=st.pop(), cy=(k/cols)|0, cx=k%cols;
+      for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+        const nx=cx+dx, ny=cy+dy, px=(nx+0.5)*R, py=(ny+0.5)*R;
+        if(px<=0||py<=0||px>=WORLD.w||py>=WORLD.h) continue;
+        const nk=K(nx,ny); if(open.has(nk)) continue;
+        if(isOpen(px,py,12)&&platAt(px,py)===-1){ open.add(nk); st.push(nk); }
+      } }
+    const reach=(x,y)=>{ const cx=(x/R)|0, cy=(y/R)|0;
+      for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++) if(open.has(K(cx+dx,cy+dy))) return true; return false; };
+    for(const l of loot){
+      if(l.plat!==-1 || reach(l.x,l.y)) continue;
+      for(let t=0;t<120;t++){ const s=openSpot(14,140,null); if(reach(s.x,s.y)){ l.x=s.x; l.y=s.y; break; } }
+    }
+  }
 
   // total value/count in the vault (for the 100% payoff)
   runLootTotal = loot.reduce((a,l)=>a+l.value,0);
@@ -1498,7 +1591,7 @@ function speedNow(){
   const pen = clamp(carriedWeight*strapMul, 0, capPen);
   return player.baseSpeed*(1-pen)*(inWater?0.75:1);              // wading is slow…
 }
-function noiseNow(){ return (noiseMuffled ? 0 : carriedNoise * Math.max(0.2, 1 - 0.18*upgLevel('boots')) * activeMod.noise) * (inWater?0.45:1); }  // …but the water swallows your clinking
+function noiseNow(){ return ((noiseMuffled||smokeT>0) ? 0 : carriedNoise * Math.max(0.2, 1 - 0.18*upgLevel('boots')) * activeMod.noise) * (inWater?0.45:1); }  // …but water swallows your clinking, smoke everything
 function detectRadius(){ return (92 + noiseNow()*6 + heatTier*9) * Math.max(0.55, 1 - 0.06*collLevel('relic')) * ascMods(ascensionLevel).det * activeMod.vis * (dark?0.85:1); }  // guards are in the dark too
 function guardSpeed(){ return (1.5 + heatTier*0.16 + carriedCurse*0.03) * ascMods(ascensionLevel).gs; }
 
@@ -1581,6 +1674,11 @@ const S={
   omen(){ tone(233,466,1.0,{vol:0.1,at:0.3}); tone(240,480,1.0,{vol:0.07,at:0.3,delay:0.05}); },
   // location hazards
   splash(){ nburst(0.18,0.22,900); tone(300,140,0.16,{vol:0.1}); },
+  // tools
+  smoke(){ nburst(0.4,0.3,500); nburst(0.6,0.14,260,{delay:0.08}); },
+  decoy(){ [1568,1976].forEach((f,i)=>tone(f,f*0.98,0.09,{type:'triangle',vol:0.1,delay:i*0.07})); },
+  zip(){ tone(300,980,0.12,{type:'sawtooth',vol:0.1}); nburst(0.05,0.14,2600,{hp:true,delay:0.11}); },
+  portalGo(){ tone(880,180,0.3,{vol:0.14}); tone(440,1320,0.25,{type:'triangle',vol:0.09,delay:0.1}); },
   gust(){ nburst(1.6,0.16,600); nburst(1.2,0.12,1400,{hp:true,delay:0.2}); },
   pressWarn(){ tone(220,220,0.09,{type:'square',vol:0.09}); tone(220,220,0.09,{type:'square',vol:0.09,delay:0.16}); },
   pressSlam(){ nburst(0.22,0.5,700); tone(90,42,0.3,{vol:0.4}); },
@@ -1618,8 +1716,33 @@ addEventListener('keydown', e=>{
   const k=e.key.toLowerCase();
   if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase())) e.preventDefault();
   if(k==='q' && state==='playing') dropLoot();   // shed your heaviest carried piece — cools greed, reopens a door
+  if(k===' ' && state==='playing') useTool();    // fire the equipped Workbench tool
   keys.add(k);
 });
+// ---------- bait: a point of glitter guards can't resist ----------
+// Shared by the Decoy Bag tool and a dropped Gilded Fake. Guards not already on
+// you (and never the Hunter) walk over to investigate the sparkle.
+function dropBait(x,y,dur){
+  baits.push({x,y,t:dur,max:dur});
+  for(const g of guards){
+    if(g.hunter || g.state==='chase') continue;
+    if(dist2(g.x,g.y,x,y)<380*380){ g.state='investigate'; g.lkp={x,y}; g.searchT=Math.max(g.searchT||0,2.5); }
+  }
+}
+function drawBaits(){
+  for(const b of baits){
+    const a=clamp(b.t/b.max,0,1), tw=0.6+0.4*Math.sin(tPrev/90+b.x);
+    ctx.save(); ctx.translate(b.x,b.y); ctx.globalAlpha=a;
+    const gr=ctx.createRadialGradient(0,0,1,0,0,26*tw);
+    gr.addColorStop(0,'rgba(255,231,168,.8)'); gr.addColorStop(1,'rgba(255,207,63,0)');
+    ctx.fillStyle=gr; ctx.beginPath(); ctx.arc(0,0,26*tw,0,6.28); ctx.fill();
+    ctx.fillStyle='#ffe7a8';
+    for(let k=0;k<4;k++){ const an=k*1.57+tPrev/300;
+      ctx.beginPath(); ctx.arc(Math.cos(an)*9,Math.sin(an)*9,1.5,0,6.28); ctx.fill(); }
+    ctx.restore(); ctx.globalAlpha=1;
+  }
+}
+
 // Drop the heaviest carried item at your feet (re-grabbable). The mid-run verb that
 // pairs with severing: shed loot to drop below a greed threshold and reopen a shutter.
 function dropLoot(){
@@ -1628,16 +1751,78 @@ function dropLoot(){
   if(!best) return;
   best.got=false; best.x=player.x; best.y=player.y; best.plat=player.plat;
   recompute();
+  if(best.kind==='fake') dropBait(best.x,best.y,3.5);   // the fake's glitter pulls eyes
   S.drop();
   floaters.push({x:player.x,y:player.y-20,txt:'dropped '+(best.name||best.type),life:1,col:'#f0e7d2'});
   for(let i=0;i<6;i++) particles.push(mkP(player.x,player.y+4,'#6b5a3a'));
+}
+// ---------- the equipped tool (Space / TOOL button — optional, never required) ----------
+function useTool(){
+  if(state!=='playing') return;
+  const id=meta.equippedTool; if(!id || !ownsTool(id)) return;
+  const t=toolById(id); if(!t) return;
+  if(toolCharges<=0 && !(id==='portal' && toolMark)){ toast('No charges left.',700); return; }
+  let used=false;
+  if(id==='smoke'){
+    smokeT=3;
+    for(const g of guards){ if(dist2(g.x,g.y,player.x,player.y)<340*340){ g.state='patrol'; g.alert=0; g.lkp=null; } }
+    for(let i=0;i<16;i++) particles.push({x:player.x+rand(-14,14),y:player.y+rand(-10,10),
+      vx:rand(-0.6,0.6),vy:rand(-0.9,-0.1),life:rand(0.5,0.95),col:'rgba(205,205,215,.55)',r:rand(3,6),g:0});
+    S.smoke(); toast('Smoke — they lost you.',900); used=true;
+  } else if(id==='decoy'){
+    let bx=player.x+Math.cos(player.face)*130, by=player.y+Math.sin(player.face)*130;
+    if(!isOpen(bx,by,10)){ bx=player.x; by=player.y; }
+    dropBait(bx,by,4);
+    S.decoy(); toast('The decoy glitters…',900); used=true;
+  } else if(id==='grapple'){
+    let best=null, bd=270*270;
+    for(const l of loot){
+      if(l.got||l.hidden||l.stolen||l.kind==='artifact'||l.kind==='shrine') continue;
+      const d=dist2(player.x,player.y,l.x,l.y);
+      if(d<bd && losClear(player.x,player.y,l.x,l.y)){ bd=d; best=l; }
+    }
+    if(!best){ toast('Nothing in reach to snag.',800); return; }   // no charge spent
+    const steps=7;
+    for(let i=0;i<steps;i++){ const q=i/steps;
+      particles.push({x:player.x+(best.x-player.x)*q, y:player.y+(best.y-player.y)*q,
+        vx:0,vy:-0.3,life:0.35,col:'#c9b37a',r:1.8,g:0}); }
+    best.x=player.x; best.y=player.y; best.plat=player.plat;   // reeled to your feet — pickup grabs it
+    S.zip(); used=true;
+  } else if(id==='lockpick'){
+    let best=null, bd=150*150;
+    for(const d of severStack){ const dd=dist2(player.x,player.y,d.center.x,d.center.y); if(dd<bd){ bd=dd; best=d; } }
+    if(!best){ toast('No sealed shutter in reach.',900); return; } // no charge spent
+    reopenDoor(best); used=true;
+  } else if(id==='portal'){
+    if(!toolMark){
+      toolMark={x:player.x,y:player.y,plat:player.plat};        // planting is free
+      S.omen(); toast('Marker planted — use again to snap back.',1400); syncToolUI(); return;
+    }
+    ring(player.x,player.y,'#a98bff',{vr:220,life:0.5});
+    for(const g of guards){ if(g.state==='chase'){ g.state='investigate'; g.lkp={x:player.x,y:player.y}; g.searchT=2.5; } }
+    player.x=toolMark.x; player.y=toolMark.y; player.plat=toolMark.plat; unstick(player);
+    ring(player.x,player.y,'#a98bff',{vr:220,life:0.5});
+    for(let i=0;i<12;i++) particles.push(mkP(player.x,player.y,'#a98bff'));
+    toolMark=null; S.portalGo(); toast('Snap — back at the marker.',1000); used=true;
+  }
+  if(used){ toolCharges--; syncToolUI(); }
+}
+function syncToolUI(){
+  const id=meta.equippedTool, t=id&&ownsTool(id)?toolById(id):null;
+  const hud=document.getElementById('toolHud');
+  if(hud){ hud.style.display=t?'block':'none';
+    if(t) hud.innerHTML=`⛭ ${t.nm} <b>×${toolCharges}</b>${toolMark?' · marker set':''}${isTouch?'':' — SPACE'}`; }
+  const btn=document.getElementById('toolBtn');
+  if(btn){ btn.style.display=(t&&isTouch&&state==='playing')?'flex':'none';
+    if(t) btn.innerHTML=`${t.short}<br>×${toolCharges}`;
+    btn.classList.toggle('idle', !!t && toolCharges<=0 && !toolMark); }
 }
 addEventListener('keyup', e=>keys.delete(e.key.toLowerCase()));
 
 // touch
 const touchWrap=document.getElementById('touch');
 const stickEl=document.getElementById('stick'), nubEl=document.getElementById('nub');
-const eBtn=document.getElementById('eBtn'), dropBtn=document.getElementById('dropBtn');
+const eBtn=document.getElementById('eBtn'), dropBtn=document.getElementById('dropBtn'), toolBtn=document.getElementById('toolBtn');
 let touchVec={x:0,y:0}, stickId=null, stickOrig={x:0,y:0}, eHeld=false, stickR=52;
 const isTouch = matchMedia('(pointer:coarse)').matches;
 
@@ -1687,6 +1872,13 @@ function dropRelease(){ dropBtn.classList.remove('pressed'); }
 dropBtn.addEventListener('pointerup', dropRelease);
 dropBtn.addEventListener('pointerleave', dropRelease);
 dropBtn.addEventListener('pointercancel', dropRelease);
+// TOOL — the touch twin of Space: fire the equipped Workbench tool.
+toolBtn.addEventListener('pointerdown', ev=>{ ev.preventDefault();
+  if(state==='playing'){ useTool(); toolBtn.classList.add('pressed'); } });
+function toolRelease(){ toolBtn.classList.remove('pressed'); }
+toolBtn.addEventListener('pointerup', toolRelease);
+toolBtn.addEventListener('pointerleave', toolRelease);
+toolBtn.addEventListener('pointercancel', toolRelease);
 
 // ---------- location hazards: update (returns true if the run ended) ----------
 function updateHazards(dt){
@@ -1940,6 +2132,9 @@ function update(dt){
   if(flashCurse>0) flashCurse=Math.max(0,flashCurse-dt*0.8);
   if(alarmFlash>0) alarmFlash=Math.max(0,alarmFlash-dt*1.6);
   if(joSquash>0) joSquash=Math.max(0,joSquash-dt*3.2);
+  if(smokeT>0) smokeT=Math.max(0,smokeT-dt);
+  for(const b of baits) b.t-=dt;
+  baits=baits.filter(b=>b.t>0);
   for(const p of particles){ p.x+=p.vx*dt*60; p.y+=p.vy*dt*60; if(p.g!==0) p.vy+=0.15*dt*60; p.life-=dt*1.4; }
   particles=particles.filter(p=>p.life>0);
   for(const q of rings){ q.r+=q.vr*dt; q.life-=dt; }
@@ -1971,6 +2166,8 @@ function draw(){
   // loot
   for(const l of loot){ if(!l.got && !l.hidden && !l.stolen) drawLoot(l); }
   drawSever();   // pulsing warning on a door about to slam
+  drawBaits();   // glittering decoys / dropped fakes
+  drawToolMark();
   // sentries (draw cones under the mobile guards)
   for(const s of sentries) drawSentry(s);
   // guards
@@ -2096,6 +2293,16 @@ function drawSentry(s){
     ctx.fillText('!',s.x,s.y-s.r-10); }
 }
 
+function drawToolMark(){    // the Portable Portal's planted marker
+  if(!toolMark) return;
+  const p=0.7+0.3*Math.sin(tPrev/250);
+  ctx.save(); ctx.translate(toolMark.x,toolMark.y); ctx.globalAlpha=0.8;
+  ctx.strokeStyle='#a98bff'; ctx.lineWidth=2; ctx.setLineDash([6,5]);
+  ctx.beginPath(); ctx.arc(0,0,14*p,0,6.28); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle='#a98bff'; ctx.beginPath(); ctx.arc(0,0,3,0,6.28); ctx.fill();
+  ctx.restore(); ctx.globalAlpha=1;
+}
+
 // The Old Mint's coin presses: a floor plate whose shadow grows as the head
 // drops — the shadow IS the telegraph, then the slammed head fills the plate.
 function drawPresses(){
@@ -2208,7 +2415,8 @@ function drawPortal(){
 function lootColor(kind){
   return kind==='common'?'#e9c15a':kind==='valuable'?'#7fe3d0':
          kind==='loud'?'#f5c542':kind==='cursed'?'#a98bff':
-         kind==='royal'?'#ff5da8':kind==='fragile'?'#dfeaf5':'#ff6b8a';
+         kind==='royal'?'#ff5da8':kind==='fragile'?'#dfeaf5':
+         kind==='fake'?'#ffd27a':'#ff6b8a';
 }
 function drawLoot(l){
   const c=lootColor(l.kind), pulse=1+Math.sin(l.glow)*0.12;
@@ -2564,6 +2772,7 @@ function startRun(){
   state='playing';
   show(null); $('hud').classList.add('on');
   if(isTouch){ touchWrap.style.display='block'; eBtn.style.display='flex'; dropBtn.style.display='flex'; }
+  syncToolUI();
   if(activeMod.id!=='clean') toast(`${activeMod.name}: ${activeMod.good} ${activeMod.bad}`.trim(), 2600);
 }
 function openOneMore(){
@@ -2658,7 +2867,7 @@ function endRun(escaped){
 
   // capture what came out — notable items get fenced individually, bulk is auto-sold
   pendingHaul=[]; pendingBulk={val:0,n:0};
-  const notable=['loud','cursed','artifact','living','mythic','royal','fragile'];
+  const notable=['loud','cursed','artifact','living','mythic','royal','fragile','fake'];
   if(escaped){
     for(const l of loot){ if(!l.got) continue;
       if(notable.includes(l.kind)) pendingHaul.push({kind:l.kind,name:l.name,value:l.value,saleIdx:0,buyers:buyersFor(l.kind,l.value)});
@@ -2672,6 +2881,10 @@ function endRun(escaped){
   if(ascNewBest){ meta.bestByAsc[ascensionLevel] = ascScore; }
   if(escaped && ascensionLevel>=1 && ascensionLevel===ascUnlocked() && ascensionLevel<ASC_MAX){ meta.ascUnlocked=ascensionLevel+1; }
   if(escaped && denHeatSink() && meta.curseDebt>0){ meta.curseDebt=clamp(meta.curseDebt-1,0,10); }  // The Den perk: clean escapes cool the world
+  // Reputation: the street remembers how this one went (escapes only)
+  let repEarned=null;
+  if(escaped){ const ep=epithet(true);
+    if(REP_INFO[ep]){ meta.rep[ep]=(meta.rep[ep]|0)+1; repEarned=ep; } }
   // Modifier Mastery: bank any haul under a twist to master it (once, permanent).
   pendingMasteryNew=null;
   if(escaped && haulVal>0 && activeMod.id!=='clean' && meta.modsCleared && !meta.modsCleared[activeMod.id]){
@@ -2710,6 +2923,7 @@ function endRun(escaped){
     + (peakHeat>0?`<div>Danger (T${peakHeat})<b style="color:var(--heat)">+${Math.round((pendingDangerMult-1)*100)}%</b></div>`:'')
     + (perfect?`<div>Clean bonus<b style="color:var(--ok)">+40%</b></div>`:'')
     + (pendingMasteryNew?`<div>Mastered · ${pendingMasteryNew.name}<b style="color:var(--ok)">${masteryCount()}/${TWISTS.length} · +${Math.round((masteryMult()-1)*100)}% sales</b></div>`:'')
+    + (repEarned?`<div>The street remembers<b style="color:var(--gold)">${repEarned} ×${meta.rep[repEarned]}</b></div>`:'')
     + contractLine
     + (ascensionLevel>0?`<div>Ascension ${ascensionLevel}<b style="color:var(--purple,#a98bff)">${ascNewBest?'NEW BEST':'★'.repeat(Math.min(ascensionLevel,5))}</b></div>`:'')
     + (wasDaily?`<div>Daily score<b style="color:var(--gold)">${(escaped?dailyScore():0).toLocaleString()}</b></div><div>Streak<b>${meta.daily.streak} day${meta.daily.streak===1?'':'s'}</b></div><div>Share code<b style="letter-spacing:.12em">GR-${dayKey()}-${seedToCode(daySeed(dayKey()))}</b></div>`:'')
@@ -2726,14 +2940,28 @@ function applyContractRewards(){
 function sellMult(){ return (1 + 0.08*upgLevel('contacts') + 0.03*collLevel('idol')) * activeMod.pay * masteryMult(); }
 // which buyers want a given loot kind, and what they pay / cost
 function buyersFor(kind,value){
-  const b=[{id:'black',nm:'Black Market',mult:1.0,fx:null,cls:''}];
-  if(kind==='loud'||kind==='living'||kind==='mythic'||kind==='royal'||kind==='fragile') b.push({id:'noble',nm:'Noble Collector',mult:1.7,fx:null,cls:''});
-  if(kind==='cursed'||kind==='artifact'||kind==='mythic'){
-    b.push({id:'cult',nm:'The Syndicate',mult:2.2,fx:'curse+',cls:'baron'});
-    b.push({id:'hist',nm:'Return it',mult:0.4,fx:'curse-',cls:'return'});
-  }
   const sm=sellMult();
-  const out=b.map(x=>({...x, payout:Math.round(value*x.mult*sm)}));
+  let out;
+  if(kind==='fake'){
+    // The fence knows paste on sight. The Noble doesn't — but scamming a noble
+    // is the kind of story that spreads (+notoriety).
+    out=[
+      {id:'black',nm:'Black Market',fx:null,cls:'',payout:40,note:'“It’s paste.”'},
+      {id:'noble',nm:'Noble Collector',fx:'curse+',cls:'baron',payout:Math.round(value*1.7*sm),note:'can’t tell — word spreads'},
+    ];
+  } else {
+    const b=[{id:'black',nm:'Black Market',mult:1.0,fx:null,cls:''}];
+    if(kind==='loud'||kind==='living'||kind==='mythic'||kind==='royal'||kind==='fragile') b.push({id:'noble',nm:'Noble Collector',mult:1.7,fx:null,cls:''});
+    if(kind==='cursed'||kind==='artifact'||kind==='mythic'){
+      b.push({id:'cult',nm:'The Syndicate',mult:2.2,fx:'curse+',cls:'baron'});
+      b.push({id:'hist',nm:'Return it',mult:0.4,fx:'curse-',cls:'return'});
+    }
+    out=b.map(x=>({...x, payout:Math.round(value*x.mult*sm)}));
+  }
+  // Reputation: your standing's favorite buyer knows your name (+10%)
+  const dom=repDominant();
+  if(dom){ const fav=REP_INFO[dom].buyer;
+    for(const x of out){ if(x.id===fav && x.payout>0){ x.payout=Math.round(x.payout*1.1); x.note='knows your name · +10%'; } } }
   // Keep it: forgo the sale, add it to the Collection for a permanent passive (only if not owned yet)
   const tid=KIND_TROPHY[kind];
   if(tid && collLevel(tid)===0){ const t=trophyById(tid);
@@ -2767,7 +2995,7 @@ function renderFence(){
     const row=document.createElement('div'); row.className='fitem';
     let chips='';
     it.buyers.forEach((b,bi)=>{
-      const fx=b.fx==='curse+'?'+notoriety':b.fx==='curse-'?'\u2212notoriety':b.fx==='keep'?'to Collection':'';
+      const fx=b.note||(b.fx==='curse+'?'+notoriety':b.fx==='curse-'?'\u2212notoriety':b.fx==='keep'?'to Collection':'');
       const pay = b.fx==='keep' ? b.passive : '$'+b.payout.toLocaleString();
       chips+=`<div class="buyer ${b.cls} ${bi===it.saleIdx?'sel':''}" data-i="${i}" data-b="${bi}">
         <div class="bn">${b.nm}</div><div class="bp">${pay}</div>
@@ -2847,7 +3075,8 @@ function renderContracts(){
   const g=$('jobGrid'); g.innerHTML='';
   offeredContracts.forEach((c,i)=>{
     const el=document.createElement('div'); el.className='job';
-    el.innerHTML=`<div class="jt">${c.title}</div><div class="jc">${c.client}</div>
+    if(c.repJob) el.style.borderLeftColor='var(--gold)';
+    el.innerHTML=`<div class="jt">${c.title}</div><div class="jc">${c.client}${c.repJob?` · <span style="color:var(--gold)">★ asks for you — pay +25%</span>`:''}</div>
       <div class="jd">${c.desc}</div>
       <div class="jr">Reward +$${c.reward.toLocaleString()}${c.notoDown?` \u00b7 \u2212${c.notoDown} notoriety`:''}
         <span class="loc">${c.location}</span></div>`;
@@ -2873,6 +3102,8 @@ async function loadMeta(){
         meta.gold=d.gold||0; meta.runs=d.runs||0; meta.bestHaul=d.bestHaul||0;
         meta.curseDebt=d.curseDebt||0; if(d.upg) Object.assign(meta.upg,d.upg);
         if(d.collection) Object.assign(meta.collection,d.collection);
+        if(d.tools) Object.assign(meta.tools,d.tools);
+        meta.equippedTool=d.equippedTool||''; if(d.rep) meta.rep=d.rep;
         meta.ascUnlocked=d.ascUnlocked||0; if(d.bestByAsc) meta.bestByAsc=d.bestByAsc;
         if(d.modsCleared) meta.modsCleared=d.modsCleared;
         if(d.daily) Object.assign(meta.daily, d.daily);
@@ -2885,6 +3116,7 @@ async function loadMeta(){
 async function saveMeta(){
   try{ await store.set(SAVE_KEY, JSON.stringify({
     gold:meta.gold, runs:meta.runs, bestHaul:meta.bestHaul, curseDebt:meta.curseDebt, upg:meta.upg, collection:meta.collection,
+    tools:meta.tools, equippedTool:meta.equippedTool, rep:meta.rep,
     ascUnlocked:meta.ascUnlocked, bestByAsc:meta.bestByAsc, modsCleared:meta.modsCleared, daily:meta.daily })); }
   catch(e){}
 }
@@ -2893,6 +3125,7 @@ async function wipeMeta(){
   meta.gold=0; meta.runs=0; meta.bestHaul=0; meta.curseDebt=0;
   meta.upg={straps:0,boots:0,feet:0,luck:0,landing:0,scanner:0,pockets:0,contacts:0,cool:0,revive:0};
   meta.collection={idol:0,relic:0,jewel:0,relicart:0,heart:0};
+  meta.tools={smoke:0,decoy:0,grapple:0,lockpick:0,portal:0}; meta.equippedTool=''; meta.rep={};
   meta.ascUnlocked=0; meta.bestByAsc={}; meta.modsCleared={}; selectedAscension=0; ascensionLevel=0;
   meta.daily={ playedDay:'', playedScore:0, playedEscaped:false, streak:0, bestStreak:0, best:0, history:[] };
   renderShop();
@@ -3019,6 +3252,17 @@ function renderShop(){
     nl.innerHTML=`Notoriety ${meta.curseDebt}`+(seed>0?` \u00b7 jobs start at Heat T${seed}`:'')
       +` \u00b7 Hunter enters at Heat T${hunterAt} \u2014 return goods to cool it`;
   } else { nl.innerHTML=''; }
+  // Reputation standing — the street's name for you, and what it buys
+  const rl=$('repLine'), dom=repDominant();
+  if(rl){
+    if(dom){
+      const counts=Object.entries(meta.rep||{}).filter(([k])=>REP_INFO[k]).sort((a,b)=>b[1]-a[1])
+        .map(([k,v])=>`${k} ×${v}`).join(' · ');
+      rl.innerHTML=`<span style="color:var(--muted)">The street calls you</span> <b style="color:var(--gold)">${dom}</b>`
+        +`<span style="color:var(--muted)"> — ${REP_INFO[dom].tag}</span>`
+        +`<br><span style="font-size:11px;color:var(--muted)">${counts}</span>`;
+    } else rl.innerHTML='';
+  }
   const grid=$('fenceGrid'); grid.innerHTML='';
   for(const u of UPGRADES){
     const lvl=upgLevel(u.id), maxed=lvl>=u.max, cost=upgCost(u), afford=meta.gold>=cost;
@@ -3034,6 +3278,24 @@ function renderShop(){
       const wasLocked=ascUnlocked()<1; refreshAscUnlock(); if(wasLocked&&ascUnlocked()>=1) toast('Difficulty Ascension unlocked \u2014 every upgrade maxed.',1600);
       toast(u.nm+(u.max>1?` \u2014 Lv ${lvl+1}`:' acquired')+'.',1100); saveMeta(); renderShop(); }; }
     grid.appendChild(el);
+  }
+  // The Workbench: buy tools once; equip ONE to ride along on the next job
+  const tg=$('toolGrid');
+  if(tg){ tg.innerHTML='';
+    for(const t of TOOLS){
+      const owned=ownsTool(t.id), equipped=meta.equippedTool===t.id, afford=meta.gold>=t.cost;
+      const el=document.createElement('div');
+      el.className='fence'+(!owned&&!afford?' locked':'');
+      if(equipped) el.style.boxShadow='0 0 0 2px var(--gold) inset';
+      el.innerHTML=`<div class="nm">${t.nm}</div><div class="ds">${t.ds}</div>
+        <div class="eff">×${t.uses} use${t.uses===1?'':'s'} per job</div>
+        <div class="cost">${owned?(equipped?'✓ ON THE BELT · tap to unequip':'Tap to equip'):'$'+t.cost.toLocaleString()}</div>`;
+      if(!owned&&afford) el.onclick=()=>{ meta.gold-=t.cost; meta.tools[t.id]=1;
+        if(!meta.equippedTool) meta.equippedTool=t.id;
+        S.cash(); toast(t.nm+' — added to the Workbench.',1100); saveMeta(); renderShop(); };
+      else if(owned) el.onclick=()=>{ meta.equippedTool=equipped?'':t.id; S.ui(); saveMeta(); renderShop(); };
+      tg.appendChild(el);
+    }
   }
   renderAscension();
   renderDaily();
@@ -3203,6 +3465,11 @@ window.__greed = {
   get pools(){ return pools; }, get presses(){ return presses; }, get gust(){ return gust; },
   get dark(){ return dark; }, get inWater(){ return inWater; },
   updateHazards, poolAt, speedNow, noiseNow,
+  // tools / fake loot / reputation surface
+  get TOOLS(){ return TOOLS; }, useTool, dropBait,
+  get toolCharges(){ return toolCharges; }, get toolMark(){ return toolMark; },
+  get baits(){ return baits; }, get smokeT(){ return smokeT; },
+  genContracts, repDominant, buyersFor, epithet,
 };
 })();
 </script>

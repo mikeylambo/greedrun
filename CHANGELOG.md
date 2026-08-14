@@ -1,5 +1,28 @@
 # Changelog
 
+## Web build — the Workbench, the Gilded Fake & Reputation (GDD items)
+
+- **The Workbench (Jo's tool kit)**: five buy-once tools at the hideout; one
+  rides per job with limited charges, fired by Space or the optional TOOL
+  touch button (never required — one-finger north star holds):
+  Smoke Bomb (break chases, 3s silence), Decoy Bag (glitter bait), Grapple
+  Hook (reel in the nearest visible treasure — ledges and Skitterjewels
+  included), Lockpick Kit (reopen a severed shutter), Portable Portal
+  (free marker, one snap-back from anywhere).
+- **Gilded Fake** (Fake Loot from the GDD): spawns in ~70% of vaults, reads
+  $520 in the bag (and raises Heat!), fences for $40 — unless you pass it to
+  the Noble at full price for +1 notoriety. Dropped, its glitter baits
+  nearby guards, same as the Decoy Bag.
+- **Reputation-as-system**: escape epithets now accumulate; earned twice, one
+  becomes your standing (shown in the hideout). Matching contracts seek you
+  out at +25% pay (starred on the board), and your standing's favorite buyer
+  pays +10% ("knows your name"). Recorded on the results screen.
+- Generator hardening: a seeded reachability pass now guarantees every
+  ground item is walkable from the entrance (arena layouts could rarely
+  seal a pocket — Clean Sweep is now always possible).
+- New suite `tests/web_tools_test.mjs` (`npm run test:tools`) drives all five
+  tools, the fake's economy/bait, and reputation board/price shaping.
+
 ## Web build — location identity (every map fights differently)
 
 - The four contract locations are no longer just palettes — each has a
