@@ -69,6 +69,26 @@ const res = await page.evaluate(() => {
   else if (Math.abs(detDark / detLit - 0.85) > 1e-6) out.fails.push('dark detect ratio ' + (detDark / detLit).toFixed(4) + ' (want 0.85)');
   else out.log.push('undercity: dark on, guard detection 0.85x (same-seed control)');
 
+  // ---- presentation: per-theme decor + landmark, seeded-deterministic ----
+  {
+    G.forcedTheme = 'treasury'; G.build(11);
+    const sig1 = G.decor.map(d => d.t + Math.round(d.x) + ',' + Math.round(d.y)).join('|');
+    const types1 = new Set(G.decor.map(d => d.t));
+    const lm1 = G.landmark && G.landmark.t;
+    G.build(11);
+    const sig2 = G.decor.map(d => d.t + Math.round(d.x) + ',' + Math.round(d.y)).join('|');
+    if (!G.decor.length) out.fails.push('no decor generated');
+    if (sig1 !== sig2) out.fails.push('decor is not seed-deterministic');
+    if (lm1 !== 'basin') out.fails.push('treasury landmark wrong: ' + lm1);
+    G.forcedTheme = 'mint'; G.build(11);
+    const types2 = new Set(G.decor.map(d => d.t));
+    const distinct = [...types2].some(t => !types1.has(t));
+    if (!distinct) out.fails.push('mint decor kit identical to treasury');
+    if (!(G.landmark && G.landmark.t === 'die')) out.fails.push('mint landmark wrong');
+    if (!out.fails.some(f => /decor|landmark/.test(f)))
+      out.log.push('dressing: seeded decor per theme (' + [...types1].join(',') + ' vs ' + [...types2].join(',') + '), landmarks placed');
+  }
+
   // ---- Old Mint: presses cycle, crush the player, stun guards ----
   // (still built as mint from the control build above)
   if (G.presses.length < 2) out.fails.push('mint spawned only ' + G.presses.length + ' presses');

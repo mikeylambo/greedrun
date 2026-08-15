@@ -461,6 +461,7 @@
     box-shadow:0 0 0 1px var(--panel-line) inset;opacity:0;transition:opacity .3s, transform .3s;z-index:6;}
   .toast.on{opacity:1;transform:translateX(-50%) translateY(4px);}
   .credit{position:absolute;left:16px;bottom:14px;font-size:11px;color:var(--muted);letter-spacing:.2em;opacity:.6;}
+  #hud.on ~ .credit{display:none;}   /* the meters + key hints own that corner in-run */
 </style>
 </head>
 <body>
@@ -706,7 +707,7 @@
 "use strict";
 // Build stamp — bump on every deploy. Shown on the title + hideout so a stale
 // Safari cache is instantly visible ("no report button" == old build).
-const BUILD = '2026-08-15.4';
+const BUILD = '2026-08-15.5';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 // Phones fill the screen in whichever way they're held — PORTRAIT (tall) or
@@ -1030,6 +1031,44 @@ const THEME_KEYS = Object.keys(THEMES);
 let currentTheme = THEMES.treasury, currentThemeKey = 'treasury';
 let forcedTheme = null;   // headless-test hook: pin the location before build
 
+// ---------- vault dressing (presentation pass): decor + landmark, all seeded ----------
+// Pure visuals — no collision, no gameplay. Ground pieces sit in open space,
+// wall pieces hang on interior south faces, and each vault gets ONE flat floor
+// landmark (an inlay, so walking over it reads fine).
+let decor=[], landmark=null;
+const THEME_DECOR={
+  treasury:{ ground:['pillarbase','urn','crate','puddle'],  wall:['banner'] },
+  fortress:{ ground:['crate','barrel','rubble'],            wall:['banner','chain'] },
+  undercity:{ground:['rubble','beam','puddle'],             wall:['torch'] },
+  mint:     { ground:['coinpile','gear','barrel','crate'],  wall:['banner'] },
+};
+const THEME_LANDMARK={ treasury:'basin', fortress:'compass', undercity:'well', mint:'die' };
+const BANNER_COL={ treasury:'#c9a24a', fortress:'#6f89a1', undercity:'#8a6b3a', mint:'#c9b37a' };
+function genDecor(areaScale){
+  decor=[]; landmark=null;
+  const kit=THEME_DECOR[currentThemeKey];
+  const n=Math.round(26*areaScale);                        // TUNE — ground pieces
+  for(let i=0;i<n;i++){
+    for(let t=0;t<24;t++){
+      const x=vr(140,WORLD.w-90), y=vr(90,WORLD.h-90);
+      if(!isOpen(x,y,26)||platAt(x,y)!==-1||poolAt(x,y)) continue;
+      if(dist2(x,y,portal.x,portal.y)<200*200) continue;
+      decor.push({x,y,t:vpick(kit.ground),r:vr(0.85,1.3),a:vr(0,6.28)}); break;
+    }
+  }
+  const interior=walls.filter(w=>w.x>0&&w.y>0&&w.x+w.w<WORLD.w&&w.y+w.h<WORLD.h&&w.w>60);
+  const wn=Math.round(10*areaScale);                       // TUNE — wall pieces
+  for(let i=0;i<wn&&interior.length;i++){
+    const w=vpick(interior);
+    decor.push({x:w.x+vr(24,Math.max(25,w.w-24)), y:w.y+w.h, t:vpick(kit.wall), r:vr(0.9,1.2), a:0, wall:true});
+  }
+  for(let t=0;t<60;t++){                                   // the landmark: one big flat inlay
+    const x=vr(WORLD.w*0.32,WORLD.w-220), y=vr(220,WORLD.h-220);
+    if(!isOpen(x,y,95)||platAt(x,y)!==-1||poolAt(x,y)) continue;
+    landmark={x,y,t:THEME_LANDMARK[currentThemeKey],a:vr(0,6.28)}; break;
+  }
+}
+
 // ---------- location hazards (the map itself fights you, per location) ----------
 let pools=[], presses=[], dark=false, inWater=false;
 let gust={next:0, warnT:0, activeT:0, dir:0};   // fortress wind cycle
@@ -1216,14 +1255,14 @@ function buildRoomGrid(interior, T){
   const loopSet=new Set(loopKeys), loopDoors=[];   // the only severable doorways
   const half=T/2;
   const addW=(x,y,w,h)=>{ if(w>1&&h>1) wallsOut.push({x,y,w,h}); };
-  const link=(a,b,cx,cy)=>{ doors[key(a,b)]={x:cx,y:cy}; adj[a].push(b); adj[b].push(a); };
+  const link=(a,b,cx,cy,o)=>{ doors[key(a,b)]={x:cx,y:cy,o}; adj[a].push(b); adj[b].push(a); };
   const recordLoop=(a,b,plug)=>{ if(loopSet.has(key(a,b))) loopDoors.push({key:key(a,b),a,b,center:doors[key(a,b)],plug,state:'open'}); };
   const doorPos=(lo,hi)=>{ const m=DOOR_WIDTH/2+56, a=lo+m, z=hi-m; return a>=z?(lo+hi)/2:vr(a,z); };
   for(let c=0;c<cols-1;c++) for(let r=0;r<rows;r++){ const a=r*cols+c, b=a+1, lx=ox+(c+1)*cw, top=oy+r*ch, bot=top+ch;
-    if(open[key(a,b)]){ const dy=doorPos(top,bot); addW(lx-half,top,T,dy-DOOR_WIDTH/2-top); addW(lx-half,dy+DOOR_WIDTH/2,T,bot-(dy+DOOR_WIDTH/2)); link(a,b,lx,dy); recordLoop(a,b,{x:lx-half,y:dy-DOOR_WIDTH/2,w:T,h:DOOR_WIDTH}); }
+    if(open[key(a,b)]){ const dy=doorPos(top,bot); addW(lx-half,top,T,dy-DOOR_WIDTH/2-top); addW(lx-half,dy+DOOR_WIDTH/2,T,bot-(dy+DOOR_WIDTH/2)); link(a,b,lx,dy,'v'); recordLoop(a,b,{x:lx-half,y:dy-DOOR_WIDTH/2,w:T,h:DOOR_WIDTH}); }
     else addW(lx-half,top,T,ch); }
   for(let r=0;r<rows-1;r++) for(let c=0;c<cols;c++){ const a=r*cols+c, b=a+cols, ly=oy+(r+1)*ch, left=ox+c*cw, right=left+cw;
-    if(open[key(a,b)]){ const dx=doorPos(left,right); addW(left,ly-half,dx-DOOR_WIDTH/2-left,T); addW(dx+DOOR_WIDTH/2,ly-half,right-(dx+DOOR_WIDTH/2),T); link(a,b,dx,ly); recordLoop(a,b,{x:dx-DOOR_WIDTH/2,y:ly-half,w:DOOR_WIDTH,h:T}); }
+    if(open[key(a,b)]){ const dx=doorPos(left,right); addW(left,ly-half,dx-DOOR_WIDTH/2-left,T); addW(dx+DOOR_WIDTH/2,ly-half,right-(dx+DOOR_WIDTH/2),T); link(a,b,dx,ly,'h'); recordLoop(a,b,{x:dx-DOOR_WIDTH/2,y:ly-half,w:DOOR_WIDTH,h:T}); }
     else addW(left,ly-half,cw,T); }
   return { cols, rows, ox, oy, cw, ch, adj, doors, loopKeys, loopDoors, walls:wallsOut, exit:0, dist:{}, maxDist:0, cellRect,
     regionOf(x,y){ const c=clamp((x-ox)/cw|0,0,cols-1), r=clamp((y-oy)/ch|0,0,rows-1); return r*cols+c; },
@@ -1362,36 +1401,35 @@ function genLayout(){
   const R = (a,z)=>a+vrng()*(z-a);
   const clear = (x,y,w,h)=> x>safeLeft || false; // only place right of the safe lane
 
+  // TUNE — family ranges widened (presentation pass) so the BONES differ too:
+  // pillars = dense field of small columns, corridors = long lanes, chambers =
+  // few big blocks, warren = cramped clutter. Reachability pass keeps loot fair.
   if(theme==='pillars'){
-    // grid-ish field of square pillars, jittered
-    const cols=5, rows=4, cw=(WORLD.w-safeLeft-120)/cols, ch=(WORLD.h-240)/rows;
+    const cols=6, rows=5, cw=(WORLD.w-safeLeft-120)/cols, ch=(WORLD.h-240)/rows;
     for(let cx=0;cx<cols;cx++)for(let cy=0;cy<rows;cy++){
-      if(vrng()<0.28) continue;
-      const s=R(70,120);
-      const x=safeLeft+80+cx*cw+R(0,cw-s), y=140+cy*ch+R(0,ch-s);
+      if(vrng()<0.22) continue;
+      const s=R(60,105);
+      const x=safeLeft+80+cx*cw+R(0,Math.max(1,cw-s)), y=140+cy*ch+R(0,Math.max(1,ch-s));
       b.push([x,y,s,s]);
     }
   } else if(theme==='corridors'){
-    // long thin walls forming loose lanes
-    for(let i=0;i<7;i++){
+    for(let i=0;i<9;i++){
       const horiz=vrng()<0.5;
-      const len=R(280,520), th=56;
-      const x=R(safeLeft+40, WORLD.w-len-80), y=R(120, WORLD.h-th-120);
+      const len=R(320,640), th=54;
+      const x=R(safeLeft+40, Math.max(safeLeft+41,WORLD.w-len-80)), y=R(120, WORLD.h-th-120);
       b.push(horiz?[x,y,len,th]:[x,y,th,len]);
     }
   } else if(theme==='chambers'){
-    // a few larger rectangular rooms/blocks (the original feel, randomized)
-    for(let i=0;i<6;i++){
-      const w=R(120,300), h=R(120,300);
+    for(let i=0;i<5;i++){
+      const w=R(170,360), h=R(170,360);
       const x=R(safeLeft+40, WORLD.w-w-80), y=R(120, WORLD.h-h-120);
       b.push([x,y,w,h]);
     }
-    // plus a couple of thin dividers
-    for(let i=0;i<3;i++){ const l=R(240,420); const x=R(safeLeft, WORLD.w-l-80), y=R(120,WORLD.h-180);
+    for(let i=0;i<2;i++){ const l=R(240,420); const x=R(safeLeft, WORLD.w-l-80), y=R(120,WORLD.h-180);
       b.push(vrng()<.5?[x,y,l,52]:[x,y,52,l]); }
   } else { // warren: dense mix of small blocks + a few walls
-    for(let i=0;i<10;i++){ const s=R(70,150); const x=R(safeLeft+40,WORLD.w-s-80), y=R(120,WORLD.h-s-120); b.push([x,y,s,s]); }
-    for(let i=0;i<3;i++){ const l=R(300,480); const x=R(safeLeft,WORLD.w-l-80), y=R(120,WORLD.h-180);
+    for(let i=0;i<14;i++){ const s=R(60,140); const x=R(safeLeft+40,WORLD.w-s-80), y=R(120,WORLD.h-s-120); b.push([x,y,s,s]); }
+    for(let i=0;i<4;i++){ const l=R(300,520); const x=R(safeLeft,WORLD.w-l-80), y=R(120,WORLD.h-180);
       b.push(vrng()<.5?[x,y,l,54]:[x,y,54,l]); }
   }
   return b.filter(r=>clear(r[0],r[1],r[2],r[3]));
@@ -1624,6 +1662,9 @@ function buildWorld(){
     sentries.push({x:s.x,y:s.y,r:12, ang:center, center, sweep:0.9+vrng()*0.5,
       dir:vrng()<.5?1:-1, coneHalf:0.42, view:250, cd:0, hot:0});
   }
+
+  // vault dressing: per-theme decor + the landmark inlay (pure visuals, seeded)
+  genDecor(areaScale);
 
   cam.x = clamp(player.x-VIEW.w/2,0,WORLD.w-VIEW.w);
   cam.y = clamp(player.y-VIEW.h/2,0,WORLD.h-VIEW.h);
@@ -2626,16 +2667,191 @@ function drawPlatforms(){
   }
 }
 
+// ===== themed floors: each location walks on a different surface =====
+const hashXY=(ix,iy)=>(((ix*73856093)^(iy*19349663))>>>0);
+function drawFloorPattern(){
+  const T=currentTheme, L=cam.x, R=cam.x+VIEW.w, Tp=cam.y, B=cam.y+VIEW.h;
+  ctx.fillStyle=T.floor; ctx.fillRect(L,Tp,VIEW.w,VIEW.h);
+  ctx.lineWidth=1;
+  if(currentThemeKey==='treasury'){
+    // broad flagstones with the odd tinted slab
+    const S=96, x0=Math.floor(L/S)*S, y0=Math.floor(Tp/S)*S;
+    ctx.strokeStyle=T.grid; ctx.beginPath();
+    for(let x=x0;x<R;x+=S){ ctx.moveTo(x,Tp); ctx.lineTo(x,B); }
+    for(let y=y0;y<B;y+=S){ ctx.moveTo(L,y); ctx.lineTo(R,y); }
+    ctx.stroke();
+    for(let x=x0;x<R;x+=S)for(let y=y0;y<B;y+=S){
+      const h=hashXY(x/S,y/S)%9;
+      if(h===0){ ctx.fillStyle='rgba(255,235,180,.03)'; ctx.fillRect(x+1,y+1,S-2,S-2); }
+      else if(h===1){ ctx.fillStyle='rgba(0,0,0,.06)'; ctx.fillRect(x+1,y+1,S-2,S-2); }
+    }
+  } else if(currentThemeKey==='fortress'){
+    // long stone slabs: horizontal courses, joints staggered per course
+    const S=64, y0=Math.floor(Tp/S)*S, x0=Math.floor(L/128)*128;
+    ctx.strokeStyle=T.grid; ctx.beginPath();
+    for(let y=y0;y<B;y+=S){ ctx.moveTo(L,y); ctx.lineTo(R,y); }
+    for(let y=y0;y<B;y+=S){ const off=hashXY(1,y/S)%128;
+      for(let x=x0-128+off;x<R;x+=128){ ctx.moveTo(x,y); ctx.lineTo(x,y+S); } }
+    ctx.stroke();
+  } else if(currentThemeKey==='undercity'){
+    // rough cobbles: offset half-bond courses
+    const S=56, y0=Math.floor(Tp/S)*S, x0=Math.floor(L/S)*S;
+    ctx.strokeStyle=T.grid; ctx.beginPath();
+    for(let y=y0;y<B;y+=S){ ctx.moveTo(L,y); ctx.lineTo(R,y); }
+    for(let y=y0;y<B;y+=S){ const off=((y/S)%2)*(S/2);
+      for(let x=x0-S+off;x<R;x+=S){ ctx.moveTo(x,y); ctx.lineTo(x,y+S); } }
+    ctx.stroke();
+  } else { // mint: machined tiles with brass hairlines
+    const S=56, x0=Math.floor(L/S)*S, y0=Math.floor(Tp/S)*S;
+    ctx.strokeStyle=T.grid; ctx.beginPath();
+    for(let x=x0;x<R;x+=S){ if((x/S)%4) { ctx.moveTo(x,Tp); ctx.lineTo(x,B); } }
+    for(let y=y0;y<B;y+=S){ if((y/S)%4) { ctx.moveTo(L,y); ctx.lineTo(R,y); } }
+    ctx.stroke();
+    ctx.strokeStyle='rgba(245,220,120,.07)'; ctx.beginPath();
+    for(let x=x0;x<R;x+=S){ if(!((x/S)%4)){ ctx.moveTo(x,Tp); ctx.lineTo(x,B); } }
+    for(let y=y0;y<B;y+=S){ if(!((y/S)%4)){ ctx.moveTo(L,y); ctx.lineTo(R,y); } }
+    ctx.stroke();
+  }
+}
+// ===== the landmark: one flat inlay per vault — a place, not just floor =====
+function drawLandmark(){
+  if(!landmark || landmark.x<cam.x-160||landmark.x>cam.x+VIEW.w+160
+     || landmark.y<cam.y-160||landmark.y>cam.y+VIEW.h+160) return;
+  const {x,y,t}=landmark;
+  ctx.save(); ctx.translate(x,y);
+  if(t==='basin'){            // sunken mosaic basin, water at its heart
+    ctx.strokeStyle='rgba(201,162,74,.4)'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(0,0,84,0,6.28); ctx.stroke();
+    ctx.strokeStyle='rgba(201,162,74,.22)'; ctx.lineWidth=8;
+    ctx.beginPath(); ctx.arc(0,0,66,0,6.28); ctx.stroke();
+    ctx.fillStyle='rgba(38,84,96,.5)'; ctx.beginPath(); ctx.arc(0,0,44,0,6.28); ctx.fill();
+    ctx.strokeStyle='rgba(160,220,230,.3)'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.arc(0,0,30+Math.sin(tPrev/700)*4,0.6,2.6); ctx.stroke();
+  } else if(t==='compass'){   // a great compass rose inlaid in the ramparts
+    ctx.rotate(landmark.a);
+    ctx.strokeStyle='rgba(140,170,195,.35)'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(0,0,88,0,6.28); ctx.stroke();
+    ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(0,0,58,0,6.28); ctx.stroke();
+    ctx.fillStyle='rgba(140,170,195,.2)';
+    for(let k=0;k<8;k++){ const a=k*0.785;
+      ctx.beginPath(); ctx.moveTo(Math.cos(a)*84,Math.sin(a)*84);
+      ctx.lineTo(Math.cos(a+0.16)*40,Math.sin(a+0.16)*40);
+      ctx.lineTo(Math.cos(a-0.16)*40,Math.sin(a-0.16)*40); ctx.closePath(); ctx.fill(); }
+  } else if(t==='well'){      // an old well mouth, boarded over
+    ctx.fillStyle='rgba(0,0,0,.4)'; ctx.beginPath(); ctx.arc(0,0,52,0,6.28); ctx.fill();
+    ctx.strokeStyle='rgba(120,96,58,.5)'; ctx.lineWidth=9;
+    ctx.beginPath(); ctx.arc(0,0,60,0,6.28); ctx.stroke();
+    ctx.strokeStyle=INK; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(0,0,64,0,6.28); ctx.stroke();
+    ctx.strokeStyle='rgba(120,96,58,.65)'; ctx.lineWidth=6;
+    ctx.beginPath(); ctx.moveTo(-56,-14); ctx.lineTo(56,6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-50,22); ctx.lineTo(52,-26); ctx.stroke();
+  } else if(t==='die'){       // the Mint's great coin die, stamped into the floor
+    ctx.rotate(landmark.a*0.3);
+    ctx.strokeStyle='rgba(245,220,120,.3)'; ctx.lineWidth=4;
+    ctx.beginPath(); ctx.arc(0,0,86,0,6.28); ctx.stroke();
+    ctx.strokeStyle='rgba(245,220,120,.16)'; ctx.lineWidth=12;
+    ctx.beginPath(); ctx.arc(0,0,64,0,6.28); ctx.stroke();
+    ctx.strokeStyle='rgba(245,220,120,.35)'; ctx.lineWidth=2.5;
+    inkHex(34); ctx.stroke();
+    for(let k=0;k<20;k++){ const a=k*0.314;                       // milled edge
+      ctx.beginPath(); ctx.moveTo(Math.cos(a)*80,Math.sin(a)*80);
+      ctx.lineTo(Math.cos(a)*90,Math.sin(a)*90); ctx.stroke(); }
+  }
+  ctx.restore();
+}
+// ===== scatter decor: the stuff of a lived-in vault (visual only) =====
+function drawDecorItem(d){
+  ctx.save(); ctx.translate(d.x,d.y); const r=d.r;
+  switch(d.t){
+    case 'crate':
+      ctx.rotate((d.a%0.6)-0.3); ctx.fillStyle='#2c2113';
+      ctx.fillRect(-11*r,-11*r,22*r,22*r); ctx.strokeStyle=INK; ctx.lineWidth=2; ctx.strokeRect(-11*r,-11*r,22*r,22*r);
+      ctx.strokeStyle='rgba(120,96,58,.7)'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(-11*r,-11*r); ctx.lineTo(11*r,11*r); ctx.moveTo(11*r,-11*r); ctx.lineTo(-11*r,11*r); ctx.stroke();
+      break;
+    case 'barrel':
+      ctx.fillStyle='#33261a'; ctx.beginPath(); ctx.arc(0,0,10*r,0,6.28); ctx.fill();
+      ctx.strokeStyle=INK; ctx.lineWidth=2; ctx.stroke();
+      ctx.strokeStyle='rgba(150,120,80,.6)'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.arc(0,0,6.5*r,0,6.28); ctx.stroke();
+      break;
+    case 'pillarbase':
+      ctx.fillStyle='rgba(60,50,32,.9)'; ctx.beginPath(); ctx.arc(0,0,13*r,0,6.28); ctx.fill();
+      ctx.strokeStyle=INK; ctx.lineWidth=2.2; ctx.stroke();
+      ctx.strokeStyle='rgba(201,162,74,.3)'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.arc(0,0,8*r,0,6.28); ctx.stroke();
+      break;
+    case 'urn':
+      ctx.fillStyle='#3a2c1c'; ctx.beginPath(); ctx.ellipse(0,1,7.5*r,9*r,0,0,6.28); ctx.fill();
+      ctx.strokeStyle=INK; ctx.lineWidth=1.8; ctx.stroke();
+      ctx.fillStyle='#2a2014'; ctx.beginPath(); ctx.ellipse(0,-8*r,4.5*r,2.4*r,0,0,6.28); ctx.fill();
+      ctx.fillStyle='rgba(245,197,66,.5)'; ctx.beginPath(); ctx.arc(2*r,-2*r,1.4,0,6.28); ctx.fill();
+      break;
+    case 'puddle':
+      ctx.fillStyle='rgba(20,40,48,.4)'; ctx.beginPath(); ctx.ellipse(0,0,16*r,9*r,d.a,0,6.28); ctx.fill();
+      ctx.strokeStyle='rgba(160,220,230,.16)'; ctx.lineWidth=1.2;
+      ctx.beginPath(); ctx.ellipse(0,0,16*r,9*r,d.a,2.6,4.4); ctx.stroke();
+      break;
+    case 'rubble':
+      ctx.fillStyle='rgba(70,60,44,.85)';
+      for(let k=0;k<4;k++){ const a=d.a+k*1.7, dx=Math.cos(a)*6*r, dy=Math.sin(a)*5*r;
+        ctx.beginPath(); ctx.moveTo(dx-4,dy); ctx.lineTo(dx+2,dy-4); ctx.lineTo(dx+5,dy+2); ctx.lineTo(dx-1,dy+4);
+        ctx.closePath(); ctx.fill(); }
+      ctx.strokeStyle='rgba(0,0,0,.4)'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.arc(0,1,9*r,0,6.28); ctx.stroke();
+      break;
+    case 'beam':
+      ctx.rotate(d.a); ctx.fillStyle='#3a2c1a';
+      ctx.fillRect(-22*r,-3.5,44*r,7); ctx.strokeStyle=INK; ctx.lineWidth=1.6; ctx.strokeRect(-22*r,-3.5,44*r,7);
+      break;
+    case 'coinpile':
+      for(let k=0;k<6;k++){ const a=d.a+k*1.1, dx=Math.cos(a)*5.5*r, dy=Math.sin(a)*3.6*r;
+        ctx.fillStyle='rgba(226,171,48,.8)'; ctx.beginPath(); ctx.arc(dx,dy,2.1,0,6.28); ctx.fill(); }
+      ctx.fillStyle='rgba(255,231,168,.9)'; ctx.beginPath(); ctx.arc(0,-1,1.4,0,6.28); ctx.fill();
+      break;
+    case 'gear':
+      ctx.rotate(d.a); ctx.strokeStyle='rgba(201,179,122,.35)'; ctx.lineWidth=2.5;
+      ctx.beginPath(); ctx.arc(0,0,10*r,0,6.28); ctx.stroke();
+      for(let k=0;k<8;k++){ const a=k*0.785;
+        ctx.beginPath(); ctx.moveTo(Math.cos(a)*10*r,Math.sin(a)*10*r);
+        ctx.lineTo(Math.cos(a)*14*r,Math.sin(a)*14*r); ctx.stroke(); }
+      break;
+    case 'banner':{
+      const c=BANNER_COL[currentThemeKey]||'#c9a24a';
+      ctx.fillStyle=c; ctx.globalAlpha=0.75;
+      ctx.beginPath(); ctx.moveTo(-7*d.r,0); ctx.lineTo(7*d.r,0); ctx.lineTo(7*d.r,16*d.r);
+      ctx.lineTo(0,22*d.r); ctx.lineTo(-7*d.r,16*d.r); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha=1; ctx.strokeStyle=INK; ctx.lineWidth=1.6; ctx.stroke();
+      ctx.fillStyle='rgba(0,0,0,.35)'; ctx.beginPath(); ctx.arc(0,8*d.r,2.6,0,6.28); ctx.fill();
+      break; }
+    case 'chain':
+      ctx.strokeStyle='rgba(150,160,170,.5)'; ctx.lineWidth=1.8;
+      for(let k=0;k<3;k++){ ctx.beginPath(); ctx.ellipse(0,5+k*8,2.6,4,0,0,6.28); ctx.stroke(); }
+      break;
+    case 'torch':{
+      const fl=0.7+0.3*Math.sin(tPrev/90+d.x);
+      const g=ctx.createRadialGradient(0,6,2,0,6,34*fl);
+      g.addColorStop(0,'rgba(255,190,90,.55)'); g.addColorStop(1,'rgba(255,150,50,0)');
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,6,34*fl,0,6.28); ctx.fill();
+      ctx.fillStyle='#2a2014'; ctx.fillRect(-2,0,4,9);
+      ctx.fillStyle=`rgba(255,${170+50*fl|0},70,.95)`;
+      ctx.beginPath(); ctx.moveTo(0,-6*fl-2); ctx.lineTo(3.4,2); ctx.lineTo(-3.4,2); ctx.closePath(); ctx.fill();
+      break; }
+  }
+  ctx.restore();
+}
+function drawDecor(wallLayer){
+  for(const d of decor){
+    if(!!d.wall!==wallLayer) continue;
+    if(d.x<cam.x-70||d.x>cam.x+VIEW.w+70||d.y<cam.y-70||d.y>cam.y+VIEW.h+70) continue;
+    drawDecorItem(d);
+  }
+}
+
 function drawFloor(){
   const T=currentTheme;
-  const x0=Math.floor(cam.x/80)*80, y0=Math.floor(cam.y/80)*80;
-  ctx.fillStyle=T.floor;
-  ctx.fillRect(cam.x,cam.y,VIEW.w,VIEW.h);
-  ctx.strokeStyle=T.grid; ctx.lineWidth=1;
-  ctx.beginPath();
-  for(let x=x0;x<cam.x+VIEW.w;x+=80){ ctx.moveTo(x,cam.y); ctx.lineTo(x,cam.y+VIEW.h); }
-  for(let y=y0;y<cam.y+VIEW.h;y+=80){ ctx.moveTo(cam.x,y); ctx.lineTo(cam.x+VIEW.w,y); }
-  ctx.stroke();
+  drawFloorPattern();
+  drawLandmark();
   // flood pools (Sunken Treasury) — dark water with drifting shimmer lines
   for(const p of pools){
     if(p.x+p.w<cam.x||p.x>cam.x+VIEW.w||p.y+p.h<cam.y||p.y>cam.y+VIEW.h) continue;
@@ -2645,7 +2861,8 @@ function drawFloor(){
     for(let k=0;k<3;k++){ const yy=p.y+p.h*(0.25+0.25*k)+Math.sin(tPrev/700+k*2+p.x)*3;
       ctx.beginPath(); ctx.moveTo(p.x+8,yy); ctx.lineTo(p.x+p.w-8,yy); ctx.stroke(); }
   }
-  // walls
+  drawDecor(false);   // ground pieces under the walls
+  // walls — with a per-layout-family accent so vault bones read differently
   for(const w of walls){
     if(w.x+w.w<cam.x||w.x>cam.x+VIEW.w||w.y+w.h<cam.y||w.y>cam.y+VIEW.h) continue;
     ctx.fillStyle=T.wall;
@@ -2654,7 +2871,39 @@ function drawFloor(){
     ctx.fillRect(w.x,w.y,w.w,4);
     ctx.strokeStyle=INK; ctx.lineWidth=2.5; ctx.lineJoin='miter';
     ctx.strokeRect(w.x,w.y,w.w,w.h);
+    const interior = w.x>0 && w.y>0 && w.x+w.w<WORLD.w && w.y+w.h<WORLD.h;
+    if(!interior) continue;
+    if(currentLayout==='pillars' && w.w<=140 && w.h<=140){          // column caps
+      ctx.strokeStyle='rgba(255,255,255,.08)'; ctx.lineWidth=2;
+      ctx.strokeRect(w.x+6,w.y+6,w.w-12,w.h-12);
+    } else if(currentLayout==='corridors'){                          // lengthwise seam
+      ctx.strokeStyle='rgba(0,0,0,.28)'; ctx.lineWidth=2; ctx.beginPath();
+      if(w.w>=w.h){ ctx.moveTo(w.x+8,w.y+w.h/2); ctx.lineTo(w.x+w.w-8,w.y+w.h/2); }
+      else { ctx.moveTo(w.x+w.w/2,w.y+8); ctx.lineTo(w.x+w.w/2,w.y+w.h-8); }
+      ctx.stroke();
+    } else if(currentLayout==='warren'){                             // rough patches
+      ctx.fillStyle='rgba(0,0,0,.16)';
+      ctx.fillRect(w.x+3,w.y+3,Math.min(20,w.w*0.3),Math.min(20,w.h*0.3));
+      ctx.fillRect(w.x+w.w-Math.min(16,w.w*0.25)-3,w.y+w.h-Math.min(16,w.h*0.25)-3,
+        Math.min(16,w.w*0.25),Math.min(16,w.h*0.25));
+    } else if(currentLayout==='chambers'){                           // corner blocks
+      ctx.fillStyle='rgba(255,255,255,.06)';
+      ctx.fillRect(w.x,w.y,10,10); ctx.fillRect(w.x+w.w-10,w.y,10,10);
+      ctx.fillRect(w.x,w.y+w.h-10,10,10); ctx.fillRect(w.x+w.w-10,w.y+w.h-10,10,10);
+    }
   }
+  // room-grid doorways get visible jambs — thresholds read as doors, not gaps
+  if(vgraph){
+    ctx.fillStyle='rgba(201,162,74,.45)';
+    for(const k in vgraph.doors){
+      const d=vgraph.doors[k];
+      if(d.x<cam.x-80||d.x>cam.x+VIEW.w+80||d.y<cam.y-80||d.y>cam.y+VIEW.h+80) continue;
+      const half=DOOR_WIDTH/2;
+      if(d.o==='v'){ ctx.fillRect(d.x-5,d.y-half-8,10,8); ctx.fillRect(d.x-5,d.y+half,10,8); }
+      else { ctx.fillRect(d.x-half-8,d.y-5,8,10); ctx.fillRect(d.x+half,d.y-5,8,10); }
+    }
+  }
+  drawDecor(true);    // wall-mounted pieces over the walls
 }
 
 function drawPortal(){
@@ -3908,6 +4157,7 @@ window.__greed = {
   set forcedTheme(v){ forcedTheme=v; }, get currentThemeKey(){ return currentThemeKey; },
   get pools(){ return pools; }, get presses(){ return presses; }, get gust(){ return gust; },
   get dark(){ return dark; }, get inWater(){ return inWater; },
+  get decor(){ return decor; }, get landmark(){ return landmark; }, get currentLayout(){ return currentLayout; },
   updateHazards, poolAt, speedNow, noiseNow,
   // tools / fake loot / reputation surface
   get TOOLS(){ return TOOLS; }, useTool, dropBait,

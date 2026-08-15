@@ -1,5 +1,28 @@
 # Changelog
 
+## Web build — design pass C: vault presentation (build 2026-08-15.5)
+
+- **Per-theme floors** replace the one universal grid: broad flagstones with
+  tinted slabs (Treasury), staggered stone courses (Fortress), half-bond
+  cobbles (Undercity), machined tiles with brass hairlines (Mint).
+- **Seeded scatter decor**, a different kit per location: pillar bases, urns,
+  crates and puddles; crates, barrels and rubble with wall chains; rubble,
+  fallen beams and **lit torches** (visible through the dark — a navigation
+  aid); coin piles, cog inlays and barrels. Wall-mounted banners carry each
+  location's accent color. Pure visuals — no collision, no gameplay.
+- **A landmark per vault** — one big flat floor inlay so it never blocks
+  movement: the sunken basin, the great compass rose, the boarded well
+  mouth, the Mint's giant coin die.
+- **Layout-family wall language**: pillar fields get column caps, corridors
+  get lengthwise seams, warrens get rough patches, chambers get corner
+  blocks, and room-grid doorways get visible gold jambs. Family structure
+  ranges widened too (denser pillar fields, longer corridor lanes, bigger
+  chambers, more cramped warrens) so the bones differ, not just the paint.
+- All dressing generates off the seeded stream — dailies and shared codes
+  reproduce exactly; decor determinism + per-theme kits + landmarks are
+  covered in the location suite.
+- Fixed the key-hints line overlapping the corner credit in-run.
+
 ## Web build — design pass A+B: onboarding & hideout architecture (build 2026-08-15.4)
 
 - **Unlock ladder**: a fresh thief meets only move/grab/escape. Systems open
