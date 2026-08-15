@@ -722,7 +722,7 @@
 "use strict";
 // Build stamp — bump on every deploy. Shown on the title + hideout so a stale
 // Safari cache is instantly visible ("no report button" == old build).
-const BUILD = '2026-08-15.7';
+const BUILD = '2026-08-15.8';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 // Phones fill the screen in whichever way they're held — PORTRAIT (tall) or
@@ -806,7 +806,7 @@ const UNLOCK_INFO = {
   upgrades:  ['The Fence is open',      'spend banked gold on gear'],
   contracts: ['The Jobs Board is open', 'clients, targets, better pay'],
   modifiers: ['Vault Modifiers',        'free runs now roll a risk/reward twist'],
-  tools:     ['The Workbench is open',  'one tool rides per job'],
+  tools:     ['The Workbench is open',  'the fence threw in a Smoke Bomb — one rides per job'],
   daily:     ['The Daily Run',          'one seeded vault, one ranked attempt, streaks'],
   collection:['The Trophy Room',        'keep treasures for permanent passives'],
 };
@@ -1112,7 +1112,7 @@ let pendingContractReward=0, pendingContractInfo=null, pendingNotoDown=0;
 
 // generators return a fresh job; check() reads live run globals at extraction time
 const CONTRACT_MAKERS = [
-  ()=>{ const t=Math.round(rand(1400,2400)/50)*50; return {type:'quota',
+  ()=>{ const t=Math.round(rand(900,1600)/50)*50; return {type:'quota',   // TUNE — was 1400-2400; telemetry: 0/3 quota wins, avg escaped haul ~$1k
     client:'the Merchant Guild', desc:`Smuggle out at least $${t.toLocaleString()} of goods.`,
     reward:Math.round(t*0.35), target:t, check:()=>carriedValue>=t }; },
   ()=>({type:'silent', client:'a Nervous Client',
@@ -3406,11 +3406,19 @@ let pendingArtifact=null;function openDecision(l){
   $('decFlavor').textContent=l.flavor;
   const boon=BOONS[l.boon];
   const pry=Math.round(l.base*0.4);
+  // concrete consequences for THIS run, not stat names
+  const penFor=w=>{ const sm2=0.011*Math.max(0.32,1-0.14*upgLevel('straps'));
+    const cap=Math.max(0.34,0.66-0.07*upgLevel('pockets'));
+    return clamp(Math.max(0,w-(capOn('smuggler')?8:0))*sm2,0,cap); };
+  const slowPct=Math.max(1,Math.round((penFor(carriedWeight+6)-penFor(carriedWeight))*100));
+  const heatAfter=clamp(Math.floor((carriedValue+l.base)/900)+Math.floor((carriedCurse+3)/3)+runHeatSeed,0,6);
+  const dHeat=heatAfter-heatTier;
   const choices=[
     { cls:'greed', t:'Pocket it whole', d:'Take every ounce. It\u2019s heavy, loud, and marked \u2014 the vault will feel it.',
-      v:'+$'+l.base.toLocaleString()+' \u00b7 +weight +curse', pick:0 },
+      v:`+$${l.base.toLocaleString()} \u00b7 ~${slowPct}% slower \u00b7 louder`
+        +(dHeat>0?` \u00b7 Heat +${dHeat}${heatAfter>=6?' \u2014 the vault will remember':''}`:''), pick:0 },
     { cls:'safe',  t:'Pry it apart',    d:'Snap out the gems, leave the frame. Less coin, but light and silent.',
-      v:'+$'+pry.toLocaleString()+' \u00b7 clean', pick:1 },
+      v:`+$${pry.toLocaleString()} \u00b7 light and silent \u2014 the vault won\u2019t notice`, pick:1 },
     { cls:'power', t:boon.label,        d:'Forget the money. Bend the artifact\u2019s power to your escape instead.',
       v:boon.effect, pick:2 },
   ];
@@ -3527,10 +3535,13 @@ function endRun(escaped, cause){
   $('resNum').className = 'result-num '+(escaped?'win':'loss');
   if(escaped) animateMoney($('resNum'), 0, haulVal, 1100);
   else $('resNum').textContent='$0';
+  const CAUSE_NAME={guard:'A watchman',hunter:'The Bounty Hunter',elite:'The elite guard',
+    watchdog:'The watchdog','hard landing':'A hard landing','coin press':'A coin press',
+    collapse:'The collapse',caught:'The vault'};
   $('resSub').innerHTML = (escaped
     ? (perfect ? `You took <em>everything</em> and still made the door \u2014 take it to the fence.`
       : heartRevealed?'You dragged it all to the door. Now move the goods.':'Clean job. Time to fence the haul.')
-    : 'The vault kept everything you were carrying. Greed has a price.')
+    : `${CAUSE_NAME[cause||'caught']||'The vault'} ended the run \u2014 the vault keeps everything you were carrying.`)
     + ` &nbsp;<span style="color:var(--gold-deep);letter-spacing:.14em">\u2014 "${epithet(escaped)}"</span>`;
   let contractLine='';
   if(pendingContractInfo){
@@ -3539,16 +3550,17 @@ function endRun(escaped, cause){
       : `<div>${pendingContractInfo.title}<b style="color:var(--heat)">failed</b></div>`;
   }
   $('resStats').innerHTML =
-    `<div>Haul<b>$${haulVal.toLocaleString()}</b></div>`
-    + (peakHeat>0?`<div>Danger (T${peakHeat})<b style="color:var(--heat)">+${Math.round((pendingDangerMult-1)*100)}%</b></div>`:'')
+    (escaped?`<div>Haul<b>$${haulVal.toLocaleString()}</b></div>`
+            :`<div>Left behind<b style="color:var(--heat)">$${haulVal.toLocaleString()}</b></div>`)
+    + (escaped&&peakHeat>0?`<div>Danger pays · peaked T${peakHeat}<b style="color:var(--heat)">+${Math.round((pendingDangerMult-1)*100)}%</b></div>`:'')
     + (perfect?`<div>Clean bonus<b style="color:var(--ok)">+40%</b></div>`:'')
     + (pendingMasteryNew?`<div>Mastered · ${pendingMasteryNew.name}<b style="color:var(--ok)">${masteryCount()}/${TWISTS.length} · +${Math.round((masteryMult()-1)*100)}% sales</b></div>`:'')
     + (repEarned?`<div>The street remembers<b style="color:var(--gold)">${repEarned} ×${meta.rep[repEarned]}</b></div>`:'')
     + contractLine
     + (ascensionLevel>0?`<div>Ascension ${ascensionLevel}<b style="color:var(--purple,#a98bff)">${ascNewBest?'NEW BEST':'★'.repeat(Math.min(ascensionLevel,5))}</b></div>`:'')
     + (wasDaily?`<div>Daily score<b style="color:var(--gold)">${(escaped?dailyScore():0).toLocaleString()}</b></div><div>Streak<b>${meta.daily.streak} day${meta.daily.streak===1?'':'s'}</b></div><div>Share code<b style="letter-spacing:.12em">GR-${dayKey()}-${seedToCode(daySeed(dayKey()))}</b></div>`:'')
-    + `<div>Secured<b>${loot.filter(l=>l.got).length}/${runLootCount}</b></div>`
-    + (rivalHaul>0?`<div>Rival's take<b style="color:#c86bff">−$${rivalHaul.toLocaleString()}</b></div>`:'');
+    + `<div>Looted<b>${loot.filter(l=>l.got).length} of ${runLootCount}</b></div>`
+    + (rivalHaul>0?`<div>The rival made off with<b style="color:#c86bff">$${rivalHaul.toLocaleString()}</b></div>`:'');
   $('continueBtn').textContent = (escaped && pendingHaul.length) ? 'To the Fence' : 'To the Hideout';
   show('result');
 }
@@ -3954,7 +3966,9 @@ function renderShop(){
   renderHideoutScene();
   // ---- unlock ladder: announce fresh unlocks (once), tease the next one ----
   { const fresh=[];
-    for(const k in UNLOCKS){ if(unlocked(k) && !meta.seenUnlocks[k]){ meta.seenUnlocks[k]=1; fresh.push(UNLOCK_INFO[k]); } }
+    for(const k in UNLOCKS){ if(unlocked(k) && !meta.seenUnlocks[k]){ meta.seenUnlocks[k]=1; fresh.push(UNLOCK_INFO[k]);
+      // starter gift: telemetry showed nobody buys their first tool — hand one over
+      if(k==='tools' && !ownsTool('smoke')){ meta.tools.smoke=1; if(!meta.equippedTool) meta.equippedTool='smoke'; } } }
     const ub=$('unlockBanner');
     if(fresh.length && fresh.length<=2){
       ub.style.display='block';

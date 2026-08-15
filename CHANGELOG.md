@@ -1,5 +1,26 @@
 # Changelog
 
+## Web build — decisions and results speak player + first telemetry tunes (build 2026-08-15.8)
+
+- **Artifact decision cards state real consequences**: the greed option now
+  computes the actual outcome of taking the piece — "+2,400 · ~9% slower ·
+  louder · Heat +1", with "— the vault will remember" when it would push
+  heat to T6 — using the live weight-penalty and heat formulas (upgrades and
+  capstones included). The safe option answers it: "light and silent — the
+  vault won't notice."
+- **The results screen names your killer**: losses read "The Bounty Hunter
+  ended the run — the vault keeps everything you were carrying" (per-cause
+  names for guards, elites, watchdogs, presses, falls, the collapse), and
+  the value stat flips to "Left behind $X" in heat-red. Escapes now read
+  "Haul", "Danger pays · peaked T5", "Looted 7 of 12", and "The rival made
+  off with $X" instead of raw counters.
+- **Telemetry tunes (10-run report, build .7)**: quota contracts asked for
+  $1,400–2,400 against ~$1k average hauls — contract success was 13%, so
+  quotas now roll $900–1,600. And since tools went entirely unbought, the
+  Workbench unlock now throws in a free Smoke Bomb, pre-equipped, so the
+  tool button exists on the next run without a purchase decision.
+- Added `docs/RELEASE_PLAN.md` — the roadmap from here to a 1.0 release.
+
 ## Web build — the Fence speaks player (build 2026-08-15.7)
 
 - Every buyer chip now states its consequence in plain words: "no questions
