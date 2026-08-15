@@ -1,5 +1,27 @@
 # Changelog
 
+## Web build — desktop playtest round: fullscreen, physical props, smooth camera (build 2026-08-15.6)
+
+- **Big-screen desktop**: the stage now grows to the viewport (up to 1560px,
+  was capped at 960) and F / the new ⛶ HUD button toggles true fullscreen —
+  the canvas buffer re-derives its aspect from the stage's real shape, so
+  nothing stretches at any size, and render scale now covers the stage's
+  actual physical pixels (crisp at 1080p/1440p/retina).
+- **Props are physical**: crates, barrels, pillar bases and urns block
+  movement for everyone — juke chases around them, use them as cover lanes.
+  They're placed before loot/guards so pathing and the reachability
+  guarantee account for them; they never block sight (low cover).
+- **Camera smoothing fixed**: the lead term came from per-frame velocity
+  (which shrinks at high refresh rates and jittered on uneven frames) and
+  the ease was frame-rate dependent — both are now dt-normalized, so
+  60/120/144Hz all glide identically. This was the "choppy camera" report.
+- **Location ambience**: a per-theme sound bed — water lap in the Treasury
+  (swells while wading), rampart wind in the Fortress, cave hush under the
+  Undercity's drips, and the Mint's distant press machinery on a loop.
+- **Card UI redesign**: upgrade and tool cards get structured rows — name
+  with inline LV chip, effect line, then a divider with price left and a
+  gold BUY / EQUIP pill right (SAVE UP when short). No more floating tags.
+
 ## Web build — design pass C: vault presentation (build 2026-08-15.5)
 
 - **Per-theme floors** replace the one universal grid: broad flagstones with

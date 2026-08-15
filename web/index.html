@@ -32,9 +32,12 @@
     -webkit-font-smoothing:antialiased;overflow:hidden;}
   body{display:flex;align-items:center;justify-content:center;padding:12px;}
 
-  #stage{position:relative;width:min(96vw,960px);aspect-ratio:3/2;
+  #stage{position:relative;width:min(96vw, calc(96vh * 1.5), 1560px);aspect-ratio:3/2;
     background:var(--vault);border-radius:14px;overflow:hidden;
     box-shadow:0 30px 80px rgba(0,0,0,.7), 0 0 0 1px var(--panel-line) inset;}
+  /* F / ⛶ — the stage takes the whole monitor; the buffer re-derives its aspect */
+  #stage:fullscreen{width:100vw;height:100vh;max-width:none;aspect-ratio:auto;
+    border-radius:0;box-shadow:none;}
   canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;}
 
   /* ---------- HUD ---------- */
@@ -197,8 +200,15 @@
     padding:14px 15px;box-shadow:0 0 0 1px var(--panel-line) inset;cursor:pointer;
     transition:transform .12s, box-shadow .12s;position:relative;}
   .fence:hover:not(.owned):not(.locked){transform:translateY(-2px);box-shadow:0 0 0 1px var(--gold-deep) inset;}
-  .fence .nm{font-family:"Cinzel",serif;font-weight:700;font-size:16px;color:var(--bone);
-    padding-right:54px;}   /* clears the absolute LV tag on narrow phone cards */
+  .fence .nm{font-family:"Cinzel",serif;font-weight:700;font-size:16.5px;color:var(--bone);}
+  /* structured card rows: name+level up top, divider, cost+action pinned below */
+  .fence .cardTop{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:2px;}
+  .fence .lv{flex:none;font-size:10px;letter-spacing:.12em;font-weight:600;color:var(--gold-deep);}
+  .fence .cardFoot{display:flex;justify-content:space-between;align-items:center;
+    margin-top:10px;padding-top:8px;border-top:1px solid #2e2517;}
+  .fence .buyTag{flex:none;font-size:10px;letter-spacing:.14em;font-weight:700;color:var(--vault);
+    background:linear-gradient(180deg,var(--scarf),var(--gold-deep));padding:3px 10px;border-radius:12px;}
+  .fence .buyTag.dim{background:none;color:var(--muted);box-shadow:0 0 0 1px var(--panel-line) inset;}
   .fence .ds{font-size:12.5px;color:var(--muted);margin:4px 0 10px;line-height:1.4;min-height:34px;}
   .fence .cost{font-weight:700;letter-spacing:.04em;color:var(--gold);font-size:15px;}
   .fence .eff{font-size:11.5px;color:var(--scarf);letter-spacing:.02em;margin:2px 0 8px;font-weight:600;}
@@ -483,6 +493,7 @@
           <div class="amt" id="haul">$0</div>
           <div class="lbl" id="secured" style="margin-top:4px">0 / 0 secured</div>
         </div>
+        <div class="iconbtn" id="fsBtn" title="Fullscreen (F)">⛶</div>
         <div class="iconbtn" id="muteBtn" title="Sound on/off">🔊</div>
         <div class="iconbtn" id="pauseBtn" title="Pause">
           <svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
@@ -522,7 +533,7 @@
     <div class="controls-hint">
       One finger. <em style="color:var(--scarf);font-style:normal">Drag anywhere to move.</em>
       &nbsp;·&nbsp; Grab loot, then get back to the exit alive.<br>
-      On a keyboard: <kbd>W A S D</kbd> / arrows to move, hold <kbd>E</kbd> at the exit. <kbd>M</kbd> toggles sound.
+      On a keyboard: <kbd>W A S D</kbd> / arrows to move, hold <kbd>E</kbd> at the exit. <kbd>M</kbd> sound · <kbd>F</kbd> fullscreen.
       <br><span style="opacity:.5">build <span class="buildTag"></span></span>
     </div>
   </div>
@@ -707,7 +718,7 @@
 "use strict";
 // Build stamp — bump on every deploy. Shown on the title + hideout so a stale
 // Safari cache is instantly visible ("no report button" == old build).
-const BUILD = '2026-08-15.5';
+const BUILD = '2026-08-15.6';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 // Phones fill the screen in whichever way they're held — PORTRAIT (tall) or
@@ -716,33 +727,41 @@ const ctx = canvas.getContext('2d');
 // buffer, so pointer mapping (÷VIEW) stays exact regardless of orientation.
 const JO_COARSE = matchMedia('(pointer:coarse)').matches;
 const VIEW = { w: 0, h: 0 };   // filled by applyView() below (0 → always applies first pass)
+// Universal view sizing: the buffer aspect always matches the stage's REAL
+// rendered shape (phone full-bleed, desktop card, or fullscreen monitor), so
+// the canvas never letterboxes and never stretches. The SHORT side is a steady
+// world height; the long side derives from the live aspect, clamped sane.
 function pickView(){
-  if(!JO_COARSE) return { w: 857, h: 571 };
-  // Full-bleed phone: match the buffer aspect to the live viewport so the canvas
-  // fills the screen with no letterbox and no stretch. Fix the SHORT side to a
-  // steady resolution; derive the long side from the real aspect (clamped so an
-  // ultrawide/tall device can't blow the buffer out or show too little world).
-  const w=window.innerWidth, h=window.innerHeight, land=w>=h;
-  const S=600, ratio=clampNum(Math.max(w,h)/Math.max(1,Math.min(w,h)), 1.2, 2.35);
+  const r=canvas.getBoundingClientRect();
+  const w=r.width||960, h=r.height||640, land=w>=h;
+  const S = JO_COARSE ? 600 : 580;
+  const ratio=clampNum(Math.max(w,h)/Math.max(1,Math.min(w,h)), 1.2, 2.35);
   const long=Math.round(S*ratio);
   return land ? { w:long, h:S } : { w:S, h:long };
 }
 function clampNum(v,a,b){ return v<a?a:v>b?b:v; }
-// Resize the canvas buffer to the current orientation. The camera re-clamps to
-// VIEW every frame, so a live swap needs no extra bookkeeping — next frame fits.
-// RS = render scale: the buffer is oversampled by devicePixelRatio (capped at 2
-// for fill-rate) and every frame draws through a setTransform(RS,...), so the
-// world VIEW stays identical but retina/phone screens get crisp pixels.
+// RS = render scale: the buffer is oversampled to cover the stage's physical
+// pixels (CSS size × devicePixelRatio, capped for fill-rate), and every frame
+// draws through setTransform(RS,...) — same world view, crisp at any size.
 let RS = 1;
 function applyView(){
-  const v = pickView(), rs = Math.min(window.devicePixelRatio||1, 2);
-  if(v.w === VIEW.w && v.h === VIEW.h && rs === RS) return;
+  const v = pickView();
+  const r = canvas.getBoundingClientRect(), dpr = window.devicePixelRatio||1;
+  const rs = clampNum(((r.width||960)*dpr)/v.w, 1, 2.5);
+  if(v.w === VIEW.w && v.h === VIEW.h && Math.abs(rs-RS)<0.05) return;
   VIEW.w = v.w; VIEW.h = v.h; RS = rs;
   canvas.width = Math.round(VIEW.w*RS); canvas.height = Math.round(VIEW.h*RS);
 }
 applyView();
 addEventListener('resize', applyView);
 addEventListener('orientationchange', applyView);
+// Fullscreen: F key or the ⛶ button (desktop; phones are already full-bleed)
+function toggleFullscreen(){
+  const el=document.getElementById('stage');
+  if(document.fullscreenElement){ if(document.exitFullscreen) document.exitFullscreen(); }
+  else if(el.requestFullscreen) el.requestFullscreen();
+}
+addEventListener('fullscreenchange', ()=>{ applyView(); });
 const WORLD = { w: 2000, h: 1400 };
 let JO_STYLE='vector';   // 'vector' = code-drawn ink rig (no image assets) · 'atlas' = sprite sheet
 
@@ -1035,7 +1054,10 @@ let forcedTheme = null;   // headless-test hook: pin the location before build
 // Pure visuals — no collision, no gameplay. Ground pieces sit in open space,
 // wall pieces hang on interior south faces, and each vault gets ONE flat floor
 // landmark (an inlay, so walking over it reads fine).
-let decor=[], landmark=null;
+let decor=[], solidDecor=[], landmark=null;
+// Chunky props are PHYSICAL: they block movement (yours and theirs — juke a chase
+// around a crate) but not sight; collision radius per type, scaled by the piece.
+const SOLID_CR={ crate:12, barrel:10, pillarbase:13, urn:8 };
 const THEME_DECOR={
   treasury:{ ground:['pillarbase','urn','crate','puddle'],  wall:['banner'] },
   fortress:{ ground:['crate','barrel','rubble'],            wall:['banner','chain'] },
@@ -1045,15 +1067,19 @@ const THEME_DECOR={
 const THEME_LANDMARK={ treasury:'basin', fortress:'compass', undercity:'well', mint:'die' };
 const BANNER_COL={ treasury:'#c9a24a', fortress:'#6f89a1', undercity:'#8a6b3a', mint:'#c9b37a' };
 function genDecor(areaScale){
-  decor=[]; landmark=null;
+  decor=[]; solidDecor=[]; landmark=null;
   const kit=THEME_DECOR[currentThemeKey];
   const n=Math.round(26*areaScale);                        // TUNE — ground pieces
   for(let i=0;i<n;i++){
+    const ty=vpick(kit.ground), cr=SOLID_CR[ty]?Math.round(SOLID_CR[ty]*1.1):0;
     for(let t=0;t<24;t++){
-      const x=vr(140,WORLD.w-90), y=vr(90,WORLD.h-90);
-      if(!isOpen(x,y,26)||platAt(x,y)!==-1||poolAt(x,y)) continue;
+      // solids stay out of the entrance/return lane and need more clearance
+      const x=vr(cr?420:140,WORLD.w-90), y=vr(90,WORLD.h-90);
+      if(!isOpen(x,y,cr?cr+26:26)||platAt(x,y)!==-1||poolAt(x,y)) continue;
       if(dist2(x,y,portal.x,portal.y)<200*200) continue;
-      decor.push({x,y,t:vpick(kit.ground),r:vr(0.85,1.3),a:vr(0,6.28)}); break;
+      const d={x,y,t:ty,r:vr(0.85,1.3),a:vr(0,6.28)};
+      if(cr){ d.cr=Math.round(SOLID_CR[ty]*d.r); solidDecor.push(d); }
+      decor.push(d); break;
     }
   }
   const interior=walls.filter(w=>w.x>0&&w.y>0&&w.x+w.w<WORLD.w&&w.y+w.h<WORLD.h&&w.w>60);
@@ -1149,6 +1175,9 @@ function isOpen(x,y,r){
   for(const w of walls){
     const cx=clamp(x,w.x,w.x+w.w), cy=clamp(y,w.y,w.y+w.h);
     if(dist2(x,y,cx,cy) < r*r) return false;
+  }
+  for(const d of solidDecor){                       // physical props (crates, barrels…)
+    const rr=r+d.cr; if(dist2(x,y,d.x,d.y) < rr*rr) return false;
   }
   return true;
 }
@@ -1445,6 +1474,7 @@ function buildWorld(){
   if(dailyMutator.size){ WORLD.w=Math.round(WORLD.w*dailyMutator.size); WORLD.h=Math.round(WORLD.h*dailyMutator.size); }
   const areaScale = (WORLD.w*WORLD.h)/(2000*1400);
   walls=[]; loot=[]; guards=[]; sentries=[]; particles=[]; floaters=[]; rings=[]; rivals=[]; rivalHaul=0;
+  decor=[]; solidDecor=[]; landmark=null;   // cleared BEFORE isOpen is used for placement
   joSquash=0; dustT=0; lastChargeStep=-1;
   baits=[]; toolMark=null; smokeT=0;
   vaultAwake=false; whisperT=0; awakeSeverT=0; sealNagT=0; heistStage=0; latches=[];
@@ -1543,6 +1573,10 @@ function buildWorld(){
   const pSpot = {x:150, y:spawnY};
   portal = {x:pSpot.x, y:pSpot.y, r:46, spin:0};
   if(vgraph) graphSetExit(vgraph, portal.x, portal.y);
+
+  // vault dressing BEFORE loot/guards: solid props join collision, so every
+  // later openSpot/reachability decision already accounts for them.
+  genDecor(areaScale);
 
   player = {
     x:pSpot.x, y:pSpot.y, r:14, vx:0, vy:0, face:0,
@@ -1662,9 +1696,6 @@ function buildWorld(){
     sentries.push({x:s.x,y:s.y,r:12, ang:center, center, sweep:0.9+vrng()*0.5,
       dir:vrng()<.5?1:-1, coneHalf:0.42, view:250, cd:0, hot:0});
   }
-
-  // vault dressing: per-theme decor + the landmark inlay (pure visuals, seeded)
-  genDecor(areaScale);
 
   cam.x = clamp(player.x-VIEW.w/2,0,WORLD.w-VIEW.w);
   cam.y = clamp(player.y-VIEW.h/2,0,WORLD.h-VIEW.h);
@@ -1791,6 +1822,7 @@ function guardSpeed(){ return (1.5 + heatTier*0.16 + carriedCurse*0.03) * ascMod
 // Heat + a tremolo that fades in while any guard is chasing). The context unlocks on
 // the first gesture (autoplay policy); M / the 🔊 button toggles mute (persisted).
 let AC=null, masterBus=null, sfxBus=null, musBus=null, chaseG=null, noiseBuf=null, anyChase=false;
+let ambF=null, ambG=null, nextThump=0;   // location-ambience bed (retuned per theme)
 let audioMuted=false; try{ audioMuted=localStorage.getItem('greedrun_muted')==='1'; }catch(e){}
 function audioInit(){
   if(AC) return;
@@ -1818,6 +1850,16 @@ function audioInit(){
     chaseG=AC.createGain(); chaseG.gain.value=0;
     co.connect(bp); bp.connect(ta); ta.connect(chaseG); chaseG.connect(musBus);
     co.start(); tr.start();
+    // …and a location-ambience bed: looped noise through one filter, retuned per
+    // theme by musicTick (water lap / rampart wind / cave hush), swelling slowly
+    const an=AC.createBufferSource(); an.buffer=noiseBuf; an.loop=true;
+    ambF=AC.createBiquadFilter(); ambF.type='bandpass'; ambF.frequency.value=500; ambF.Q.value=0.7;
+    const wob=AC.createGain(); wob.gain.value=0.55;
+    const alfo=AC.createOscillator(); alfo.frequency.value=0.13;
+    const alg=AC.createGain(); alg.gain.value=0.4; alfo.connect(alg); alg.connect(wob.gain);
+    ambG=AC.createGain(); ambG.gain.value=0;
+    an.connect(ambF); ambF.connect(wob); wob.connect(ambG); ambG.connect(musBus);
+    an.start(); alfo.start();
     setInterval(musicTick,90);
   }catch(e){ AC=null; }
 }
@@ -1889,9 +1931,19 @@ function musicTick(){
   const playing = state==='playing';
   musBus.gain.setTargetAtTime(playing?0.32:0, AC.currentTime, playing?0.6:0.25);
   chaseG.gain.setTargetAtTime(playing&&anyChase?0.13:0, AC.currentTime, 0.5);
+  // location ambience: water lap (louder while wading), rampart wind, cave hush,
+  // and the Mint's low machine room — each location has a voice
+  const AMB={ treasury:[430,0.11], fortress:[850,0.10], undercity:[240,0.05], mint:[310,0.05] };
+  const amb=AMB[currentThemeKey]||[500,0];
+  ambF.frequency.setTargetAtTime(amb[0], AC.currentTime, 0.6);
+  ambG.gain.setTargetAtTime(playing ? amb[1]*(inWater?1.9:1) : 0, AC.currentTime, 0.9);
   if(!playing) return;
   if(dark && Math.random()<0.012) S.drip();   // undercity: far-off water, now and then
   const now=AC.currentTime;
+  if(currentThemeKey==='mint' && now>=nextThump){   // distant press machinery, forever
+    nextThump=now+2.6;
+    tone(78,58,0.3,{vol:0.12,bus:musBus}); tone(392,392,0.05,{type:'square',vol:0.03,delay:0.14,bus:musBus});
+  }
   if(now>=nextBeat){
     const iv=Math.max(0.5, 1.9-heatTier*0.23);               // TUNE — Heat quickens the pulse
     nextBeat=Math.max(nextBeat+iv, now+0.05);
@@ -2232,6 +2284,7 @@ function update(dt){
   attemptMove(player.x+ix*sp, player.y);  // x axis (handles climb/drop)
   attemptMove(player.x, player.y+iy*sp);  // y axis
   player.vx=ix*sp; player.vy=iy*sp;
+  player.mx=ix; player.my=iy;             // input DIRECTION — dt-independent, for the camera
   // footstep dust — running kicks up motes behind the stride
   if(m>0.3){ dustT-=dt; if(dustT<=0){ dustT=0.11; particles.push(mkDust(player.x-ix*9, player.y+player.r*0.6)); } }
   if(player.inv>0) player.inv-=dt;
@@ -2242,11 +2295,15 @@ function update(dt){
   updateVaultRemembers(dt);               // Heat T6: the building joins the hunt
   updateHeist();                          // Legendary Heist stage flow
 
-  // camera
-  // camera leads the way you're moving, then eases — reads as intent, not lag
-  const lead=58;
-  cam.x += (clamp(player.x+player.vx*lead-VIEW.w/2,0,WORLD.w-VIEW.w)-cam.x)*0.13;
-  cam.y += (clamp(player.y+player.vy*lead-VIEW.h/2,0,WORLD.h-VIEW.h)-cam.y)*0.13;
+  // camera — leads the way you're moving, then eases. BOTH terms are
+  // dt-normalized: the lead comes from input direction × speed (not the
+  // per-frame step, which shrinks at high refresh rates and jittered on
+  // uneven frames), and the ease uses an exponential in dt so 60/120/144Hz
+  // all glide identically. This was the "choppy camera" playtest bug.
+  const lead=58, lx2=(player.mx||0)*speedNow()*lead, ly2=(player.my||0)*speedNow()*lead;
+  const ek=1-Math.pow(0.87, dt*60);
+  cam.x += (clamp(player.x+lx2-VIEW.w/2,0,WORLD.w-VIEW.w)-cam.x)*ek;
+  cam.y += (clamp(player.y+ly2-VIEW.h/2,0,WORLD.h-VIEW.h)-cam.y)*ek;
 
   // Living Loot: flees directly away, sliding along walls until it's cornered
   for(const l of loot){
@@ -3915,12 +3972,13 @@ function renderShop(){
     const lvl=upgLevel(u.id), maxed=lvl>=u.max, cost=upgCost(u), afford=meta.gold>=cost;
     const el=document.createElement('div');
     el.className='fence'+(maxed?' owned':'')+(!maxed&&!afford?' locked':'');
-    const lvlTag = lvl>0 ? `<div class="tag">Lv ${lvl}${u.max>1?' / '+u.max:''}</div>` : '';
     let effLine='';
     if(u.max>1){ effLine = lvl>0 ? `<div class="eff">Now ${effLabel(u.id,lvl)}${maxed?'':` \u2192 ${effLabel(u.id,lvl+1)}`}</div>`
                                  : `<div class="eff">Next ${effLabel(u.id,1)}</div>`; }
-    el.innerHTML=`<div class="nm">${u.nm}</div><div class="ds">${u.ds}</div>${effLine}
-      <div class="cost">${maxed?'\u2713 MAX':'$'+cost.toLocaleString()}</div>${lvlTag}`;
+    el.innerHTML=`<div class="cardTop"><span class="nm">${u.nm}</span><span class="lv">${lvl>0?`LV ${lvl}/${u.max}`:''}</span></div>
+      <div class="ds">${u.ds}</div>${effLine}
+      <div class="cardFoot"><span class="cost">${maxed?'\u2713 MAX':'$'+cost.toLocaleString()}</span>
+        <span class="buyTag ${maxed||!afford?'dim':''}">${maxed?'OWNED':afford?'BUY':'SAVE UP'}</span></div>`;
     if(!maxed&&afford){ el.onclick=()=>{ meta.gold-=cost; meta.upg[u.id]=lvl+1; S.cash();
       const wasLocked=ascUnlocked()<1; refreshAscUnlock(); if(wasLocked&&ascUnlocked()>=1) toast('Difficulty Ascension unlocked \u2014 every upgrade maxed.',1600);
       if(capOn(LANES.find(x=>x.ups.includes(u.id))?.id)) toast('LANE MASTERED \u2014 capstone perk unlocked.',1500);
@@ -3952,9 +4010,10 @@ function renderShop(){
       const el=document.createElement('div');
       el.className='fence'+(!owned&&!afford?' locked':'');
       if(equipped) el.style.boxShadow='0 0 0 2px var(--gold) inset';
-      el.innerHTML=`<div class="nm">${t.nm}</div><div class="ds">${t.ds}</div>
-        <div class="eff">×${t.uses} use${t.uses===1?'':'s'} per job</div>
-        <div class="cost">${owned?(equipped?'✓ ON THE BELT · tap to unequip':'Tap to equip'):'$'+t.cost.toLocaleString()}</div>`;
+      el.innerHTML=`<div class="cardTop"><span class="nm">${t.nm}</span><span class="lv">×${t.uses}/JOB</span></div>
+        <div class="ds">${t.ds}</div>
+        <div class="cardFoot"><span class="cost">${owned?(equipped?'✓ ON THE BELT':'Owned'):'$'+t.cost.toLocaleString()}</span>
+          <span class="buyTag ${owned||afford?'':'dim'}">${owned?(equipped?'UNEQUIP':'EQUIP'):afford?'BUY':'SAVE UP'}</span></div>`;
       if(!owned&&afford) el.onclick=()=>{ meta.gold-=t.cost; meta.tools[t.id]=1;
         if(!meta.equippedTool) meta.equippedTool=t.id;
         S.cash(); toast(t.nm+' — added to the Workbench.',1100); saveMeta(); renderShop(); };
@@ -4088,6 +4147,8 @@ function abandonRun(){ touchWrap.style.display='none'; $('hud').classList.remove
 function openHowTo(from){ howtoFrom=from; show('howto'); }
 $('pauseBtn').onclick=pauseGame;
 $('muteBtn').onclick=toggleMute; syncMuteUI();
+$('fsBtn').onclick=toggleFullscreen;
+if(isTouch) $('fsBtn').style.display='none';   // phones are already full-bleed
 // one shared click cue for every interactive element (the same gesture unlocks audio)
 document.addEventListener('pointerdown', e=>{
   if(e.target.closest && e.target.closest('.btn,.choice,.job,.buyer,.iconbtn,.rbtn,.hchip')) S.ui();
@@ -4109,6 +4170,7 @@ addEventListener('keydown', e=>{
   const k=e.key.toLowerCase();
   if(k==='escape'||k==='p'){ if(state==='playing') pauseGame(); else if(state==='paused') resumeGame(); }
   if(k==='m' && !(e.target && e.target.tagName==='INPUT')) toggleMute();
+  if(k==='f' && !(e.target && e.target.tagName==='INPUT')) toggleFullscreen();
 });
 
 // ---------- loop ----------
