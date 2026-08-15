@@ -1,5 +1,41 @@
 # Changelog
 
+## Web build — the Breach, the Drop Chute, a named Hunter, the Ledger, the Altar (build 2026-08-15.12)
+
+All six greenlit "premier" ideas in one drop:
+
+- **The Breach.** Every vault carries a cracked seam in its east wall
+  (hairline cracks foreshadow it; at Heat T3 they glow). At T4+ the wall
+  gives way — a second exit, no "one more thing" temptation attached, with
+  its own green compass arrow. Danger literally opens doors.
+- **The Drop Chute.** One brass-rimmed grate per vault, mid-depth. Dwell
+  on it and your bag goes down the hole at 70 cents on the dollar —
+  banked THE MOMENT it drops, kept even if you die or abandon. It also
+  sheds weight, noise, and Heat: greed's pressure valve. The Vault Heart
+  won't fit — legends travel by hand.
+- **The Hunter has a name.** Rolled once per save (Vex, Marrow, Silas
+  Grey, The Magpie…), announced when he enters, credited when he ends
+  you — "Marrow — the Bounty Hunter — ended the run. That's 3 now." The
+  feud is tracked for life.
+- **The Thief's Ledger.** The Trophy Room is Jo's own room now: below the
+  trophies sits a ledger page with career numbers (jobs, escape rate,
+  career banked, best haul), every epithet the street has given you (dim
+  until earned, with its perk tag), the nemesis feud line, and how the
+  bad nights ended. Career stats migrate once from the existing run log.
+- **The Thieves' Altar.** Once the Jobs Board is open, three glowing
+  gifts wait on pedestals at the vault door — take ONE, run-scoped: Fleet
+  Night (+10% speed), Soft Boots (35% quieter), Greedy Eye (+8% at the
+  fence), Thick Skin (+1 heart), Cold Blood (−1 starting Heat), Feather
+  Step (silent drops). Names always visible; effects readable up close.
+  Diegetic, not a menu — walk up and choose with tonight's route in mind.
+- **Secrets sound like themselves.** Chest lids creak while Jo works them
+  and crack open in wood + coin-shimmer; stashes tick a proximity
+  heartbeat before your eyes find them and chime crystalline when pried;
+  the chute swallows with a coin-cascade; the breach is masonry giving
+  way; the altar hums a chord.
+- Pause screen tracks it all: chute money banked, altar gift, breach
+  status ("cracks at Heat T4 — now T2"). Telemetry gains a chute line.
+
 ## Web build — level-design depth: strongboxes, stashes, found tools, ascension twists, living rival (build 2026-08-15.11)
 
 The "premier game" drop — the first slice of the R2.5 backlog.

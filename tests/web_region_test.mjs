@@ -278,6 +278,52 @@ const res = await page.evaluate(() => {
   G.ascensionLevel = 0; build(SEEDS[1]); const dogsA0 = G.guards.filter(g => g.dog).length;
   if (dogsA5 !== dogsA0 + 1) out.fails.push(`A5 should field exactly one extra hound (${dogsA0} -> ${dogsA5})`);
   else out.log.push(`ascension twists: ladder gates correctly; A5 fields ${dogsA5} hounds vs ${dogsA0}`);
+
+  // ---- Ways out: the Breach (heat opens the east wall) ----
+  build(SEEDS[0]);
+  if (!G.breach) out.fails.push('no breach seam placed');
+  else {
+    if (G.breach.open) out.fails.push('breach open at Heat 0');
+    let v = 0; for (const l of G.loot) { if (v < 4200) { l.got = true; v += l.value; } }   // greed drives heat
+    G.recompute();
+    if (G.heatTier < 4) out.fails.push('could not drive Heat to T4 for the breach test (T' + G.heatTier + ')');
+    G.updateBreach();
+    if (!G.breach.open) out.fails.push('breach did not open at Heat T4+');
+    else out.log.push('breach: sealed at T0, cracked open at T' + G.heatTier);
+  }
+
+  // ---- Ways out: the Drop Chute (70¢ banked mid-run) ----
+  if (!G.chute) out.fails.push('no drop chute placed');
+  else {
+    const before = G.carriedValue;
+    if (before <= 0) out.fails.push('chute test needs a carried haul');
+    G.player.x = G.chute.x; G.player.y = G.chute.y; G.player.plat = -1;
+    for (let i = 0; i < 25; i++) G.updateSecrets(0.05);   // 1.25s dwell > 0.8s trigger
+    if (G.stashedValue <= 0) out.fails.push('chute banked nothing');
+    else if (G.loot.some(l => l.got && l.type !== 'heart')) out.fails.push('chute left carried goods behind');
+    else out.log.push(`chute: swallowed $${before.toLocaleString()} carried, credited $${Math.round(G.stashedValue).toLocaleString()} (70c, Heart refused)`);
+  }
+
+  // ---- The Thieves' Altar: one of three gifts, gated behind the Jobs Board ----
+  const savedRuns = G.meta.runs; G.meta.runs = 5;
+  build(SEEDS[2]);
+  if (G.doorPicks.length !== 3) out.fails.push('altar should offer exactly 3 gifts (got ' + G.doorPicks.length + ')');
+  else {
+    const dp = G.doorPicks[0];
+    G.player.x = dp.x; G.player.y = dp.y; G.player.plat = -1;
+    G.updateSecrets(0.05);
+    if (!G.runPerk.id) out.fails.push('altar gift not applied on walk-over');
+    else if (!G.doorPicks.every(o => o.taken)) out.fails.push('taking one gift should crumble the others');
+    else out.log.push(`altar: 3 gifts, took ${G.runPerk.nm}, the rest crumbled`);
+  }
+  G.meta.runs = savedRuns; build(SEEDS[2]);
+  if (G.doorPicks.length) out.fails.push('altar appeared before the Jobs Board unlock');
+
+  // ---- The Thief's Ledger renders in the trophy room ----
+  G.renderLedger();
+  const lp = document.getElementById('ledgerPanel');
+  if (!lp || !lp.innerHTML.includes('Ledger')) out.fails.push('ledger panel did not render');
+  else out.log.push('ledger: career page renders (epithets, nemesis, ends)');
   return out;
 });
 

@@ -106,9 +106,17 @@ in rough value order:
 - [x] **Level-design depth, slice 1** (shipped .11): strongboxes (1–2 per
   vault, dwell-to-open, loud), hidden stashes (~60% of vaults, shimmer on
   approach, silent), found-tool crates (~50%, swap the kit for the night).
-  Remaining ideas for slice 2: fully flooded rooms (extend the treasury
-  pool system to room-scale water), trapdoors/chutes (fast one-way travel,
-  fits the room graph), locked doors + keys.
+- [x] **Level-design depth, slice 2** (shipped .12, all six user-greenlit
+  ideas): the Breach (Heat T4+ opens a second exit in the east wall), the
+  Drop Chute (mid-run banking at 70¢ on the dollar, kept through death),
+  a named Bounty Hunter with a lifetime feud counter, the Thief's Ledger
+  (career page in the Trophy Room — PSU-room framing), the Thieves' Altar
+  (1-of-3 run boons on pedestals at the door, diegetic), and a
+  secrets-sound pass (chest creak/crack, stash heartbeat + chime, chute
+  swallow, breach rumble, altar chord).
+  Remaining ideas for slice 3: fully flooded rooms (extend the treasury
+  pool system to room-scale water), trapdoors/one-way travel, locked
+  doors + keys.
 - [x] **Ascension twists** (shipped .11): every level adds a named,
   cumulative mechanic (Second Hound → Bright Eyes → Rival's Hour → Curfew
   Bell → Light Sleeper → Doubled Watch → Kennel → Sharper Steel → Sealed
