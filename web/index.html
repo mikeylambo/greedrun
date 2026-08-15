@@ -189,6 +189,12 @@
   .stat-line{display:flex;flex-wrap:wrap;justify-content:center;gap:14px 26px;margin-bottom:24px;
     max-width:94%;color:var(--muted);font-size:13px;letter-spacing:.05em;}
   .stat-line b{display:block;color:var(--bone);font-family:"Cinzel",serif;font-size:22px;font-weight:700;margin-top:2px;}
+  /* results cascade: each stat lands with a little overshoot, one after another */
+  @keyframes statIn{0%{opacity:0;transform:translateY(14px) scale(.9);}70%{transform:translateY(-2px) scale(1.04);}100%{opacity:1;transform:none;}}
+  .stat-line.reveal>div{opacity:0;animation:statIn .5s cubic-bezier(.2,.9,.3,1.1) forwards;}
+  @keyframes epPop{0%{opacity:0;transform:scale(.5) rotate(-4deg);}65%{transform:scale(1.15) rotate(1.5deg);}100%{opacity:1;transform:scale(1) rotate(0);}}
+  .ep-pop{display:inline-block;opacity:0;animation:epPop .55s cubic-bezier(.2,1.2,.3,1) forwards;}
+  @keyframes numIn{0%{transform:scale(.72);}75%{transform:scale(1.05);}100%{transform:scale(1);}}
 
   /* shop / fence */
   .shop-head{margin-bottom:6px;}
@@ -300,6 +306,8 @@
   .buyer.keep{border-top:0;}
   .buyer.keep .bp{color:var(--gold);font-size:12px;}
   .buyer.keep.sel{box-shadow:0 0 0 2px var(--gold) inset;}
+  .buyer.busy{opacity:.5;}
+  .buyer.busy .bf{color:var(--gold-deep);}
 
   /* the collection */
   /* ===== The Collection: an actual trophy room ===== */
@@ -662,7 +670,7 @@
   <!-- Fence: move the goods -->
   <div class="overlay" id="fence">
     <div class="eyebrow">The Fence · Move the goods</div>
-    <div class="bank"><span class="c">This haul</span><span id="fenceTotal">$0</span></div>
+    <div class="bank"><span class="c" id="fenceBridge">This haul</span><span id="fenceTotal">$0</span></div>
     <div class="fence-legend">
       <span class="lg"><i style="background:var(--bone)"></i><b>Black&nbsp;Market</b> base rate</span>
       <span class="lg"><i style="background:var(--gold)"></i><b>Noble</b> premium · 1&nbsp;piece</span>
@@ -722,7 +730,7 @@
 "use strict";
 // Build stamp — bump on every deploy. Shown on the title + hideout so a stale
 // Safari cache is instantly visible ("no report button" == old build).
-const BUILD = '2026-08-15.8';
+const BUILD = '2026-08-15.9';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 // Phones fill the screen in whichever way they're held — PORTRAIT (tall) or
@@ -1029,7 +1037,7 @@ let hunterSpawned = false;
 let runHeatSeed = 0;
 let peakHeat = 0, pendingDangerMult = 1, runDamaged = false, ascNewBest = false;
 let pendingHaul = [], pendingBulk = {val:0,n:0}, pendingPerfect = false;
-let player, portal, cam = {x:0,y:0};
+let player, portal, cam = {x:0,y:0}, camLead = {x:0,y:0};
 let carriedValue=0, carriedWeight=0, carriedNoise=0, carriedCurse=0, heatTier=0;
 let seenOneMore=false, heartRevealed=false, runOutcome=null, shake=0, tPrev=0;
 let flashCurse=0;
@@ -1112,7 +1120,13 @@ let pendingContractReward=0, pendingContractInfo=null, pendingNotoDown=0;
 
 // generators return a fresh job; check() reads live run globals at extraction time
 const CONTRACT_MAKERS = [
-  ()=>{ const t=Math.round(rand(900,1600)/50)*50; return {type:'quota',   // TUNE — was 1400-2400; telemetry: 0/3 quota wins, avg escaped haul ~$1k
+  ()=>{ // TUNE — the quota tracks YOUR recent hauls (the Guild knows your reputation).
+    // Static bands drift as skill grows: 1400-2400 was 13% success at ~$1k avg haul,
+    // the 900-1600 retune hit 100% once the avg passed $2k. Target ~40-60% success.
+    const esc=runLog.filter(r=>r.out==='escape').slice(-10);
+    const base=esc.length>=3 ? esc.reduce((a,r)=>a+(r.haul||0),0)/esc.length : 1100;
+    const t=clamp(Math.round(base*rand(0.9,1.25)/50)*50, 900, 4000);
+    return {type:'quota',
     client:'the Merchant Guild', desc:`Smuggle out at least $${t.toLocaleString()} of goods.`,
     reward:Math.round(t*0.35), target:t, check:()=>carriedValue>=t }; },
   ()=>({type:'silent', client:'a Nervous Client',
@@ -1703,6 +1717,7 @@ function buildWorld(){
 
   cam.x = clamp(player.x-VIEW.w/2,0,WORLD.w-VIEW.w);
   cam.y = clamp(player.y-VIEW.h/2,0,WORLD.h-VIEW.h);
+  camLead.x=0; camLead.y=0;
 }
 
 // line-of-sight: sample the segment; blocked if it crosses a wall
@@ -2028,7 +2043,7 @@ function useTool(){
     for(const g of guards){ if(dist2(g.x,g.y,player.x,player.y)<340*340){ g.state='patrol'; g.alert=0; g.lkp=null; } }
     for(let i=0;i<16;i++) particles.push({x:player.x+rand(-14,14),y:player.y+rand(-10,10),
       vx:rand(-0.6,0.6),vy:rand(-0.9,-0.1),life:rand(0.5,0.95),col:'rgba(205,205,215,.55)',r:rand(3,6),g:0});
-    S.smoke(); toast('Smoke — they lost you.',900); used=true;
+    S.smoke(); toast('Smoke — no one can see you. 3 seconds. GO.',1300); used=true;
   } else if(id==='decoy'){
     let bx=player.x+Math.cos(player.face)*130, by=player.y+Math.sin(player.face)*130;
     if(!isOpen(bx,by,10)){ bx=player.x; by=player.y; }
@@ -2300,14 +2315,19 @@ function update(dt){
   updateHeist();                          // Legendary Heist stage flow
 
   // camera — leads the way you're moving, then eases. BOTH terms are
-  // dt-normalized: the lead comes from input direction × speed (not the
-  // per-frame step, which shrinks at high refresh rates and jittered on
-  // uneven frames), and the ease uses an exponential in dt so 60/120/144Hz
-  // all glide identically. This was the "choppy camera" playtest bug.
-  const lead=58, lx2=(player.mx||0)*speedNow()*lead, ly2=(player.my||0)*speedNow()*lead;
+  // dt-normalized so 60/120/144Hz glide identically. The lead vector is
+  // ITSELF eased (slower than the camera) and capped: at high move speed a
+  // direction flip used to snap the lead target ~300px across, which the
+  // camera then chased — the "erratic at speed" playtest bug. Now the lead
+  // swings through zero over ~a quarter second instead of teleporting.
+  const lead=58, leadCap=130;
+  let tlx=(player.mx||0)*speedNow()*lead, tly=(player.my||0)*speedNow()*lead;
+  const tlm=Math.hypot(tlx,tly); if(tlm>leadCap){ tlx*=leadCap/tlm; tly*=leadCap/tlm; }
+  const lk=1-Math.pow(0.935, dt*60);
+  camLead.x += (tlx-camLead.x)*lk; camLead.y += (tly-camLead.y)*lk;
   const ek=1-Math.pow(0.87, dt*60);
-  cam.x += (clamp(player.x+lx2-VIEW.w/2,0,WORLD.w-VIEW.w)-cam.x)*ek;
-  cam.y += (clamp(player.y+ly2-VIEW.h/2,0,WORLD.h-VIEW.h)-cam.y)*ek;
+  cam.x += (clamp(player.x+camLead.x-VIEW.w/2,0,WORLD.w-VIEW.w)-cam.x)*ek;
+  cam.y += (clamp(player.y+camLead.y-VIEW.h/2,0,WORLD.h-VIEW.h)-cam.y)*ek;
 
   // Living Loot: flees directly away, sliding along walls until it's cornered
   for(const l of loot){
@@ -2375,10 +2395,14 @@ function update(dt){
     if(ghosting){ g.state='patrol'; g.alert=0; }
     // Watchdog hears you: a loud haul draws it straight in, no line of sight needed.
     const hears = g.dog && !ghosting && noiseNow()>=2 && dist2(g.x,g.y,player.x,player.y) < Math.pow(240+noiseNow()*26,2);
-    const seeing = !ghosting && (hears || dist2(g.x,g.y,player.x,player.y) < gDet*gDet);
+    // Smoke blinds EVERYONE for its full 3s — without this, a guard standing next
+    // to you re-spotted you the very next frame and the bomb read as broken.
+    const seeing = !ghosting && smokeT<=0 && (hears || dist2(g.x,g.y,player.x,player.y) < gDet*gDet);
     if(seeing){
       if(g.state!=='chase' && spotCueCd<=0){ spotCueCd=0.9; S.spotted();
-        tip('seen','SEEN! Break line of sight and they’ll lose the trail.'); }   // audible "they saw you"
+        tip('seen','SEEN! Break line of sight and they’ll lose the trail.');   // audible "they saw you"
+        if(meta.equippedTool && toolCharges>0)
+          tip('toolready','You’re carrying a tool — Space / TOOL. Chases are what it’s for.'); }
       g.state='chase'; g.alert=Math.min(1,g.alert+dt*3);
       g.lkp={x:player.x,y:player.y}; runSpotted=true;   // no longer a silent job
     } else if(g.state==='chase'){
@@ -2410,8 +2434,19 @@ function update(dt){
       else if(passable(g.x+(dx>0?step:-step), g.y, g.r)) g.x+=(dx>0?step:-step);
     }
 
-    // contact — grunts only reach ground-level Jo; the Hunter reaches you anywhere
-    if(g.hitCd<=0 && player.inv<=0 && !ghosting && (player.plat===-1 || g.hunter) && dist2(g.x,g.y,player.x,player.y) < (g.r+player.r)**2){
+    // bodies are SOLID — you can never phase through a guard on your level.
+    // (During your post-hit flicker you used to walk straight through them,
+    // which read as "enemy has no collision" in playtests.)
+    if(!ghosting && (player.plat===-1 || g.hunter)){
+      const bdx=player.x-g.x, bdy=player.y-g.y, bd=Math.hypot(bdx,bdy), bmin=g.r+player.r-2;
+      if(bd>0.01 && bd<bmin){ const px=bdx/bd*(bmin-bd), py=bdy/bd*(bmin-bd);
+        if(isOpen(player.x+px,player.y+py,player.r)){ player.x+=px; player.y+=py; }
+        else { g.x-=px; g.y-=py; }   // cornered — the guard gives ground instead
+      }
+    }
+    // contact — grunts only reach ground-level Jo; the Hunter reaches you anywhere.
+    // Blinded by smoke, nobody can land a grab (they can't see what they'd grab).
+    if(g.hitCd<=0 && player.inv<=0 && !ghosting && smokeT<=0 && (player.plat===-1 || g.hunter) && dist2(g.x,g.y,player.x,player.y) < (g.r+player.r)**2){
       player.hp-- ; player.inv=1.1; g.hitCd=0.8; shake=14; hitStop=Math.max(hitStop,0.07); runDamaged=true; hitsTaken++;
       S.hit(); joSquash=Math.max(joSquash,0.45); ring(player.x,player.y,'#e0503f',{vr:220,life:0.45});
       const kx=player.x-g.x, ky=player.y-g.y, km=Math.hypot(kx,ky)||1, push=26;
@@ -2446,7 +2481,7 @@ function update(dt){
     s.ang += s.dir*1.1*dt*(vaultAwake?1.5:1);
     if(s.ang > s.center + s.sweep){ s.ang=s.center+s.sweep; s.dir=-1; }
     if(s.ang < s.center - s.sweep){ s.ang=s.center-s.sweep; s.dir=1; }
-    if(!ghosting && sentrySees(s)){
+    if(!ghosting && smokeT<=0 && sentrySees(s)){
       s.hot=0.6;
       if(s.cd<=0){ // trip the alarm
         s.cd=2.2; alarmFlash=1; shake=Math.max(shake,10); runSpotted=true;
@@ -2479,7 +2514,9 @@ function update(dt){
   if(flashCurse>0) flashCurse=Math.max(0,flashCurse-dt*0.8);
   if(alarmFlash>0) alarmFlash=Math.max(0,alarmFlash-dt*1.6);
   if(joSquash>0) joSquash=Math.max(0,joSquash-dt*3.2);
-  if(smokeT>0) smokeT=Math.max(0,smokeT-dt);
+  if(smokeT>0){ smokeT=Math.max(0,smokeT-dt);   // the cloud follows you — visible proof the blind is live
+    if(Math.random()<dt*22) particles.push({x:player.x+rand(-16,16),y:player.y+rand(-12,10),
+      vx:rand(-0.4,0.4),vy:rand(-0.6,-0.1),life:rand(0.4,0.85),col:'rgba(205,205,215,.4)',r:rand(3,6),g:0}); }
   if(spotCueCd>0) spotCueCd-=dt;
   for(const b of baits) b.t-=dt;
   baits=baits.filter(b=>b.t>0);
@@ -3542,7 +3579,7 @@ function endRun(escaped, cause){
     ? (perfect ? `You took <em>everything</em> and still made the door \u2014 take it to the fence.`
       : heartRevealed?'You dragged it all to the door. Now move the goods.':'Clean job. Time to fence the haul.')
     : `${CAUSE_NAME[cause||'caught']||'The vault'} ended the run \u2014 the vault keeps everything you were carrying.`)
-    + ` &nbsp;<span style="color:var(--gold-deep);letter-spacing:.14em">\u2014 "${epithet(escaped)}"</span>`;
+    + ` &nbsp;<span class="ep-pop" style="color:var(--gold-deep);letter-spacing:.14em">\u2014 "${epithet(escaped)}"</span>`;
   let contractLine='';
   if(pendingContractInfo){
     contractLine = pendingContractInfo.done
@@ -3561,6 +3598,14 @@ function endRun(escaped, cause){
     + (wasDaily?`<div>Daily score<b style="color:var(--gold)">${(escaped?dailyScore():0).toLocaleString()}</b></div><div>Streak<b>${meta.daily.streak} day${meta.daily.streak===1?'':'s'}</b></div><div>Share code<b style="letter-spacing:.12em">GR-${dayKey()}-${seedToCode(daySeed(dayKey()))}</b></div>`:'')
     + `<div>Looted<b>${loot.filter(l=>l.got).length} of ${runLootCount}</b></div>`
     + (rivalHaul>0?`<div>The rival made off with<b style="color:#c86bff">$${rivalHaul.toLocaleString()}</b></div>`:'');
+  // the payoff cascade: money rolls up first, then each stat lands in turn,
+  // then the epithet stamps itself — one continuous dopamine beat, not a data dump
+  { const box=$('resStats'); box.classList.add('reveal');
+    const kids=[...box.children];
+    kids.forEach((el,i)=>el.style.animationDelay=(escaped?450:200)+i*150+'ms');
+    const ep=$('resSub').querySelector('.ep-pop');
+    if(ep) ep.style.animationDelay=((escaped?450:200)+kids.length*150+180)+'ms'; }
+  $('resNum').style.animation = escaped ? 'numIn .55s cubic-bezier(.2,.9,.3,1.15), winGlow 2.2s ease-in-out .6s infinite' : '';
   $('continueBtn').textContent = (escaped && pendingHaul.length) ? 'To the Fence' : 'To the Hideout';
   show('result');
 }
@@ -3630,6 +3675,10 @@ const KIND_BLURB={
 };
 function renderFence(){
   let total=Math.round(pendingBulk.val*sellMult()), curseD=0;
+  // the SAME number the extraction screen called "Haul" — so the big total
+  // reads as that number growing, not a brand-new one
+  const appraised=pendingBulk.val+pendingHaul.reduce((a,it)=>a+it.value,0);
+  $('fenceBridge').textContent=`Your $${appraised.toLocaleString()} haul — buyers pay`;
   const list=$('fenceItems'); list.innerHTML='';
   if(pendingBulk.n>0){
     const row=document.createElement('div'); row.className='fitem';
@@ -3638,6 +3687,9 @@ function renderFence(){
       <div class="fblurb">auto-sold to the Black Market \u2014 no one haggles over pocket change</div>`;
     list.appendChild(row);
   }
+  // the Noble carries ONE piece per visit — mark his chip busy everywhere else
+  // so the rule is visible before you tap, not a silent deselect after
+  const nobleAt=pendingHaul.findIndex(o=>{ const c=o.buyers[o.saleIdx]; return c&&c.id==='noble'; });
   pendingHaul.forEach((it,i)=>{
     const chosen=it.buyers[it.saleIdx];
     total+=chosen.payout; if(chosen.fx==='curse+')curseD++; else if(chosen.fx==='curse-')curseD--;
@@ -3645,9 +3697,11 @@ function renderFence(){
     let chips='';
     it.buyers.forEach((b,bi)=>{
       const pay = b.fx==='keep' ? b.passive : '$'+b.payout.toLocaleString();
-      chips+=`<div class="buyer ${b.cls} ${b.top?'top':''} ${bi===it.saleIdx?'sel':''}" data-i="${i}" data-b="${bi}">
+      const busy = b.id==='noble' && nobleAt>=0 && nobleAt!==i;
+      const note = busy ? `his hands are full with your ${pendingHaul[nobleAt].name} — tap to switch` : (b.note||'&nbsp;');
+      chips+=`<div class="buyer ${b.cls} ${b.top&&!busy?'top':''} ${bi===it.saleIdx?'sel':''} ${busy?'busy':''}" data-i="${i}" data-b="${bi}">
         <div class="bn">${b.nm}</div><div class="bp">${pay}</div>
-        <div class="bf">${b.note||'&nbsp;'}</div></div>`;
+        <div class="bf">${note}</div></div>`;
     });
     const blurb=it.flavor||KIND_BLURB[it.kind]||'';
     row.innerHTML=`<div class="fnm">${it.name}
@@ -3660,10 +3714,21 @@ function renderFence(){
     const i=+el.dataset.i, bi=+el.dataset.b;
     const picked=pendingHaul[i].buyers[bi];
     if(picked && picked.id==='noble'){        // the Noble takes a single piece per visit
-      pendingHaul.forEach((o,oi)=>{ if(oi!==i){ const cur=o.buyers[o.saleIdx]; if(cur&&cur.id==='noble') o.saleIdx=0; } });
+      pendingHaul.forEach((o,oi)=>{ if(oi!==i){ const cur=o.buyers[o.saleIdx]; if(cur&&cur.id==='noble'){ o.saleIdx=0;
+        toast(`The Noble carries one piece home — your ${o.name} goes to the Black Market instead.`,1700); } } });
     }
     pendingHaul[i].saleIdx=bi; renderFence(); });
   if(pendingPerfect) total=Math.round(total*1.4); total=Math.round(total*pendingDangerMult*collGoldMult()*denBonus()*ascMods(ascensionLevel).pay);
+  // the contract client's fee rides on top of the sale — show it here so the
+  // number that lands in the bank is the number this screen promised
+  if(pendingContractReward>0){
+    const row=document.createElement('div'); row.className='fitem';
+    row.innerHTML=`<div class="fnm">${pendingContractInfo?pendingContractInfo.title:'Contract'} ✓
+        <span style="float:right;color:var(--ok);font-weight:700">+$${pendingContractReward.toLocaleString()}</span></div>
+      <div class="fblurb">the client pays on delivery — on top of anything the buyers give you</div>`;
+    list.appendChild(row);
+    total+=pendingContractReward;
+  }
   { const el=$('fenceTotal'), prev=parseInt((el.textContent||'').replace(/\D/g,''))||0;
     if(prev!==total) animateMoney(el, prev, total, 450); else el.textContent='$'+total.toLocaleString(); }
   // the working bonuses as labeled chips, not a run-on sentence
@@ -3710,24 +3775,30 @@ function renderCollection(){
     const lvl=collLevel(t.id), owned=lvl>0, maxed=lvl>=t.max, cost=restoreCost(t);
     const [gc,gg]=TROPHY_GEM[t.id]||['#f5c542','rgba(245,197,66,.6)'];
     const pips=Array.from({length:t.max},(_,i)=>`<i class="${i<lvl?'on':''}"></i>`).join('');
-    let action;
+    // fence treatment: say what it DOES for you now, and what the next $ buys \u2014
+    // never just the mechanic's name
+    let action, nextLine='';
     if(!owned) action=`<div class="rbtn dim">Not claimed</div>`;
     else if(maxed) action=`<div class="rbtn dim">Fully restored</div>`;
-    else action=`<div class="rbtn" data-t="${t.id}">Restore \u00b7 $${cost.toLocaleString()}</div>`;
+    else {
+      nextLine=`<div style="font-size:10.5px;color:var(--muted);letter-spacing:.02em;margin-top:3px">restore \u2192 ${t.eff(lvl+1)}</div>`;
+      action=`<div class="rbtn" data-t="${t.id}">Restore \u00b7 $${cost.toLocaleString()}</div>`;
+    }
     const el=document.createElement('div');
     el.className='niche '+(owned?'owned':'empty');
     el.style.setProperty('--gemc',gc); el.style.setProperty('--gemglow',gg);
     el.innerHTML=`<div class="gem"></div><div class="plinth"></div>
       <div class="plate">${t.passive}</div>
-      <div class="eff">${owned?t.eff(lvl):'Keep a '+t.nm}</div>
+      <div class="eff">${owned?t.eff(lvl)+' \u2014 every run':`escape with a ${t.nm}, then choose \u201cKeep it\u201d at the fence`}</div>
       <div class="pips">${pips}</div>
-      ${action}`;
+      ${nextLine}${action}`;
     g.appendChild(el);
   }
   g.querySelectorAll('.rbtn[data-t]').forEach(el=>el.onclick=()=>{
     const t=trophyById(el.dataset.t), cost=restoreCost(t);
     if(meta.gold>=cost && collLevel(t.id)<t.max){ meta.gold-=cost; meta.collection[t.id]=collLevel(t.id)+1; S.cash();
-      toast(t.passive+' restored \u2014 Lv '+collLevel(t.id),1200); saveMeta(); renderCollection(); }
+      const l2=collLevel(t.id);
+      toast(`${t.passive} Lv${l2} \u2014 ${t.eff(l2)}, every run from now on.`,1500); saveMeta(); renderCollection(); }
   });
 }
 
@@ -4024,7 +4095,7 @@ function renderShop(){
     el.innerHTML=`<div class="cardTop"><span class="nm">${u.nm}</span><span class="lv">${lvl>0?`LV ${lvl}/${u.max}`:''}</span></div>
       <div class="ds">${u.ds}</div>${effLine}
       <div class="cardFoot"><span class="cost">${maxed?'\u2713 MAX':'$'+cost.toLocaleString()}</span>
-        <span class="buyTag ${maxed||!afford?'dim':''}">${maxed?'OWNED':afford?'BUY':'SAVE UP'}</span></div>`;
+        <span class="buyTag ${maxed||!afford?'dim':''}">${maxed?'OWNED':afford?'BUY':`NEED $${(cost-meta.gold).toLocaleString()}`}</span></div>`;
     if(!maxed&&afford){ el.onclick=()=>{ meta.gold-=cost; meta.upg[u.id]=lvl+1; S.cash();
       const wasLocked=ascUnlocked()<1; refreshAscUnlock(); if(wasLocked&&ascUnlocked()>=1) toast('Difficulty Ascension unlocked \u2014 every upgrade maxed.',1600);
       if(capOn(LANES.find(x=>x.ups.includes(u.id))?.id)) toast('LANE MASTERED \u2014 capstone perk unlocked.',1500);
@@ -4059,7 +4130,7 @@ function renderShop(){
       el.innerHTML=`<div class="cardTop"><span class="nm">${t.nm}</span><span class="lv">×${t.uses}/JOB</span></div>
         <div class="ds">${t.ds}</div>
         <div class="cardFoot"><span class="cost">${owned?(equipped?'✓ ON THE BELT':'Owned'):'$'+t.cost.toLocaleString()}</span>
-          <span class="buyTag ${owned||afford?'':'dim'}">${owned?(equipped?'UNEQUIP':'EQUIP'):afford?'BUY':'SAVE UP'}</span></div>`;
+          <span class="buyTag ${owned||afford?'':'dim'}">${owned?(equipped?'UNEQUIP':'EQUIP'):afford?'BUY':`NEED $${(t.cost-meta.gold).toLocaleString()}`}</span></div>`;
       if(!owned&&afford) el.onclick=()=>{ meta.gold-=t.cost; meta.tools[t.id]=1;
         if(!meta.equippedTool) meta.equippedTool=t.id;
         S.cash(); toast(t.nm+' — added to the Workbench.',1100); saveMeta(); renderShop(); };
@@ -4160,21 +4231,45 @@ $('resetBtn').onclick=()=>{ const el=$('resetBtn');
 // pause + how-to navigation
 let howtoFrom='menu';
 function pauseGame(){ if(state!=='playing') return; state='paused'; eHeld=false; touchVec={x:0,y:0}; renderStats(); show('paused'); }
+// live contract progress in plain words \u2014 "am I winning this job right now?"
+function contractStatus(c){
+  if(!c) return null;
+  switch(c.type){
+    case 'quota': return carriedValue>=c.target ? `\u2713 quota met \u2014 get out`
+      : `$${carriedValue.toLocaleString()} of $${c.target.toLocaleString()} smuggled`;
+    case 'timed': return `${Math.max(0,Math.ceil(runTimeLimit-runClock))}s before the collapse`;
+    case 'silent': return runSpotted ? 'blown \u2014 you were seen' : 'clean so far \u2014 stay unseen';
+    case 'untouched': return runDamaged ? 'blown \u2014 you took a hit' : 'untouched so far';
+    case 'sweep': return `${loot.filter(l=>l.got||l.stolen).length} of ${runLootCount} pieces`;
+    case 'steal': return loot.some(l=>l.kind===c.targetKind&&l.got) ? '\u2713 in the bag \u2014 get out' : 'the target isn\u2019t in your bag yet';
+    case 'heart': return loot.some(l=>l.type==='heart'&&l.got) ? '\u2713 the Heart is yours \u2014 RUN' : 'the Heart still waits';
+    case 'hot': return peakHeat>=4 ? '\u2713 hot enough \u2014 now escape' : `push Heat to T4 (now T${peakHeat})`;
+    case 'recovery': return 'choose \u201cReturn it\u201d at the fence';
+  }
+  return null;
+}
 function renderStats(){
+  // every number wears its consequence \u2014 the pause screen answers "so what?"
+  const HEAT_MEANS=['the vault sleeps','eyes opening','guards a step quicker','sharper eyes, faster feet',
+    'the Hunter is out','every eye hunts you','the vault remembers you'];
+  const slowPct=player?Math.max(0,Math.round((1-speedNow()/(player.baseSpeed*(inWater?0.75:1)))*100)):0;
   const rows=[
     ['Move speed', `+${Math.round(11*upgLevel('feet'))}%`],
-    ['Weight drag', `\u2212${Math.round(14*upgLevel('straps'))}%`],
-    ['Noise', `\u2212${Math.round(18*upgLevel('boots'))}%`],
-    ['Sell bonus', `+${8*upgLevel('contacts')}%`],
+    ['Weight drag', `\u2212${Math.round(14*upgLevel('straps'))}% per piece`],
+    ['Footsteps', `${Math.round(18*upgLevel('boots'))}% quieter`],
+    ['At the fence', `+${8*upgLevel('contacts')}% from buyers`],
     ['Hearts', `${player?player.maxHp:3}`],
-    ['Landing', upgLevel('landing')>0?'Silent / safe':'Risky when loaded'],
+    ['Landings', upgLevel('landing')>0?'silent, never hurt':'risky when loaded'],
   ];
   const run=[
-    ['Heat now', `T${heatTier}`],
-    ['Notoriety', `${meta.curseDebt}`],
-    ['In bag', `$${carriedValue.toLocaleString()}`],
-    ['Danger bonus', `+${Math.round(peakHeat*9)}%`],
+    ['In the bag', `$${carriedValue.toLocaleString()}`],
+    ['Greed load', slowPct>0?`${slowPct}% slower`:'light \u2014 full speed'],
+    ['Heat', `T${heatTier} \u2014 ${HEAT_MEANS[heatTier]||''}`],
+    ['Danger pays', `+${Math.round(peakHeat*9)}% on this haul`],
   ];
+  if(meta.curseDebt>0) run.push(['Notoriety', `${meta.curseDebt}/10 \u2014 the Hunter comes sooner`]);
+  const cs=contractStatus(activeContract);
+  if(cs) run.push([activeContract.title, cs]);
   const cell=(k,v)=>`<div class="stat-cell"><span>${k}</span><b>${v}</b></div>`;
   $('statPanel').innerHTML =
     `<div class="stat-head">Loadout</div><div class="stat-grid">${rows.map(r=>cell(r[0],r[1])).join('')}</div>`

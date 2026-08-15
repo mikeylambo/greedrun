@@ -1,5 +1,54 @@
 # Changelog
 
+## Web build — R1 meaning sweep + playtest fixes (build 2026-08-15.9)
+
+Playtest-report fixes:
+
+- **Camera no longer jerks on direction changes at speed**: the look-ahead
+  offset used to snap ~300px across the moment you reversed, and the camera
+  chased it. The lead vector is now eased through zero on its own (capped at
+  130px), so flips glide instead of yanking.
+- **Smoke Bomb actually works point-blank**: guards re-spotted you the frame
+  after the smoke burst because detection is distance-based. Smoke now
+  blinds every guard and sentry for its full 3 seconds, blinded guards
+  can't land a grab, and the cloud trails you so the window is visible.
+  Toast says what you get: "no one can see you. 3 seconds. GO."
+- **Enemies are solid**: you can no longer phase through a guard on your
+  level (post-hit invulnerability used to let you walk straight through,
+  which read as "no collision"). Bodies now push apart; a cornered guard
+  gives ground.
+- **The fence total is the haul growing, not a new number**: the header now
+  reads "Your $2,657 haul — buyers pay $5,463", and a completed contract
+  shows as its own line ("the client pays on delivery") so the amount that
+  lands in the bank is the amount the screen promised.
+- **The Noble's one-piece rule is visible before you tap**: with a piece
+  already picked for him, his chip on other items dims to "his hands are
+  full with your Golden Idol — tap to switch", and switching announces
+  where the bumped piece went.
+- Shop cards you can't afford now say "NEED $250" instead of "SAVE UP".
+- When first seen with a tool on your belt, a one-time tip points at the
+  TOOL button (telemetry: smoke was gifted but unused in 5 of 6 runs).
+
+R1 meaning sweep (release plan):
+
+- **Collection screen speaks payoff**: trophies read "+3% from every buyer —
+  every run", unclaimed niches explain the claim path ("escape with a
+  Golden Idol, then choose 'Keep it' at the fence"), and each restore
+  button carries a "restore → next effect" line.
+- **Pause screen answers "so what?"**: greed load as "% slower", Heat with
+  its tier meaning ("T4 — the Hunter is out"), notoriety's consequence, and
+  live contract progress in plain words ("$1,300 of $1,800 smuggled",
+  "42s before the collapse", "blown — you were seen").
+- **Results screen got its dopamine pass**: the money still rolls up, then
+  each stat lands in a staggered cascade with a little overshoot, and the
+  epithet stamps itself last.
+
+Telemetry tune (10-run report, build .8): quota contracts flipped from 13%
+to 100% success because the static $900–1,600 band fell below your grown
+~$2k average haul. Quotas now track your last 10 escaped hauls
+(×0.9–1.25, clamped $900–4,000), aiming at 40–60% success at any skill
+level.
+
 ## Web build — decisions and results speak player + first telemetry tunes (build 2026-08-15.8)
 
 - **Artifact decision cards state real consequences**: the greed option now

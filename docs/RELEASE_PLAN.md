@@ -29,9 +29,8 @@ canvas renderer). No build step. Design bible: `docs/PORT_HANDOFF.md`
    `/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell`.
    `npm run audit:econ` prints an economy report (informational, not
    pass/fail).
-4. Commit on `claude/friendly-dijkstra-yn1ztf`, then push BOTH:
-   `git push -u origin claude/friendly-dijkstra-yn1ztf` and
-   `git push origin claude/friendly-dijkstra-yn1ztf:main`.
+4. Commit on the session's designated feature branch, then push BOTH:
+   `git push -u origin <branch>` and `git push origin <branch>:main`.
    Pushing main is standing-authorized and auto-deploys (~5s). Verify with
    the Vercel MCP tools (project `prj_znYUCCjQqk7tBNnxfUPtkHXEwPSl`, team
    `team_9hkoGBJSASmRx09t7A0aIHti`).
@@ -53,28 +52,33 @@ canvas renderer). No build step. Design bible: `docs/PORT_HANDOFF.md`
 
 **Telemetry loop.** The in-game REPORT button copies a digest of the last
 runs (`runLog`, localStorage `greedrun_runlog_v1`). The user pastes it into
-chat; use it to drive tuning. Latest report (10 runs, build .7):
-50% escape rate, avg run 1:14, **contract success 13%**, tools never
-purchased, deaths spread across guard/hunter/elite/watchdog, heat routinely
-peaked T5–T6. Build .8 already responded with a quota-contract retune
-(900–1600, was 1400–2400) and a free Smoke Bomb gifted at the Workbench
-unlock — **verify both moved the needle in the next report.**
+chat; use it to drive tuning. Latest report (10 runs, build .8, fresh
+save): **100% escape rate, 0 hits/run, avg run 0:57, contract success
+100%**, peak heat avg T2, smoke equipped 6 runs but used in only 1 (a
+point-blank smoke bug, fixed in .9), all runs clean-modifier. Build .9
+responded by making quota contracts track the player's recent average haul
+(×0.9–1.25) instead of a static band — **verify success lands 40–60% in
+the next report.** The 100%-escape/0-hit pattern also suggests the mid-game
+threat curve is too soft for a skilled player; consider it alongside R2's
+early-game item. Build .7's report for contrast: 50% escape, avg 1:14,
+contract success 13%, heat routinely T5–T6.
 
 ---
 
-## R1 — Finish the meaning sweep (small, do first)
+## R1 — Finish the meaning sweep — DONE (build .9)
 
-The fence screen, decision cards, and results screen now speak in player
-consequences ("~9% slower · Heat +1 — the vault will remember"). Two
-screens still speak programmer:
+- [x] **Collection screen**: trophies state their payoff ("+3% from every
+  buyer — every run"), unclaimed niches explain the claim path, restore
+  buttons carry a "restore → next effect" line.
+- [x] **Pause / mid-run stats**: greed load as "% slower", heat tier with
+  its meaning, notoriety's consequence, live contract progress in plain
+  words (`contractStatus()`).
+- [x] Tip text swept — all `tip(` calls already speak player.
 
-- [ ] **Collection screen**: restore buttons say the mechanic, not the
-  payoff. Give each trophy the fence treatment — what restoring it does for
-  the player, in one plain line, plus the "keep vs restore" tradeoff.
-- [ ] **Pause / mid-run stats**: currently raw numbers. Same treatment —
-  carried value, weight penalty as "% slower", heat tier with its actual
-  meaning, contract progress as "2 of 3 relics".
-- [ ] Sweep any remaining toast/tip text for jargon (grep `tip(` calls).
+Build .9 also shipped playtest fixes outside R1's original scope: camera
+lead smoothing, the smoke-bomb point-blank fix (smoke now blinds guards
+and sentries for its full 3s), solid guard bodies, the extraction→fence
+money bridge, the Noble one-piece-rule visibility, and NEED-$X shop chips.
 
 ## R2 — Balance from telemetry (needs the next playtest report)
 
