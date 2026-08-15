@@ -75,7 +75,9 @@ if (banner2) fails.push('unlock banner showed twice for the same unlocks');
 else log.push('unlocks: banner announces once, then stays quiet');
 
 // ---- veteran: tabs, Gear content, jobs board, rehearsal ----
-await page.evaluate(() => { const G = window.__greed; G.meta.runs = 10; G.meta.seenUnlocks = { upgrades:1, contracts:1, modifiers:1, tools:1, daily:1, collection:1 }; });
+await page.evaluate(() => { const G = window.__greed; G.meta.runs = 30;
+  G.meta.seenUnlocks = { upgrades:1, contracts:1, modifiers:1, tools:1, daily:1, collection:1,
+    chests:1, chute:1, altar:1, breach:1, stash:1, tunnel:1, keys:1 }; });
 await page.click('#menuBtn'); await page.waitForTimeout(150);
 await page.click('#startBtn'); await page.waitForTimeout(200);
 const vet = { tabs: await vis('shopTabs'), daily: await vis('dailyBtn'), coll: await vis('collectionBtn') };

@@ -750,7 +750,7 @@
 "use strict";
 // Build stamp — bump on every deploy. Shown on the title + hideout so a stale
 // Safari cache is instantly visible ("no report button" == old build).
-const BUILD = '2026-08-15.13';
+const BUILD = '2026-08-15.14';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 // Phones fill the screen in whichever way they're held — PORTRAIT (tall) or
@@ -824,20 +824,41 @@ const UPGRADES = [
   { id:'scanner', nm:'Treasure Sense',   base:1500, max:1, ds:'The Vault Heart is revealed from the start of every run.' },
 ];
 function upgLevel(id){ return meta.upg[id]|0; }                 // works for old boolean saves too
-function upgCost(u){ return Math.round(u.base * Math.pow(1.55, upgLevel(u.id))); }
+// TUNE — each level costs DOUBLE (was ×1.55): telemetry showed a skilled player
+// maxing the whole tree in 1-2 hours; the doubling stretches the acquisition arc
+// to a premium 6-8h while leaving level-1 prices (the first-hour dopamine) alone.
+function upgCost(u){ return Math.round(u.base * Math.pow(2, upgLevel(u.id))); }
 
 // ===== Onboarding: the unlock ladder (progressive disclosure) =====
 // A fresh thief meets ONLY move/grab/escape. Systems open one per job, announced
 // in the hideout, so the first session teaches itself. TUNE the thresholds here.
-const UNLOCKS = { upgrades:1, contracts:2, modifiers:3, tools:4, daily:5, collection:6 };
+// Phase A depth re-pace: the ladder stretches to ~24 jobs, and the vault's
+// SECRETS are unlocks too — each one is a discovery with its own announcement,
+// instead of everything arriving at once. (Telemetry: a skilled player maxed
+// the whole game in 1-2 hours; the content existed, the arc spent it instantly.)
+// Ordered by threshold — the teaser picks the first locked key.
+const UNLOCKS = { upgrades:1, contracts:2, modifiers:4, collection:6, tools:8,
+  chests:10, chute:12, daily:14, altar:16, breach:18, stash:20, tunnel:22, keys:24 };
 const UNLOCK_INFO = {
   upgrades:  ['The Fence is open',      'spend banked gold on gear'],
   contracts: ['The Jobs Board is open', 'clients, targets, better pay'],
   modifiers: ['Vault Modifiers',        'free runs now roll a risk/reward twist'],
-  tools:     ['The Workbench is open',  'the fence threw in a Smoke Bomb — one rides per job'],
-  daily:     ['The Daily Run',          'one seeded vault, one ranked attempt, streaks'],
   collection:['The Trophy Room',        'keep treasures for permanent passives'],
+  tools:     ['The Workbench is open',  'the fence threw in a Smoke Bomb — one rides per job'],
+  chests:    ['Strongboxes',            'banded chests wait in the vaults — stand close to crack them'],
+  chute:     ['The Drop Chute',         'bank mid-run at 70¢ on the dollar — yours even if you fall'],
+  daily:     ['The Daily Run',          'one seeded vault, one ranked attempt, streaks'],
+  altar:     ['The Thieves’ Altar',    'three gifts at the vault door — take one per night'],
+  breach:    ['The Breach',             'Heat T4 now cracks the east wall — a second way out'],
+  stash:     ['Hidden Stashes',         'some vaults keep a secret — listen for the tick'],
+  tunnel:    ['The Old Tunnel',         'one-use trapdoors drop you back near the door'],
+  keys:      ['Locked Shutters',        'brass keys and locked shortcuts join the vaults'],
 };
+// Shared vaults play FAIR: a ranked daily or a shared/practice code forces
+// every vault feature on, whatever the player's unlock state — the same code
+// must build the same vault for everyone.
+let pinnedSeed=false;
+function vaultFeatureOn(k){ return unlocked(k) || dailyMode || pinnedSeed; }
 function unlocked(k){
   if(k==='collection' && Object.values(meta.collection||{}).some(v=>v>0)) return true;   // a kept trophy opens the room early
   return (meta.runs|0) >= UNLOCKS[k];
@@ -987,6 +1008,7 @@ function startDaily(){
 }
 function startSeed(seed){                    // unranked practice on any seed
   dailyMode=false; runSeed=(seed>>>0)||1; activeContract=null;
+  pinnedSeed=true;                           // shared codes build the FULL vault for everyone
   startRun();
 }
 function recordDaily(escaped){               // called from endRun for a ranked daily
@@ -1026,7 +1048,7 @@ const TROPHIES = [
 const KIND_TROPHY = { loud:'idol', cursed:'relic', living:'jewel', artifact:'relicart', mythic:'heart' };
 function collLevel(id){ return (meta.collection && meta.collection[id]) | 0; }
 function trophyById(id){ return TROPHIES.find(t=>t.id===id); }
-function restoreCost(t){ return Math.round(t.base * Math.pow(1.5, collLevel(t.id)-1)); } // level 1→2 costs base
+function restoreCost(t){ return Math.round(t.base * Math.pow(1.8, collLevel(t.id)-1)); } // level 1→2 costs base; ×1.8/level (long-tail sink, was 1.5)
 function collGoldMult(){ return 1 + 0.04*collLevel('relicart'); }
 function effLabel(id,l){
   switch(id){
@@ -1980,10 +2002,12 @@ function buildWorld(){
     const deep=vgraph.loopDoors.filter(d=>(vgraph.gradient(d.a)+vgraph.gradient(d.b))/2>=0.35);
     const pick=deep.length?deep:vgraph.loopDoors;
     const d=pick[Math.floor(vrng()*pick.length)];
-    d.state='closed'; d.locked=true; walls.push(d.plug);
-    const ai=vgraph.adj[d.a].indexOf(d.b); if(ai>=0) vgraph.adj[d.a].splice(ai,1);
-    const bi=vgraph.adj[d.b].indexOf(d.a); if(bi>=0) vgraph.adj[d.b].splice(bi,1);
-    lockedDoors.push(d);
+    if(vaultFeatureOn('keys')){
+      d.state='closed'; d.locked=true; walls.push(d.plug);
+      const ai=vgraph.adj[d.a].indexOf(d.b); if(ai>=0) vgraph.adj[d.a].splice(ai,1);
+      const bi=vgraph.adj[d.b].indexOf(d.a); if(bi>=0) vgraph.adj[d.b].splice(bi,1);
+      lockedDoors.push(d);
+    }
   }
 
   // vault dressing BEFORE loot/guards: solid props join collision, so every
@@ -2061,25 +2085,32 @@ function buildWorld(){
   // vault. Stand close and Jo works the lid; the CRACK carries. Contents ride
   // as hidden loot until the lid gives, so they count toward Clean Sweep —
   // a real sweep cracks every box.
-  { const chestN = 1 + (vrng()<0.5?1:0);
+  { const chestsOn=vaultFeatureOn('chests');   // draws always run; placement is earned
+    const chestN = 1 + (vrng()<0.5?1:0);
     for(let i=0;i<chestN;i++){
-      const s=deepSpot(placed,0.35,0.35); placed.push(s);
+      const s=deepSpot(placed,0.35,0.35);
       const c={x:s.x,y:s.y,r:15,open:false,prog:0,items:[]};
-      const rolls=2+(vrng()<0.4?1:0);
+      const rolls=2+(vrng()<0.4?1:0), kinds=[];
       for(let k=0;k<rolls;k++){
-        const kr=vrng(), kind = kr<0.5?'gem':(kr<0.8?'coin':'idol');
-        loot.push(Object.assign({x:s.x,y:s.y,type:kind,glow:vrng()*6.28,got:false,plat:-1,hidden:true,chest:c}, LOOT_TYPES[kind]));
-        c.items.push(loot[loot.length-1]);
+        const kr=vrng(), gl=vrng()*6.28;
+        kinds.push([kr<0.5?'gem':(kr<0.8?'coin':'idol'), gl]);
       }
-      chests.push(c);
+      if(chestsOn){ placed.push(s);
+        for(const [kind,gl] of kinds){
+          loot.push(Object.assign({x:s.x,y:s.y,type:kind,glow:gl,got:false,plat:-1,hidden:true,chest:c}, LOOT_TYPES[kind]));
+          c.items.push(loot[loot.length-1]);
+        }
+        chests.push(c);
+      }
     } }
   // Hidden stash: some vaults keep a secret — invisible until you're close,
   // then a shimmer in the cracks. Walk it to pry it out, silently.
-  { const sr=vrng(), s=deepSpot(placed,0.3,0.3);
-    if(sr<0.6){ placed.push(s);
+  { const sr=vrng(), s=deepSpot(placed,0.3,0.3), g1=vrng()*6.28, g2=vrng()*6.28;
+    if(sr<0.6 && vaultFeatureOn('stash')){ placed.push(s);
       const st={x:s.x,y:s.y,found:false,taken:false,items:[]};
+      let gi=0;
       for(const kind of ['gem','idol']){
-        loot.push(Object.assign({x:s.x,y:s.y,type:kind,glow:vrng()*6.28,got:false,plat:-1,hidden:true,stash:st}, LOOT_TYPES[kind]));
+        loot.push(Object.assign({x:s.x,y:s.y,type:kind,glow:gi++?g2:g1,got:false,plat:-1,hidden:true,stash:st}, LOOT_TYPES[kind]));
         st.items.push(loot[loot.length-1]);
       }
       stashes.push(st);
@@ -2089,16 +2120,18 @@ function buildWorld(){
   // yours, which is player-state — but by then the stream is untouched.)
   { const cr=vrng(), pickIdx=Math.floor(vrng()*TOOLS.length);
     if(cr<0.5){ const s=openSpot(16,220,placed);
-      let tId=TOOLS[pickIdx].id;
-      if(tId===meta.equippedTool) tId=TOOLS[(pickIdx+1)%TOOLS.length].id;
-      toolCache={x:s.x,y:s.y,id:tId,taken:false}; placed.push(s);
+      if(vaultFeatureOn('tools')){
+        let tId=TOOLS[pickIdx].id;
+        if(tId===meta.equippedTool) tId=TOOLS[(pickIdx+1)%TOOLS.length].id;
+        toolCache={x:s.x,y:s.y,id:tId,taken:false}; placed.push(s);
+      }
     } }
 
   // The Thieves' Altar: three gifts by the door, take one. The shuffle is
   // ALWAYS drawn (seed rule); the altar only appears once the Jobs Board is
   // open, so brand-new players learn the basics before choosing builds.
   { const pool=[...DOOR_PERKS].sort(()=>vrng()-0.5);
-    if(unlocked('contracts')){
+    if(vaultFeatureOn('altar')){
       const offs=[-74,0,74];
       for(let i=0;i<3;i++){
         let px=portal.x+118, py=spawnY+offs[i];
@@ -2139,13 +2172,17 @@ function buildWorld(){
     // open — a second way out, born from danger itself. Placed on reachable
     // ground so the desperate sprint is always possible.
     for(let t=0;t<80;t++){ const y=Math.round(vr(150,WORLD.h-150));
-      if(isOpen(WORLD.w-80,y,14) && reach(WORLD.w-80,y)){ breach={x:WORLD.w-62,y,r:42,open:false}; break; } }
+      if(isOpen(WORLD.w-80,y,14) && reach(WORLD.w-80,y)){
+        if(vaultFeatureOn('breach')) breach={x:WORLD.w-62,y,r:42,open:false};
+        break; } }
 
     // The Drop Chute: one per vault, mid-depth. Dump the bag for 70 cents on
     // the dollar — banked the moment it drops, yours even if you never make
     // the door. (It also sheds weight, noise and Heat: greed's pressure valve.)
     for(let t=0;t<60;t++){ const s=deepSpot(placed,0.35,0.3);
-      if(reach(s.x,s.y)){ chute={x:s.x,y:s.y,r:17,prog:0}; placed.push(s); break; } }
+      if(reach(s.x,s.y)){
+        if(vaultFeatureOn('chute')){ chute={x:s.x,y:s.y,r:17,prog:0}; placed.push(s); }
+        break; } }
 
     // The Old Tunnel: ~60% of vaults keep a one-use trapdoor DEEP inside that
     // drops you back near the door — the return trip is the dangerous half,
@@ -2154,10 +2191,13 @@ function buildWorld(){
       if(tr<0.6){
         for(let t=0;t<60;t++){ const s=deepSpot(placed,0.6,0.45);
           if(reach(s.x,s.y)){
-            let ex={x:portal.x+96,y:portal.y};
-            if(!isOpen(ex.x,ex.y,14)) ex={x:portal.x+60,y:portal.y};
-            if(!isOpen(ex.x,ex.y,14)) ex={x:portal.x,y:portal.y};
-            trapdoor={x:s.x,y:s.y,exit:ex,used:false,prog:0}; placed.push(s); break; } }
+            if(vaultFeatureOn('tunnel')){
+              let ex={x:portal.x+96,y:portal.y};
+              if(!isOpen(ex.x,ex.y,14)) ex={x:portal.x+60,y:portal.y};
+              if(!isOpen(ex.x,ex.y,14)) ex={x:portal.x,y:portal.y};
+              trapdoor={x:s.x,y:s.y,exit:ex,used:false,prog:0}; placed.push(s);
+            }
+            break; } }
       } }
 
     // The brass key rides somewhere on reachable ground (only when a locked
@@ -2313,10 +2353,11 @@ function vertHint(msg){ if(vertHintShown) return; vertHintShown=true; toast(msg,
 function recompute(){
   carriedValue=carriedWeight=carriedNoise=carriedCurse=0;
   for(const l of loot){ if(l.got){ carriedValue+=(l.spotted?40:l.value); carriedWeight+=l.weight; carriedNoise+=l.noise; carriedCurse+=l.curse; } }
-  // TUNE — value-per-Heat-tier. Re-centered 650→900 (econ audit): vaults roughly
-  // doubled in total value since 650 was set, which pinned every decent haul at
-  // T6 — flattening danger pay into a constant and making Vault-Remembers routine.
-  heatTier = clamp(Math.floor(carriedValue/900) + Math.floor(carriedCurse/3) + runHeatSeed, 0, 6);
+  // TUNE — value-per-Heat-tier. Re-centered 650→900→1050: every time the vaults
+  // gain loot (chests/stashes added ~$1-2k of total value) this pins decent
+  // hauls at T6 again, flattening danger pay and making Vault-Remembers routine.
+  // If a future pass adds loot, re-center again — watch "peak heat avg" reports.
+  heatTier = clamp(Math.floor(carriedValue/1050) + Math.floor(carriedCurse/3) + runHeatSeed, 0, 6);
   // Legendary Heist: while the Heart is in your bag, the vault KNOWS (locked T6)
   if(activeContract && activeContract.type==='heart' && loot.some(l=>l.type==='heart'&&l.got)) heatTier=6;
   meta.bestHaul = Math.max(meta.bestHaul, carriedValue);
@@ -4006,6 +4047,7 @@ function startRun(){
   if(activeMod.id!=='clean') toast(`${activeMod.name}: ${activeMod.good} ${activeMod.bad}`.trim(), 2600);
   else if(!meta.tips.move) tip('move','Steal what shines — and remember: the exit is where you came in.');   // teaching beats flavor on run one
   else if(rivals.length) toast('A rival thief works this vault tonight — beat him to the goods.',2000);
+  pinnedSeed=false;   // the pin serves exactly one build
 }
 function openOneMore(){
   state='onemore'; $('hud').classList.remove('on'); S.omen();
@@ -4035,7 +4077,7 @@ let pendingArtifact=null;function openDecision(l){
     const cap=Math.max(0.34,0.66-0.07*upgLevel('pockets'));
     return clamp(Math.max(0,w-(capOn('smuggler')?8:0))*sm2,0,cap); };
   const slowPct=Math.max(1,Math.round((penFor(carriedWeight+6)-penFor(carriedWeight))*100));
-  const heatAfter=clamp(Math.floor((carriedValue+l.base)/900)+Math.floor((carriedCurse+3)/3)+runHeatSeed,0,6);
+  const heatAfter=clamp(Math.floor((carriedValue+l.base)/1050)+Math.floor((carriedCurse+3)/3)+runHeatSeed,0,6);   // mirrors recompute()'s divisor
   const dHeat=heatAfter-heatTier;
   const choices=[
     { cls:'greed', t:'Pocket it whole', d:'Take every ounce. It\u2019s heavy, loud, and marked \u2014 the vault will feel it.',

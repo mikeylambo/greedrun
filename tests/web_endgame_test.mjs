@@ -18,7 +18,7 @@ await page.waitForTimeout(300);
 const fails = [], log = [];
 
 // ---- skill lanes render in the hideout ----
-await page.evaluate(() => { window.__greed.meta.runs = 10; });   // veteran save: full hideout unlocked
+await page.evaluate(() => { window.__greed.meta.runs = 30; });   // veteran save: full hideout unlocked (ladder now runs to ~24 jobs)
 await page.click('#startBtn');
 await page.waitForTimeout(150);
 const laneUi = await page.evaluate(() => ({

@@ -1,5 +1,35 @@
 # Changelog
 
+## Web build — Phase A: the depth re-pace (build 2026-08-15.14)
+
+The 18-run report proved the diagnosis: a skilled player maxes everything
+in 1–2 hours, and a maxed build banks 4–5× its haul at permanent T6. The
+content existed — the pacing spent it in an afternoon. Phase A restructures
+the arc without adding content:
+
+- **The unlock ladder now runs to ~24 jobs, and the vault's secrets are
+  the rungs.** Fresh saves start with bare vaults; systems arrive as
+  announced discoveries: Fence (1), Jobs Board (2), Modifiers (4), Trophy
+  Room (6), Workbench (8), **Strongboxes (10), the Drop Chute (12), Daily
+  (14), the Thieves' Altar (16), the Breach (18), Hidden Stashes (20),
+  the Old Tunnel (22), Locked Shutters (24)** — each with its own gold
+  banner and a "next unlock" teaser. Existing saves with 24+ runs see
+  everything immediately.
+- **Shared vaults play fair**: ranked dailies and shared/practice codes
+  force every feature on regardless of unlock state, so the same code
+  builds the same vault for everyone.
+- **Upgrade levels now cost double per level** (was ×1.55). Level-1
+  prices are untouched — the first hour still showers you with upgrades —
+  but maxing the tree is now a 6–8 hour arc instead of 2.
+- **Trophy restores cost ×1.8 per level** (was ×1.5) — the Collection is
+  the long-tail gold sink.
+- **Heat re-centered again (900 → 1050 value/tier)**: chest and stash
+  loot re-inflated vault totals (runs hit 36→45 pieces), pinning greedy
+  runs at T6 and flattening danger pay. T6 is a push again, not a default.
+- Region suite: fresh saves verifiably start bare (no gated secret
+  spawns), veterans get everything, and the altar/chest/chute/tunnel/
+  lock tests all run as a full veteran.
+
 ## Web build — flooded rooms, the Old Tunnel, locked shutters + the brass key (build 2026-08-15.13)
 
 Level-design depth, slice 3 — the last of the queued procgen ideas:

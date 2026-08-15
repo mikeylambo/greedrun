@@ -231,6 +231,7 @@ const res = await page.evaluate(() => {
   }
 
   // ---- Level-design depth: strongboxes ----
+  G.meta.runs = 30;   // the unlock ladder gates secrets — test as a full veteran
   build(SEEDS[0]); const chestN = G.chests.length;
   build(SEEDS[0]);
   if (G.chests.length !== chestN) out.fails.push('chest count not deterministic for the same seed');
@@ -308,8 +309,7 @@ const res = await page.evaluate(() => {
     else out.log.push(`chute: swallowed $${before.toLocaleString()} carried, credited $${Math.round(G.stashedValue).toLocaleString()} (70c, Heart refused)`);
   }
 
-  // ---- The Thieves' Altar: one of three gifts, gated behind the Jobs Board ----
-  const savedRuns = G.meta.runs; G.meta.runs = 5;
+  // ---- The Thieves' Altar: one of three gifts, gated by the unlock ladder ----
   build(SEEDS[2]);
   if (G.doorPicks.length !== 3) out.fails.push('altar should offer exactly 3 gifts (got ' + G.doorPicks.length + ')');
   else {
@@ -320,8 +320,12 @@ const res = await page.evaluate(() => {
     else if (!G.doorPicks.every(o => o.taken)) out.fails.push('taking one gift should crumble the others');
     else out.log.push(`altar: 3 gifts, took ${G.runPerk.nm}, the rest crumbled`);
   }
-  G.meta.runs = savedRuns; build(SEEDS[2]);
-  if (G.doorPicks.length) out.fails.push('altar appeared before the Jobs Board unlock');
+  // fresh saves see none of the secrets — the ladder re-paces the whole arc
+  G.meta.runs = 0; build(SEEDS[2]);
+  if (G.doorPicks.length || G.chests.length || G.chute || G.trapdoor || G.breach || G.toolCache)
+    out.fails.push('a gated secret appeared on a fresh save');
+  else out.log.push('ladder: fresh saves start bare — secrets unlock across ~24 jobs');
+  G.meta.runs = 30;
 
   // ---- The Thief's Ledger renders in the trophy room ----
   G.renderLedger();
@@ -373,6 +377,7 @@ const res = await page.evaluate(() => {
     else out.log.push('locks: shutter closed at gen, key pockets on touch, turns once, door opens');
   }
   G.dailyMutator = {};
+  G.meta.runs = 0;   // leave the page as we found it
   return out;
 });
 

@@ -120,6 +120,30 @@ in rough value order:
   shutters + the brass key (loop-door shortcuts; lockpick also works).
   The procgen ideas queue is now EMPTY — next level-design work should
   come from the next playtest report.
+
+## Depth phases (user verdict: "needs far more depth" — maxed in 1-2h)
+
+- [x] **Phase A — re-pace what exists** (shipped .14): unlock ladder to
+  ~24 jobs with the secrets as announced discoveries; upgrade costs
+  double per level (tree = 6-8h); trophy restores ×1.8; heat re-centered
+  900→1050; shared seeds force full vaults for fairness. The 18-run
+  report that drove this: avg banked $11,974, maxed builds banking 4-5×
+  haul at sustained T6, 100% escapes at max gear.
+- [ ] **Phase B — the career ladder**: visible thief rank (Pickpocket →
+  Legend of the Street) driven by the career ledger; ranks gate
+  locations (Mint → Undercity → Fortress → Treasury) and contract tiers
+  with bigger vaults (`areaScale` is the ready-made knob). The Ledger
+  page becomes the progression screen.
+- [ ] **Phase C — chapter climaxes**: a signature enemy per location and
+  a bespoke Legendary Heist finale per location (the heist system
+  exists); beating it promotes your rank.
+- [ ] **Phase D — the long tail**: museum sets per loot kind, Jo's-room
+  cosmetics from epithets/feats, post-A10 horizon.
+- [ ] **Endgame economy watch**: maxed builds bank 4-5× haul via the
+  multiplier stack (buyers × contacts × danger × den × mastery ×
+  Fortune's Cache × ascension). Phase A stretches sinks instead of
+  nerfing income; if the next report still shows $20k+ banks pre-Phase-B,
+  consider a soft cap on the stacked sale multiplier.
 - [x] **Ascension twists** (shipped .11): every level adds a named,
   cumulative mechanic (Second Hound → Bright Eyes → Rival's Hour → Curfew
   Bell → Light Sleeper → Doubled Watch → Kennel → Sharper Steel → Sealed
