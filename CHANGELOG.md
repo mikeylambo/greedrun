@@ -1,5 +1,21 @@
 # Changelog
 
+## Web build — playtest round 2: stale-cache killer, jobs-board back, tighter stick
+
+- **Stale builds fixed at the root**: "no report button" turned out to be
+  Safari serving an old cached copy — and separately, the report link lived
+  in a row that mobile CSS hides entirely. Vercel now sends
+  `Cache-Control: no-cache, must-revalidate` (single-file game — a 304
+  revalidation costs nothing), and a **build stamp** shows on the title
+  screen and hideout so a stale copy is instantly identifiable.
+- **📋 Report is a real button** in the hideout action row (visible on
+  phones), no longer a hidden hint-line link.
+- **Jobs board back button**: "← Back to the Hideout" so you can hop back
+  to swap your equipped tool or spend gold before committing to a job.
+- **Tighter touch movement**: shorter joystick travel (0.55× ring) with a
+  response knee — full speed by 65% deflection — and a snappier camera
+  (0.10 → 0.13 ease).
+
 ## Web build — playtest round 1 fixes (iPhone)
 
 - **Crisp rendering**: the canvas now oversamples by devicePixelRatio (capped

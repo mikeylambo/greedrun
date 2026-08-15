@@ -503,6 +503,7 @@
       One finger. <em style="color:var(--scarf);font-style:normal">Drag anywhere to move.</em>
       &nbsp;·&nbsp; Grab loot, then get back to the exit alive.<br>
       On a keyboard: <kbd>W A S D</kbd> / arrows to move, hold <kbd>E</kbd> at the exit. <kbd>M</kbd> toggles sound.
+      <br><span style="opacity:.5">build <span class="buildTag"></span></span>
     </div>
   </div>
 
@@ -552,7 +553,9 @@
       <button class="btn" id="dailyBtn">☀ Daily Run</button>
       <button class="btn" id="nextRunBtn">Choose Tonight&rsquo;s Job →</button>
       <button class="btn ghost" id="collectionBtn">The Collection</button>
+      <button class="btn ghost" id="logBtn" style="font-size:14px;padding:12px 20px">📋 Report (<span id="logN">0</span>)</button>
     </div>
+    <div style="font-size:10px;letter-spacing:.12em;color:var(--muted);opacity:.65;margin-top:2px">build <span class="buildTag"></span></div>
     <div id="notoLine"></div>
     <div id="repLine" style="margin-top:6px;font-size:12.5px;letter-spacing:.03em;line-height:1.5"></div>
     <div id="dailyLine"></div>
@@ -561,7 +564,6 @@
     <div class="stat-head" id="wbHead" style="width:min(560px,94%);text-align:center;margin-top:4px">Trickster &middot; The Workbench &middot; one tool rides per job (Space / TOOL)</div>
     <div class="fence-grid" id="toolGrid" style="margin-top:10px"></div>
     <div class="controls-hint">Spend banked gold on gear. Everything you fence here rides with you into the next run.
-      &nbsp;·&nbsp; <span id="logBtn" style="pointer-events:auto;cursor:pointer;color:var(--muted);text-decoration:underline;text-underline-offset:2px">Copy playtest report (<span id="logN">0</span> runs)</span>
       &nbsp;·&nbsp; <span id="resetBtn" style="pointer-events:auto;cursor:pointer;color:var(--muted);text-decoration:underline;text-underline-offset:2px">Reset progress</span></div>
   </div>
 
@@ -579,8 +581,11 @@
     <div class="eyebrow">The Jobs Board · Pick a target</div>
     <h1 class="title" style="font-size:clamp(28px,6vw,48px)">Tonight&rsquo;s Work</h1>
     <div class="job-grid" id="jobGrid"></div>
-    <div class="btn-row"><button class="btn ghost" id="freeRunBtn">Free run — no contract</button></div>
-    <div class="controls-hint">A contract sets your target, your location, and your pay. Accepting one starts the job.</div>
+    <div class="btn-row">
+      <button class="btn ghost" id="freeRunBtn">Free run — no contract</button>
+      <button class="btn ghost" id="jobsBack">← Back to the Hideout</button>
+    </div>
+    <div class="controls-hint">A contract sets your target, your location, and your pay. Accepting one starts the job. Go back to swap your tool or spend gold first.</div>
   </div>
 
   <!-- Fence: move the goods -->
@@ -644,6 +649,9 @@
 <script>
 (() => {
 "use strict";
+// Build stamp — bump on every deploy. Shown on the title + hideout so a stale
+// Safari cache is instantly visible ("no report button" == old build).
+const BUILD = '2026-08-15.2';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 // Phones fill the screen in whichever way they're held — PORTRAIT (tall) or
@@ -1920,7 +1928,7 @@ canvas.addEventListener('pointerdown', ev=>{
     // the stick feels identical whether CSS sized it in px or cqmin (portrait vs
     // landscape) — no more hardcoded 60/52 px drifting from the real ring.
     const half=stickEl.offsetWidth/2 || 60;
-    stickR=half*0.62;
+    stickR=half*0.55;   // shorter thumb travel — tighter feel (playtest)
     stickEl.style.left=(ev.clientX-r.left-half)+'px';
     stickEl.style.top=(ev.clientY-r.top-half)+'px';
     nubEl.style.transform='translate(0,0)';
@@ -1932,7 +1940,9 @@ canvas.addEventListener('pointermove', ev=>{
   let dx=p.px-stickOrig.x, dy=p.py-stickOrig.y;
   const m=Math.hypot(dx,dy)||1, cap=Math.min(m,stickR);
   const nx=dx/m, ny=dy/m;
-  touchVec={x:nx*(cap/stickR), y:ny*(cap/stickR)};
+  // response knee: full speed by 65% deflection — small thumb moves feel decisive
+  const resp=Math.min(1,(cap/stickR)/0.65);
+  touchVec={x:nx*resp, y:ny*resp};
   nubEl.style.transform=`translate(${nx*cap}px,${ny*cap}px)`;
 });
 function endStick(ev){ if(ev.pointerId===stickId){ stickId=null; touchVec={x:0,y:0}; stickEl.style.display='none'; nubEl.style.transform='translate(0,0)'; } }
@@ -2117,8 +2127,8 @@ function update(dt){
   // camera
   // camera leads the way you're moving, then eases — reads as intent, not lag
   const lead=58;
-  cam.x += (clamp(player.x+player.vx*lead-VIEW.w/2,0,WORLD.w-VIEW.w)-cam.x)*0.10;
-  cam.y += (clamp(player.y+player.vy*lead-VIEW.h/2,0,WORLD.h-VIEW.h)-cam.y)*0.10;
+  cam.x += (clamp(player.x+player.vx*lead-VIEW.w/2,0,WORLD.w-VIEW.w)-cam.x)*0.13;
+  cam.y += (clamp(player.y+player.vy*lead-VIEW.h/2,0,WORLD.h-VIEW.h)-cam.y)*0.13;
 
   // Living Loot: flees directly away, sliding along walls until it's cornered
   for(const l of loot){
@@ -3649,6 +3659,8 @@ $('escapeNow').onclick=()=>endRun(true);
 $('stayGreedy').onclick=resumeGreedy;
 $('bankBtn').onclick=bankHaul;
 $('logBtn').onclick=()=>{ copyText(buildReport()); toast('Playtest report copied — paste it to Claude.',1500); };
+$('jobsBack').onclick=openShop;
+document.querySelectorAll('.buildTag').forEach(el=>el.textContent=BUILD);
 let resetArmed=false;
 $('resetBtn').onclick=()=>{ const el=$('resetBtn');
   if(!resetArmed){ resetArmed=true; el.textContent='Tap again to wipe everything';
@@ -3766,7 +3778,7 @@ window.__greed = {
   exitSealed, extractNeed, capOn, searchMul, startRun,
   get activeContract(){ return activeContract; }, set activeContract(v){ activeContract=v; },
   // telemetry / economy-audit surface
-  buildReport, get runLog(){ return runLog; },
+  BUILD, buildReport, get runLog(){ return runLog; },
   set selectedAscension(v){ selectedAscension=v; },
   get peakHeat(){ return peakHeat; }, set peakHeat(v){ peakHeat=v; },
   get heatTier(){ return heatTier; },
