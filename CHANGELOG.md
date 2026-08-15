@@ -1,5 +1,20 @@
 # Changelog
 
+## Web build — the Fence speaks player (build 2026-08-15.7)
+
+- Every buyer chip now states its consequence in plain words: "no questions
+  asked", "takes one piece a visit", "word spreads · +1 notoriety", "the
+  honest road · −1 notoriety" — and reputation's "knows your name · +10%".
+- **Keep it finally explains itself**: the chip shows the trophy passive's
+  actual effect ("+3% from every buyer, forever — restore it later for
+  more") instead of a bare passive name.
+- Items got their character back: a flavor blurb per kind (artifacts keep
+  their own flavor text) and an "appraised $X" so premium offers read as
+  deals; the highest cash offer wears a TOP $ badge.
+- The bonus math is labeled chips (Danger T3 +27% · Perfect heist +40% ·
+  Safehouse +4% · Mastery · Fortune's Cache · modifier/ascension ×) instead
+  of a run-on sentence, and the haul total rolls when selections change.
+
 ## Web build — desktop playtest round: fullscreen, physical props, smooth camera (build 2026-08-15.6)
 
 - **Big-screen desktop**: the stage now grows to the viewport (up to 1560px,
