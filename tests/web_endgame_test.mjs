@@ -18,6 +18,7 @@ await page.waitForTimeout(300);
 const fails = [], log = [];
 
 // ---- skill lanes render in the hideout ----
+await page.evaluate(() => { window.__greed.meta.runs = 10; });   // veteran save: full hideout unlocked
 await page.click('#startBtn');
 await page.waitForTimeout(150);
 const laneUi = await page.evaluate(() => ({
@@ -122,7 +123,15 @@ if (st.stage !== 1 || st.hidden) fails.push('heist did not start at stage 1 with
 
 const hop = async fn => { await page.evaluate(fn); await page.waitForTimeout(220); };
 await hop(() => { const G = window.__greed; const h = G.loot.find(l => l.type === 'heart');
-  G.player.inv = 999; G.player.x = h.x + 150; G.player.y = h.y; G.player.plat = -1; });
+  G.player.inv = 999; G.player.plat = -1;
+  // teleport to an OPEN point at chamber distance — a walled spot would unstick()
+  // the player unpredictably, sometimes straight onto the Heart
+  let px = h.x + 150, py = h.y;
+  for (let a = 0; a < 6.283; a += 0.25) {
+    const x = h.x + Math.cos(a) * 170, y = h.y + Math.sin(a) * 170;
+    if (G.isOpen(x, y, 14) && G.platAt(x, y) === -1) { px = x; py = y; break; }
+  }
+  G.player.x = px; G.player.y = py; });
 st = await page.evaluate(() => window.__greed.heistStage);
 if (st !== 2) fails.push('reaching the chamber did not advance to stage 2 (stage=' + st + ')');
 await hop(() => { const G = window.__greed; const h = G.loot.find(l => l.type === 'heart');

@@ -18,6 +18,7 @@ const page = await browser.newPage();
 page.on('pageerror', e => console.log('PAGE ERROR:', String(e)));
 await page.goto('file://' + root + '/web/index.html');
 await page.waitForTimeout(300);
+await page.evaluate(() => { window.__greed.meta.runs = 60; });   // veteran save: full hideout unlocked
 await page.click('#startBtn'); await page.click('#nextRunBtn'); await page.click('#freeRunBtn');
 await page.waitForTimeout(150);
 

@@ -1,5 +1,29 @@
 # Changelog
 
+## Web build — design pass A+B: onboarding & hideout architecture (build 2026-08-15.4)
+
+- **Unlock ladder**: a fresh thief meets only move/grab/escape. Systems open
+  one per job — Fence (1), Jobs Board (2), Vault Modifiers (3), Workbench
+  (4), Daily (5), Trophy Room (6, or on the first kept trophy) — each
+  announced with a gold banner in the hideout, with a "Next: … after N more
+  jobs" teaser. Until the Board unlocks, "Begin Tonight's Job" starts a
+  clean free run directly.
+- **Contextual tips**: four one-time teaching toasts at the actual moment —
+  first run, first heavy load (teaches Q/DROP), first Heat, first spotted.
+  Persisted; never repeat.
+- **Two-tab hideout**: The Den (scene, bank, actions, standing, daily —
+  measured to fit one screen with zero scrolling) and Gear & Tools (the
+  skill-lane and Workbench catalogs, which may scroll).
+- **The Rehearsal**: practice-a-code is its own screen, reached from a
+  "⌁ rehearse" chip on the daily card — code input plus replayable recent
+  dailies. Unlocks with the Daily.
+- Seed-stream stability: modifier rolls are always drawn (selection gated),
+  so a shared vault code builds the same vault at any unlock state.
+- Fixed: toasts no longer swallow taps/clicks underneath them.
+- New suite `tests/web_onboarding_test.mjs` covers the fresh minimal Den,
+  direct first run, tip firing, banner-once behavior, tab split, Rehearsal
+  flow, and the Den fit; all six suites pass.
+
 ## Web build — playtest round 3: desktop UX (build 2026-08-15.3)
 
 - **How to Play is now two tabbed pages** (The Basics / The Deep End), two

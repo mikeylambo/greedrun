@@ -20,6 +20,7 @@ page.on('pageerror', e => pageErrors.push(String(e)));
 await page.goto('file://' + root + '/web/index.html');
 await page.waitForTimeout(300);
 // enter a real run: useTool() only fires while state === 'playing'
+await page.evaluate(() => { window.__greed.meta.runs = 10; });   // veteran save: full hideout unlocked
 await page.click('#startBtn');
 await page.click('#nextRunBtn');
 await page.click('#freeRunBtn');

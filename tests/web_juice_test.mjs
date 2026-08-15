@@ -42,6 +42,7 @@ if (cueErr) fails.push('cue threw: ' + cueErr);
 else log.push('audio: all ' + await page.evaluate(() => Object.keys(window.__greed.S).length) + ' cues fired cleanly');
 
 // ---- drive a real run through the UI ----
+await page.evaluate(() => { window.__greed.meta.runs = 10; });   // veteran save: full hideout unlocked
 await page.click('#startBtn');            // title -> hideout
 await page.click('#nextRunBtn');          // hideout -> jobs board
 await page.click('#freeRunBtn');          // free run -> playing

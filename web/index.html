@@ -369,6 +369,15 @@
     background:#1c1710;border:1px solid #3a2e1b;border-radius:20px;padding:3px 10px;}
   .fence-legend .lg b{color:var(--bone);font-weight:700;}
   .fence-legend .lg i{width:8px;height:8px;border-radius:50%;flex:none;box-shadow:0 0 5px currentColor;}
+  /* The Den (hideout home) must fit one screen — compact its chrome */
+  #shop{padding:3% 6% 3.5%;}
+  #shop .shop-head{margin-bottom:4px;}
+  #hideoutScene{width:min(500px,96%);}
+  #shop .den-bar{width:min(500px,96%);margin-top:5px;}
+  #shop .den-cap{margin-top:3px;}
+  #shop #tabDen .bank{font-size:28px;margin-top:4px;}
+  #shop .daily-card{margin:6px auto;padding:8px 12px;}
+  #shop .den-perks{margin-top:4px;}
   /* flex:none: inside the flex-column overlay, an overflow:auto item is the only
      shrinkable one and gets crushed to 0 height once the overlay overflows — keep
      natural height and let the OVERLAY scroll instead. */
@@ -446,7 +455,7 @@
     .prompt{font-size:calc(var(--ctl)*0.32);
       bottom:calc(var(--ctl)*1.6 + env(safe-area-inset-bottom));}
   }
-  .toast{position:absolute;top:52px;left:50%;transform:translateX(-50%);
+  .toast{position:absolute;top:52px;left:50%;transform:translateX(-50%);pointer-events:none;
     font-family:"Cinzel",serif;font-weight:700;font-size:14px;letter-spacing:.04em;
     padding:7px 16px;border-radius:20px;background:rgba(20,16,9,.9);
     box-shadow:0 0 0 1px var(--panel-line) inset;opacity:0;transition:opacity .3s, transform .3s;z-index:6;}
@@ -560,27 +569,41 @@
 
   <!-- Fence / upgrades -->
   <div class="overlay" id="shop">
-    <!-- Decluttered order (playtest): scene, bank, ACTIONS first — details after -->
-    <div class="shop-head eyebrow">The Hideout · Fence &amp; Prep</div>
-    <div id="hideoutScene"></div>
-    <div class="den-bar"><i id="denBarFill"></i></div>
-    <div class="den-cap" id="denCap"></div>
-    <div class="bank"><span class="c">Banked gold</span><span id="bankAmt">$0</span></div>
-    <div class="btn-row" style="margin:12px 0 4px">
-      <button class="btn" id="dailyBtn">☀ Daily Run</button>
-      <button class="btn" id="nextRunBtn">Choose Tonight&rsquo;s Job →</button>
-      <button class="btn ghost" id="collectionBtn">The Collection</button>
-      <button class="btn ghost" id="logBtn" style="font-size:14px;padding:12px 20px">📋 Report (<span id="logN">0</span>)</button>
-      <button class="btn ghost" id="menuBtn" style="font-size:14px;padding:12px 20px">⌂ Menu</button>
+    <!-- Two-tab hideout (design pass A+B): The Den is home and fits one screen;
+         Gear & Tools is the catalog and may scroll. Sections gate by unlock ladder. -->
+    <div class="shop-head eyebrow">The Hideout</div>
+    <div class="btn-row" id="shopTabs" style="display:none;margin-bottom:8px">
+      <button class="btn ghost" id="tabDenBtn" style="font-size:13px;padding:8px 20px">The Den</button>
+      <button class="btn ghost" id="tabGearBtn" style="font-size:13px;padding:8px 20px">Gear &amp; Tools</button>
     </div>
-    <div style="font-size:10px;letter-spacing:.12em;color:var(--muted);opacity:.65;margin-top:2px">build <span class="buildTag"></span></div>
-    <div id="notoLine"></div>
-    <div id="repLine" style="margin-top:6px;font-size:12.5px;letter-spacing:.03em;line-height:1.5"></div>
-    <div id="dailyLine"></div>
-    <div class="den-perks" id="denPerks"></div>
-    <div class="fence-grid" id="fenceGrid"></div>
-    <div class="stat-head" id="wbHead" style="width:min(560px,94%);text-align:center;margin-top:4px">Trickster &middot; The Workbench &middot; one tool rides per job (Space / TOOL)</div>
-    <div class="fence-grid" id="toolGrid" style="margin-top:10px"></div>
+    <div id="unlockBanner" style="display:none;pointer-events:none;margin-bottom:8px;padding:7px 16px;border-radius:20px;
+      font-size:12.5px;letter-spacing:.04em;color:var(--vault);font-weight:600;
+      background:linear-gradient(180deg,var(--scarf),var(--gold-deep));box-shadow:0 6px 22px rgba(245,197,66,.35)"></div>
+    <div id="tabDen" style="display:contents">
+      <div id="hideoutScene"></div>
+      <div class="den-bar"><i id="denBarFill"></i></div>
+      <div class="den-cap" id="denCap"></div>
+      <div class="bank"><span class="c">Banked gold</span><span id="bankAmt">$0</span></div>
+      <div class="btn-row" style="margin:12px 0 4px">
+        <button class="btn" id="dailyBtn">☀ Daily Run</button>
+        <button class="btn" id="nextRunBtn">Choose Tonight&rsquo;s Job →</button>
+        <button class="btn ghost" id="collectionBtn">The Collection</button>
+        <button class="btn ghost" id="logBtn" style="font-size:14px;padding:12px 20px">📋 Report (<span id="logN">0</span>)</button>
+        <button class="btn ghost" id="menuBtn" style="font-size:14px;padding:12px 20px">⌂ Menu</button>
+      </div>
+      <div id="unlockTeaser" style="font-size:11px;letter-spacing:.06em;color:var(--muted);margin-top:2px"></div>
+      <div style="font-size:10px;letter-spacing:.12em;color:var(--muted);opacity:.65;margin-top:2px">build <span class="buildTag"></span></div>
+      <div id="notoLine"></div>
+      <div id="repLine" style="margin-top:6px;font-size:12.5px;letter-spacing:.03em;line-height:1.5"></div>
+      <div id="dailyLine"></div>
+      <div class="den-perks" id="denPerks"></div>
+    </div>
+    <div id="tabGear" style="display:none">
+      <div class="bank" style="font-size:20px;margin-bottom:6px"><span class="c">Banked gold</span><span id="gearGold">$0</span></div>
+      <div class="fence-grid" id="fenceGrid"></div>
+      <div class="stat-head" id="wbHead" style="width:min(560px,94%);text-align:center;margin-top:4px">Trickster &middot; The Workbench &middot; one tool rides per job (Space / TOOL)</div>
+      <div class="fence-grid" id="toolGrid" style="margin-top:10px"></div>
+    </div>
     <div class="controls-hint">Spend banked gold on gear. Everything you fence here rides with you into the next run.
       &nbsp;·&nbsp; <span id="resetBtn" style="pointer-events:auto;cursor:pointer;color:var(--muted);text-decoration:underline;text-underline-offset:2px">Reset progress</span></div>
   </div>
@@ -604,6 +627,20 @@
       <button class="btn ghost" id="jobsBack">← Back to the Hideout</button>
     </div>
     <div class="controls-hint">A contract sets your target, your location, and your pay. Accepting one starts the job. Go back to swap your tool or spend gold first.</div>
+  </div>
+
+  <!-- The Rehearsal: practice any shared vault (unlocks with the Daily) -->
+  <div class="overlay" id="practice">
+    <div class="eyebrow">Unranked · unlimited attempts</div>
+    <h1 class="title" style="font-size:clamp(26px,5vw,42px)">The Rehearsal</h1>
+    <p class="tagline" style="margin:12px 0 16px">Paste a shared vault code and case the exact same job as its owner —
+      same walls, same loot, same eyes. Nothing here is ranked; it&rsquo;s where runs are studied.</p>
+    <div class="dc-seed" style="width:min(440px,92%)">
+      <input id="seedInput" placeholder="GR-2026-8-15-XXXXX &mdash; or a raw seed">
+      <button id="seedGo">Case it</button>
+    </div>
+    <div class="dc-stats" id="practiceHistory" style="margin-top:14px;justify-content:center"></div>
+    <div class="btn-row" style="margin-top:20px"><button class="btn ghost" id="practiceBack">← Back to the Hideout</button></div>
   </div>
 
   <!-- Fence: move the goods -->
@@ -669,7 +706,7 @@
 "use strict";
 // Build stamp — bump on every deploy. Shown on the title + hideout so a stale
 // Safari cache is instantly visible ("no report button" == old build).
-const BUILD = '2026-08-15.3';
+const BUILD = '2026-08-15.4';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 // Phones fill the screen in whichever way they're held — PORTRAIT (tall) or
@@ -716,6 +753,8 @@ const meta = {
   collection: { idol:0, relic:0, jewel:0, relicart:0, heart:0 },
   tools: { smoke:0, decoy:0, grapple:0, lockpick:0, portal:0 }, equippedTool:'',
   rep: {},           // epithet -> times earned; the street remembers (reputation system)
+  tips: {},          // one-time contextual teaching moments already shown
+  seenUnlocks: {},   // unlock-ladder announcements already made
   ascUnlocked: 0, bestByAsc: {},
   modsCleared: {},   // vault-modifier ids you've banked a haul under (Modifier Mastery)
   daily: { playedDay:'', playedScore:0, playedEscaped:false, streak:0, bestStreak:0, best:0, history:[] }
@@ -734,6 +773,25 @@ const UPGRADES = [
 ];
 function upgLevel(id){ return meta.upg[id]|0; }                 // works for old boolean saves too
 function upgCost(u){ return Math.round(u.base * Math.pow(1.55, upgLevel(u.id))); }
+
+// ===== Onboarding: the unlock ladder (progressive disclosure) =====
+// A fresh thief meets ONLY move/grab/escape. Systems open one per job, announced
+// in the hideout, so the first session teaches itself. TUNE the thresholds here.
+const UNLOCKS = { upgrades:1, contracts:2, modifiers:3, tools:4, daily:5, collection:6 };
+const UNLOCK_INFO = {
+  upgrades:  ['The Fence is open',      'spend banked gold on gear'],
+  contracts: ['The Jobs Board is open', 'clients, targets, better pay'],
+  modifiers: ['Vault Modifiers',        'free runs now roll a risk/reward twist'],
+  tools:     ['The Workbench is open',  'one tool rides per job'],
+  daily:     ['The Daily Run',          'one seeded vault, one ranked attempt, streaks'],
+  collection:['The Trophy Room',        'keep treasures for permanent passives'],
+};
+function unlocked(k){
+  if(k==='collection' && Object.values(meta.collection||{}).some(v=>v>0)) return true;   // a kept trophy opens the room early
+  return (meta.runs|0) >= UNLOCKS[k];
+}
+// One-time contextual tips, fired at the teachable moment (persisted).
+function tip(id,msg){ if(meta.tips[id]) return; meta.tips[id]=1; saveMeta(); toast(msg,2800); }
 
 // ===== The Workbench: Jo's tool kit (GDD §Progression/Tools) =====
 // Buy once at the hideout; ONE tool rides per job with limited charges, fired by
@@ -1360,10 +1418,11 @@ function buildWorld(){
   noiseMuffled=false;
   hunterSpawned=false; vertHintShown=false; resetSever();
   // Roll this run's vault modifier. Free runs only — contracts and dailies carry
-  // their own structure. Seeded from vrng() so a given vault always reads the same.
-  if(activeContract==null && !dailyMode){
-    activeMod = vrng()<0.30 ? MODIFIERS[0] : MODIFIERS[1 + Math.floor(vrng()*(MODIFIERS.length-1))];
-  } else activeMod = MODIFIERS[0];
+  // their own structure. BOTH draws always happen so the seeded stream is identical
+  // whatever the player's unlock state — a shared code is the same vault for everyone.
+  const modR1=vrng(), modR2=vrng();
+  activeMod = (activeContract==null && !dailyMode && unlocked('modifiers') && modR1>=0.30)
+    ? MODIFIERS[1 + Math.floor(modR2*(MODIFIERS.length-1))] : MODIFIERS[0];
   runHeatSeed = clamp(Math.floor(meta.curseDebt/2) - upgLevel('cool') - denCalm(), 0, 3) + ascMods(ascensionLevel).heat + (dailyMutator.heat||0) + activeMod.heat;  // world + den standing + ascension + weekly mutator + vault modifier
   runSpotted=false; runClock=0; peakHeat=0; runDamaged=false;
   runTimeLimit = activeContract && activeContract.type==='timed' ? activeContract.timeLimit : (activeMod.time||0);
@@ -2178,6 +2237,8 @@ function update(dt){
       l.got=true; recompute();
       if(l.kind==='living') S.living(); else S.pickup(l.value);
       ring(l.x,l.y,'#f5c542',{r0:4,vr:90,life:0.3,lw:2});
+      if(carriedWeight>=6) tip('load','Feel the weight? Greed slows you. Q / DROP sheds your heaviest piece.');
+      else if(heatTier>=2) tip('heat','Heat rises with your haul — the vault gets faster and sharper-eyed.');
       if(l.kind==='living'){ toast('Cornered the Skitterjewel!', 1100);
         for(let i=0;i<10;i++)particles.push(mkP(l.x,l.y,'#8fe39a')); }
       if(l.kind==='royal'){ summonElites(l.x,l.y); flashCurse=1;
@@ -2214,7 +2275,8 @@ function update(dt){
     const hears = g.dog && !ghosting && noiseNow()>=2 && dist2(g.x,g.y,player.x,player.y) < Math.pow(240+noiseNow()*26,2);
     const seeing = !ghosting && (hears || dist2(g.x,g.y,player.x,player.y) < gDet*gDet);
     if(seeing){
-      if(g.state!=='chase' && spotCueCd<=0){ spotCueCd=0.9; S.spotted(); }   // audible "they saw you"
+      if(g.state!=='chase' && spotCueCd<=0){ spotCueCd=0.9; S.spotted();
+        tip('seen','SEEN! Break line of sight and they’ll lose the trail.'); }   // audible "they saw you"
       g.state='chase'; g.alert=Math.min(1,g.alert+dt*3);
       g.lkp={x:player.x,y:player.y}; runSpotted=true;   // no longer a silent job
     } else if(g.state==='chase'){
@@ -2989,7 +3051,7 @@ function animateMoney(el,from,to,ms){
 }
 
 // ---------- flow ----------
-function show(id){ ['menu','howto','paused','shop','collection','contracts','fence','onemore','decision','result'].forEach(o=>$(o).classList.toggle('on', o===id)); }
+function show(id){ ['menu','howto','paused','shop','collection','contracts','fence','onemore','decision','result','practice'].forEach(o=>$(o).classList.toggle('on', o===id)); }
 function startRun(){
   // Dailies use their ladder level directly (up to the cap); normal runs clamp to what you've unlocked.
   ascensionLevel = dailyMode ? clamp(selectedAscension, 0, ASC_MAX) : clamp(selectedAscension, 0, ascUnlocked());
@@ -3009,6 +3071,7 @@ function startRun(){
   $('prompt').innerHTML = isTouch ? 'Hold the <b>gold button</b> — escape with your haul'
                                   : 'Hold <b>E</b> — Escape with your haul';
   if(activeMod.id!=='clean') toast(`${activeMod.name}: ${activeMod.good} ${activeMod.bad}`.trim(), 2600);
+  else tip('move','Steal what shines — and remember: the exit is where you came in.');
 }
 function openOneMore(){
   state='onemore'; $('hud').classList.remove('on'); S.omen();
@@ -3396,6 +3459,7 @@ async function loadMeta(){
         if(d.collection) Object.assign(meta.collection,d.collection);
         if(d.tools) Object.assign(meta.tools,d.tools);
         meta.equippedTool=d.equippedTool||''; if(d.rep) meta.rep=d.rep;
+        if(d.tips) meta.tips=d.tips; if(d.seenUnlocks) meta.seenUnlocks=d.seenUnlocks;
         meta.ascUnlocked=d.ascUnlocked||0; if(d.bestByAsc) meta.bestByAsc=d.bestByAsc;
         if(d.modsCleared) meta.modsCleared=d.modsCleared;
         if(d.daily) Object.assign(meta.daily, d.daily);
@@ -3409,6 +3473,7 @@ async function saveMeta(){
   try{ await store.set(SAVE_KEY, JSON.stringify({
     gold:meta.gold, runs:meta.runs, bestHaul:meta.bestHaul, curseDebt:meta.curseDebt, upg:meta.upg, collection:meta.collection,
     tools:meta.tools, equippedTool:meta.equippedTool, rep:meta.rep,
+    tips:meta.tips, seenUnlocks:meta.seenUnlocks,
     ascUnlocked:meta.ascUnlocked, bestByAsc:meta.bestByAsc, modsCleared:meta.modsCleared, daily:meta.daily })); }
   catch(e){}
 }
@@ -3418,6 +3483,7 @@ async function wipeMeta(){
   meta.upg={straps:0,boots:0,feet:0,luck:0,landing:0,scanner:0,pockets:0,contacts:0,cool:0,revive:0};
   meta.collection={idol:0,relic:0,jewel:0,relicart:0,heart:0};
   meta.tools={smoke:0,decoy:0,grapple:0,lockpick:0,portal:0}; meta.equippedTool=''; meta.rep={};
+  meta.tips={}; meta.seenUnlocks={};
   meta.ascUnlocked=0; meta.bestByAsc={}; meta.modsCleared={}; selectedAscension=0; ascensionLevel=0;
   meta.daily={ playedDay:'', playedScore:0, playedEscaped:false, streak:0, bestStreak:0, best:0, history:[] };
   runLog=[]; try{ localStorage.removeItem(LOG_KEY); }catch(e){}
@@ -3528,14 +3594,49 @@ function renderHideoutScene(){
       +`<b>${p[1]}</b><em>${on?p[2]():'locked'}</em></span>`;
   }).join('');
     // Modifier Mastery — a long-game track: beat a run under each vault twist.
-    const mn=masteryCount(), full=mn===TWISTS.length;
-    pk.innerHTML += `<span class="denperk${full?' on':''}">${full?'✔':'→'} `
-      +`<b>Modifier Mastery ${mn}/${TWISTS.length}</b>`
-      +`<em>${mn>0?'+'+Math.round((masteryMult()-1)*100)+'% on all sales':'beat a run under each vault twist'}</em></span>`;
+    if(unlocked('modifiers')){
+      const mn=masteryCount(), full=mn===TWISTS.length;
+      pk.innerHTML += `<span class="denperk${full?' on':''}">${full?'✔':'→'} `
+        +`<b>Modifier Mastery ${mn}/${TWISTS.length}</b>`
+        +`<em>${mn>0?'+'+Math.round((masteryMult()-1)*100)+'% on all sales':'beat a run under each vault twist'}</em></span>`;
+    }
   }
+}
+let shopTab='den';
+function applyShopTab(){
+  const gearAvail=unlocked('upgrades');
+  $('shopTabs').style.display = gearAvail ? 'flex' : 'none';
+  if(!gearAvail) shopTab='den';
+  $('tabDen').style.display  = shopTab==='den'  ? 'contents' : 'none';
+  $('tabGear').style.display = shopTab==='gear' ? 'contents' : 'none';
+  $('tabDenBtn').style.boxShadow  = shopTab==='den'  ? '0 0 0 1px var(--gold-deep) inset' : '';
+  $('tabGearBtn').style.boxShadow = shopTab==='gear' ? '0 0 0 1px var(--gold-deep) inset' : '';
 }
 function renderShop(){
   renderHideoutScene();
+  // ---- unlock ladder: announce fresh unlocks (once), tease the next one ----
+  { const fresh=[];
+    for(const k in UNLOCKS){ if(unlocked(k) && !meta.seenUnlocks[k]){ meta.seenUnlocks[k]=1; fresh.push(UNLOCK_INFO[k]); } }
+    const ub=$('unlockBanner');
+    if(fresh.length && fresh.length<=2){
+      ub.style.display='block';
+      ub.innerHTML=fresh.map(f=>`NEW — <b>${f[0]}</b>: ${f[1]}`).join(' &nbsp;·&nbsp; ');
+      S.boon(); saveMeta();
+    } else { ub.style.display='none'; if(fresh.length) saveMeta(); }   // migration: many at once → silent
+  }
+  { const next=Object.keys(UNLOCKS).find(k=>!unlocked(k));
+    const t=$('unlockTeaser');
+    if(next){ const need=UNLOCKS[next]-(meta.runs|0);
+      t.style.display='block';
+      t.textContent=`Next: ${UNLOCK_INFO[next][0].replace(' is open','')} — after ${need} more job${need===1?'':'s'}`;
+    } else t.style.display='none'; }
+  // ---- section gates ----
+  $('dailyBtn').style.display = unlocked('daily') ? '' : 'none';
+  $('collectionBtn').style.display = unlocked('collection') ? '' : 'none';
+  $('denPerks').style.display = (meta.runs|0)>=2 ? '' : 'none';
+  $('nextRunBtn').innerHTML = unlocked('contracts') ? 'Choose Tonight&rsquo;s Job →' : 'Begin Tonight&rsquo;s Job →';
+  applyShopTab();
+  $('gearGold').textContent='$'+meta.gold.toLocaleString();
   const ln=$('logN'); if(ln) ln.textContent=runLog.length;
   { const el=$('bankAmt'), prev=parseInt((el.textContent||'').replace(/\D/g,''))||0;
     if(prev!==meta.gold) animateMoney(el, prev, meta.gold, 700);
@@ -3587,11 +3688,15 @@ function renderShop(){
     for(const uid of l.ups) grid.appendChild(upCard(UPGRADES.find(u=>u.id===uid)));
   }
   // The Workbench (the Trickster lane): buy tools once; equip ONE per job
-  const wh=$('wbHead');
-  if(wh){ const tOwned=TOOLS.filter(t=>ownsTool(t.id)).length, tDone=capOn('trickster');
+  const wh=$('wbHead'), tgGate=$('toolGrid');
+  if(!unlocked('tools')){
+    if(wh) wh.innerHTML='⟶ The Workbench opens after job '+UNLOCKS.tools;
+    if(tgGate){ tgGate.style.display='none'; tgGate.innerHTML=''; }
+  } else if(tgGate) tgGate.style.display='';
+  if(unlocked('tools') && wh){ const tOwned=TOOLS.filter(t=>ownsTool(t.id)).length, tDone=capOn('trickster');
     wh.innerHTML=`Trickster &middot; The Workbench &middot; ${tOwned}/${TOOLS.length} tools &middot; one rides per job (Space / TOOL)`
       +` &middot; <span style="color:${tDone?'var(--ok)':'var(--muted)'};letter-spacing:.04em">${tDone?'✔':'⟶'} Sleight of Hand — +1 charge</span>`; }
-  const tg=$('toolGrid');
+  const tg=unlocked('tools')?$('toolGrid'):null;
   if(tg){ tg.innerHTML='';
     for(const t of TOOLS){
       const owned=ownsTool(t.id), equipped=meta.equippedTool===t.id, afford=meta.gold>=t.cost;
@@ -3614,6 +3719,7 @@ function renderShop(){
 // Hideout daily panel: today's seed/mutator/ladder/streak, a replay-history browser,
 // and a practice input to play any shared seed.
 function renderDaily(){
+  if(!unlocked('daily')){ $('dailyLine').innerHTML=''; return; }
   const d=meta.daily, played=dailyPlayedToday(), code='GR-'+dayKey()+'-'+seedToCode(daySeed(dayKey()));
   const mut=weeklyMutator(), asc=dailyAscension();
   const today = played ? (d.playedEscaped?'$'+d.playedScore.toLocaleString():'caught') : 'open';
@@ -3627,22 +3733,20 @@ function renderDaily(){
     +   `<span class="chip">today <b>${today}</b></span>`
     +   `<span class="chip">streak <b>${d.streak|0}</b><i>·${d.bestStreak|0}</i></span>`
     +   `<span class="chip">best <b>$${(d.best|0).toLocaleString()}</b></span>`
-    +   historyChips(d)
-    +   `<span class="hchip" id="seedToggle" title="practice any shared vault">⌁ code</span>`
+    +   `<span class="hchip" id="rehearseBtn" title="practice any shared vault">⌁ rehearse</span>`
     + `</div>`
-    + `<div class="dc-seed" id="seedRow" style="display:none"><input id="seedInput" placeholder="paste a code to practice any vault">`
-    +   `<button id="seedGo">Practice</button></div>`
     + `</div>`;
-  const st=$('seedToggle'); if(st) st.onclick=()=>{ const r=$('seedRow');
-    r.style.display = r.style.display==='none' ? 'flex' : 'none'; };
   const btn=$('dailyBtn'); if(btn){ btn.disabled=played; btn.style.opacity=played?0.5:1;
     btn.textContent = played?'☀ Daily done — back tomorrow':'☀ Daily Run'; }
   const cc=$('dailyCode'); if(cc) cc.onclick=()=>{ copyText(code); toast('Daily code copied.',900); };
-  const go=$('seedGo'), inp=$('seedInput');
-  if(go&&inp) go.onclick=()=>{ const raw=inp.value.trim(); if(!raw) return;
-    const parts=raw.split('-'), c=parts.length>=3?parts[parts.length-1]:raw;
-    const seed = /^[0-9]+$/.test(c) ? (parseInt(c,10)>>>0) : codeToSeed(c);
-    if(seed) startSeed(seed); };
+  const rb=$('rehearseBtn'); if(rb) rb.onclick=openPractice;
+}
+// ---------- The Rehearsal: practice any shared vault (its own screen) ----------
+function openPractice(){ state='practice'; renderPractice(); show('practice'); }
+function renderPractice(){
+  const d=meta.daily, ph=$('practiceHistory');
+  ph.innerHTML = (d.history||[]).length
+    ? `<span class="chip">replay a recent daily</span>`+historyChips(d) : '';
   (d.history||[]).slice(0,5).forEach((h,i)=>{ const pb=$('hc'+i); if(pb) pb.onclick=()=>startSeed(h.seed); });
 }
 // Recent dailies as tiny replayable chips (no vertical list — keeps the panel short).
@@ -3672,7 +3776,15 @@ function renderAscension(){
 // buttons
 $('startBtn').onclick=()=>openShop();          // first stop is the hideout
 $('dailyBtn').onclick=startDaily;
-$('nextRunBtn').onclick=openContracts;
+// Before the Jobs Board unlocks, "Begin Tonight's Job" goes straight in.
+$('nextRunBtn').onclick=()=>{ if(unlocked('contracts')) openContracts(); else { activeContract=null; startRun(); } };
+$('tabDenBtn').onclick=()=>{ shopTab='den'; applyShopTab(); };
+$('tabGearBtn').onclick=()=>{ shopTab='gear'; applyShopTab(); };
+$('practiceBack').onclick=openShop;
+$('seedGo').onclick=()=>{ const raw=$('seedInput').value.trim(); if(!raw) return;
+  const parts=raw.split('-'), c=parts.length>=3?parts[parts.length-1]:raw;
+  const seed=/^[0-9]+$/.test(c)?(parseInt(c,10)>>>0):codeToSeed(c);
+  if(seed) startSeed(seed); };
 $('collectionBtn').onclick=openCollection;
 $('collBack').onclick=openShop;
 $('freeRunBtn').onclick=()=>{ activeContract=null; startRun(); };
