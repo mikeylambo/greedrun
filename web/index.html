@@ -730,7 +730,7 @@
 "use strict";
 // Build stamp — bump on every deploy. Shown on the title + hideout so a stale
 // Safari cache is instantly visible ("no report button" == old build).
-const BUILD = '2026-08-15.9';
+const BUILD = '2026-08-15.10';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 // Phones fill the screen in whichever way they're held — PORTRAIT (tall) or
@@ -1659,7 +1659,9 @@ function buildWorld(){
   let hSpot={x:WORLD.w-150, y: vrng()<.5 ? 180 : WORLD.h-180};
   if(vgraph){ const p=openSpotInRegion(vgraph.deepestRoom(),null); if(p) hSpot=p; }
   add('heart', hSpot.x, hSpot.y);
-  if(upgLevel('scanner')>0){ heartRevealed=true; } else { loot[loot.length-1].hidden=true; }
+  if(upgLevel('scanner')>0){ heartRevealed=true;
+    tip('sense','Treasure Sense — the gold arrow points to the Vault Heart.'); }
+  else { loot[loot.length-1].hidden=true; }
 
   // Reachability guarantee: arena layouts can (rarely) wall off a pocket. Flood-
   // fill open ground from the entrance and move any sealed-in ground loot to a
@@ -1704,7 +1706,11 @@ function buildWorld(){
     guards.push({x:a.x,y:a.y,r:11,dog:true,wps,wi:0,state:'patrol',alert:0,face:0,hitCd:0,lkp:null,searchT:0}); }
 
   // Rival Thief: a competitor working the same vault — whatever it grabs, you can't.
-  { const s=deepSpot([],0.4,0.45); rivals.push({x:s.x,y:s.y,r:13,target:null,face:0}); }
+  // He works ~half of nights (playtest: constant presence read as furniture —
+  // absence makes his nights an event). Both draws are ALWAYS consumed so
+  // dailies and shared vault codes reproduce identically.
+  { const s=deepSpot([],0.4,0.45), tonight=vrng()<0.55;
+    if(tonight) rivals.push({x:s.x,y:s.y,r:13,target:null,face:0}); }
 
   // NEW: stationary sentries with swiveling vision cones (guard the deep loot)
   const senCount=2+Math.floor(vrng()*2); // 2-3
@@ -2397,7 +2403,12 @@ function update(dt){
     const hears = g.dog && !ghosting && noiseNow()>=2 && dist2(g.x,g.y,player.x,player.y) < Math.pow(240+noiseNow()*26,2);
     // Smoke blinds EVERYONE for its full 3s — without this, a guard standing next
     // to you re-spotted you the very next frame and the bomb read as broken.
-    const seeing = !ghosting && smokeT<=0 && (hears || dist2(g.x,g.y,player.x,player.y) < gDet*gDet);
+    // Sight also finally requires LINE OF SIGHT — the game always taught "break
+    // line of sight", but detection was pure distance, so ducking behind a wall
+    // did nothing. Hearing (the watchdog) still carries through walls.
+    if(g.winded>0) g.winded-=dt;
+    const inSight = dist2(g.x,g.y,player.x,player.y) < gDet*gDet && losClear(g.x,g.y,player.x,player.y);
+    const seeing = !ghosting && smokeT<=0 && !(g.winded>0) && (hears || inSight);
     if(seeing){
       if(g.state!=='chase' && spotCueCd<=0){ spotCueCd=0.9; S.spotted();
         tip('seen','SEEN! Break line of sight and they’ll lose the trail.');   // audible "they saw you"
@@ -2405,9 +2416,18 @@ function update(dt){
           tip('toolready','You’re carrying a tool — Space / TOOL. Chases are what it’s for.'); }
       g.state='chase'; g.alert=Math.min(1,g.alert+dt*3);
       g.lkp={x:player.x,y:player.y}; runSpotted=true;   // no longer a silent job
+      // even a chase has lungs: a pursuer that can't close the gap gives up winded.
+      // Playtest: "sometimes it feels impossible to escape them" — watchdogs
+      // especially (3 of 6 deaths) outrun a loaded Jo at any heat, forever.
+      g.chaseT=(g.chaseT||0)+dt;
+      const tireAt = g.dog?4.5 : g.hunter?12 : 8;
+      if(g.chaseT>=tireAt){ g.winded=3; g.chaseT=0;
+        floaters.push({x:g.x,y:g.y-g.r-10,txt:'winded',life:1.2,col:'#9a917d'});
+        tip('shake','You outlasted the chase — pursuers tire if they can’t catch you.'); }
     } else if(g.state==='chase'){
       g.state='investigate'; g.searchT = (g.hunter?3.5:2.4)*searchMul();  // lost sight → go look (Cold Trail shortens it)
-    } else if(g.alert>0){ g.alert=Math.max(0,g.alert-dt*0.5); }
+      g.chaseT=0;
+    } else if(g.alert>0){ g.alert=Math.max(0,g.alert-dt*0.5); g.chaseT=0; }
 
     // choose a target by state
     let tx,ty,spd,searching=false;
@@ -2421,6 +2441,7 @@ function update(dt){
     } else { g.state='patrol'; const wp=g.wps[g.wi]; tx=wp.x; ty=wp.y; spd=gBase;
       if(dist2(g.x,g.y,tx,ty)<32*32) g.wi=(g.wi+1)%g.wps.length; }
 
+    if(g.winded>0) spd*=0.75;   // catching their breath
     if(!searching){
       // Thread doorways in room grids instead of pressing into a partition wall.
       const nav = navTarget(vgraph, g.x, g.y, tx, ty);
@@ -2447,7 +2468,7 @@ function update(dt){
     // contact — grunts only reach ground-level Jo; the Hunter reaches you anywhere.
     // Blinded by smoke, nobody can land a grab (they can't see what they'd grab).
     if(g.hitCd<=0 && player.inv<=0 && !ghosting && smokeT<=0 && (player.plat===-1 || g.hunter) && dist2(g.x,g.y,player.x,player.y) < (g.r+player.r)**2){
-      player.hp-- ; player.inv=1.1; g.hitCd=0.8; shake=14; hitStop=Math.max(hitStop,0.07); runDamaged=true; hitsTaken++;
+      player.hp-- ; player.inv=1.1; g.hitCd=0.8; g.chaseT=0; shake=14; hitStop=Math.max(hitStop,0.07); runDamaged=true; hitsTaken++;   // a landed grab resets the tire clock
       S.hit(); joSquash=Math.max(joSquash,0.45); ring(player.x,player.y,'#e0503f',{vr:220,life:0.45});
       const kx=player.x-g.x, ky=player.y-g.y, km=Math.hypot(kx,ky)||1, push=26;
       if(isOpen(player.x+kx/km*push, player.y, player.r)) player.x+=kx/km*push;
@@ -2603,6 +2624,10 @@ function draw(){
     };
     for(const rv of rivals) mark(rv.x,rv.y,'#c86bff');
     for(const g of guards) if(g.hunter) mark(g.x,g.y,'#ff5240');
+    // Treasure Sense's actual promise: "revealed" used to mean merely not-hidden,
+    // sitting unseen in the deepest room. Now the gold arrow POINTS at it.
+    if(heartRevealed){ const h=loot.find(l=>l.type==='heart'&&!l.got&&!l.stolen&&!l.hidden);
+      if(h) mark(h.x,h.y,'#f5c542'); }
   }
 
   // curse vignette (screen space)
@@ -3418,6 +3443,7 @@ function startRun(){
   $('prompt').innerHTML = isTouch ? 'Hold the <b>gold button</b> — escape with your haul'
                                   : 'Hold <b>E</b> — Escape with your haul';
   if(activeMod.id!=='clean') toast(`${activeMod.name}: ${activeMod.good} ${activeMod.bad}`.trim(), 2600);
+  else if(rivals.length) toast('A rival thief works this vault tonight — beat him to the goods.',2000);
   else tip('move','Steal what shines — and remember: the exit is where you came in.');
 }
 function openOneMore(){

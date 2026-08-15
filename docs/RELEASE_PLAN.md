@@ -52,16 +52,16 @@ canvas renderer). No build step. Design bible: `docs/PORT_HANDOFF.md`
 
 **Telemetry loop.** The in-game REPORT button copies a digest of the last
 runs (`runLog`, localStorage `greedrun_runlog_v1`). The user pastes it into
-chat; use it to drive tuning. Latest report (10 runs, build .8, fresh
-save): **100% escape rate, 0 hits/run, avg run 0:57, contract success
-100%**, peak heat avg T2, smoke equipped 6 runs but used in only 1 (a
-point-blank smoke bug, fixed in .9), all runs clean-modifier. Build .9
-responded by making quota contracts track the player's recent average haul
-(×0.9–1.25) instead of a static band — **verify success lands 40–60% in
-the next report.** The 100%-escape/0-hit pattern also suggests the mid-game
-threat curve is too soft for a skilled player; consider it alongside R2's
-early-game item. Build .7's report for contrast: 50% escape, avg 1:14,
-contract success 13%, heat routinely T5–T6.
+chat; use it to drive tuning. Latest report (12 runs, build .9): **50%
+escape, contract success 50% (quota 2/4), smoke used ~1/run when
+equipped** — the .9 tunes verified: adaptive quotas landed in the 40–60%
+target band, the smoke fix turned the tool from decorative to used, and
+difficulty rebounded from .8's 100%-escape anomaly. New signal: the
+**watchdog is the top killer (3 of 6 deaths)** and the user reported
+chases feeling inescapable — build .10 answered with line-of-sight
+detection + chase stamina ("winded"); **verify watchdog deaths drop and
+escapes stay near 50–60% in the next report.** History: .7 = 50% escape /
+13% contracts; .8 = 100% escape / 0 hits.
 
 ---
 
@@ -93,6 +93,36 @@ money bridge, the Noble one-piece-rule visibility, and NEED-$X shop chips.
   grace on runs 1–3.
 - [ ] Re-run `npm run audit:econ` after any tune — income growth
   FRESH→MAX should stay near the handoff's intended ×4 (currently ×3.97).
+
+## R2.5 — "Premier game" backlog (user's direction, build .10 session)
+
+The user's framing: this is evolving from a premium game into a premier
+one — flagship title, original character, sets standards in originality
+and familiarity. Named influence to study: **Survivor.io** (system/
+mechanic/concept inspiration, not genre — look at its unlock cadence,
+in-run choice density, and reward presentation). Concrete ideas raised,
+in rough value order:
+
+- [ ] **Level-design depth**: flooded areas (full water rooms, not just
+  pools), trapdoors, treasure chests, hidden areas, found items — including
+  tool pickups that swap what's in the kit mid-run. Start with chests +
+  one hidden room per vault; both fit the existing seeded-generation
+  grammar. This is the biggest lever on "premier".
+- [ ] **Ascension needs impact**: a maxed-out player reported post-max play
+  "felt kind of worthless". Ascension currently only scales numbers
+  (guard speed/detect/pay). Ideas: per-level named twists (new hazard per
+  ascension), ascension-only loot/cosmetics, a visible "why climb" reward
+  track. Needs design before code.
+- [ ] **Rival escalation**: build .10 made the rival intermittent and
+  announced; the deeper ask — guards should react to him (chase him, drag
+  him off — a usable distraction), or he could contest YOU (shove, snatch
+  from your radius). Decide how alive he should be.
+- [x] **Oust pursuers** (shipped .10): detection now requires line of
+  sight, and chases tire — watchdog gives up winded after 4.5s of failing
+  to catch you, grunts 8s, Hunter 12s.
+- [x] **Vault Heart findability** (shipped .10): Treasure Sense now draws
+  a gold compass arrow to the Heart (it was "revealed" but unfindable —
+  the user maxed the tree without ever seeing it).
 
 ## R3 — Cut / keep decisions (user calls these)
 

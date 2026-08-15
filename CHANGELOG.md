@@ -1,5 +1,32 @@
 # Changelog
 
+## Web build — escapable chases, findable Heart, eventful rival (build 2026-08-15.10)
+
+- **You can finally shake a chase.** Two changes, one promise kept:
+  detection now requires actual line of sight (the game always taught
+  "break line of sight and they'll lose the trail" — but detection was
+  pure distance, so walls did nothing), and pursuers have lungs — a chase
+  that can't catch you gives up winded (watchdog after 4.5s, guards 8s,
+  the Hunter 12s; winded = 3s at 3/4 speed, can't re-acquire). A landed
+  grab resets the clock. The watchdog's wall-piercing hearing is
+  unchanged — that's its identity. Telemetry drove this: watchdog was 3
+  of 6 deaths and chases were reported as feeling impossible to escape.
+- **Treasure Sense keeps its promise.** The Vault Heart spawns in the
+  deepest room of every vault, and "revealed" only meant not-invisible —
+  a maxed player had literally never seen it. The upgrade now draws a
+  gold arrow on the offscreen-threat compass pointing to the Heart, with
+  a one-time tip saying so.
+- **The rival became an event.** He now works ~55% of nights (seeded per
+  vault — dailies and shared codes reproduce) and his presence is
+  announced at the door: "A rival thief works this vault tonight — beat
+  him to the goods." Constant presence had made him read as furniture.
+- Region test now asserts the rival gate: present on some seeds, absent
+  on others, deterministic per seed.
+
+Telemetry verified from the 12-run build-.9 report: adaptive quotas hit
+50% success (target 40–60%), smoke went from unused to ~1 use/run, escape
+rate back to a healthy 50%.
+
 ## Web build — R1 meaning sweep + playtest fixes (build 2026-08-15.9)
 
 Playtest-report fixes:

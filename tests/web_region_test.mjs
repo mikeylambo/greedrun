@@ -207,17 +207,23 @@ const res = await page.evaluate(() => {
   if (!shrineSeen) out.fails.push('no boon shrine spawned across room-grid seeds');
   else out.log.push('special rooms: boon shrine present');
 
-  // ---- Rival thief ----
-  build(SEEDS[4]);
-  if (!G.rivals.length) out.fails.push('no rival thief spawned');
-  else {
+  // ---- Rival thief (works ~half of nights, seeded per vault) ----
+  let rivalSeed = null, rivalNights = 0, quietNights = 0;
+  for (const s of SEEDS) { build(s);
+    if (G.rivals.length) { rivalNights++; if (rivalSeed === null) rivalSeed = s; } else quietNights++; }
+  if (!rivalNights) out.fails.push('no rival thief spawned on ANY seed');
+  if (!quietNights) out.fails.push('rival present on every seed — the presence gate is not firing');
+  if (rivalSeed !== null) {
+    build(rivalSeed); const before = G.rivals.length;
+    build(rivalSeed);
+    if (G.rivals.length !== before) out.fails.push('rival presence not deterministic for the same seed');
     for (let i = 0; i < 1500; i++) G.updateRivals(0.05);       // ~75s of sim
     const stolen = G.loot.filter(l => l.stolen).length;
     if (stolen <= 0) out.fails.push('rival stole nothing over a long sim');
     if (G.rivalHaul <= 0) out.fails.push('rival haul is zero');
     if (G.loot.some(l => l.stolen && (l.kind === 'mythic' || l.kind === 'artifact' || l.kind === 'shrine')))
       out.fails.push('rival stole a protected prize (Heart/artifact/shrine)');
-    out.log.push(`rival: stole ${stolen} items worth $${G.rivalHaul}`);
+    out.log.push(`rival: ${rivalNights}/${SEEDS.length} nights worked, stole ${stolen} items worth $${G.rivalHaul}`);
   }
   return out;
 });
