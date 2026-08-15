@@ -242,7 +242,16 @@
     transition:box-shadow .12s, transform .12s;}
   .iconbtn:hover{box-shadow:0 0 0 1px var(--gold-deep) inset;transform:translateY(-1px);}
   .iconbtn svg{width:15px;height:15px;fill:currentColor;}
-  .howto-grid{display:flex;flex-direction:column;gap:13px;width:min(560px,94%);margin:20px 0 26px;text-align:left;}
+  .howto-grid{display:flex;flex-direction:column;gap:13px;width:min(560px,94%);margin:20px 0 26px;text-align:left;flex:none;}
+  /* wide screens: two compact columns so each reference page fits with no scroll */
+  @media (min-width:880px) and (pointer:fine){
+    #howto{padding:2.5% 5%;}
+    #howto h1.title{font-size:32px !important;}
+    #howto .eyebrow{margin-bottom:4px;}
+    .howto-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 32px;width:min(1000px,94%);margin:10px 0 12px;}
+    .ht-key{flex-basis:78px;font-size:13px;}
+    .ht-txt{font-size:13px;line-height:1.42;}
+  }
   .ht-row{display:flex;gap:16px;align-items:flex-start;}
   .ht-key{flex:0 0 96px;font-family:"Cinzel",serif;font-weight:700;font-size:14px;color:var(--gold);letter-spacing:.03em;padding-top:1px;}
   .ht-txt{font-size:14px;color:var(--bone);line-height:1.5;}
@@ -480,6 +489,7 @@
         <div class="track"><div class="fill" id="noiseFill"></div></div>
       </div>
       <div id="dropRisk"></div>
+      <div id="keyHints" style="display:none;margin-top:4px;font-size:11px;letter-spacing:.06em;color:var(--muted);text-shadow:0 1px 3px rgba(0,0,0,.7)"><b style="color:var(--bone)">Q</b> drop heaviest &nbsp;·&nbsp; <b style="color:var(--bone)">Space</b> tool &nbsp;·&nbsp; <b style="color:var(--bone)">P</b> pause</div>
     </div>
     <div class="heat-pips">
       <div class="lbl" id="heatLbl">Heat</div>
@@ -511,17 +521,24 @@
   <div class="overlay" id="howto">
     <div class="eyebrow">The Job</div>
     <h1 class="title" style="font-size:clamp(30px,7vw,54px)">How to Play</h1>
-    <div class="howto-grid">
+    <div class="btn-row" style="margin-bottom:4px">
+      <button class="btn ghost" id="htTab1" style="font-size:14px;padding:9px 20px">The Basics</button>
+      <button class="btn ghost" id="htTab2" style="font-size:14px;padding:9px 20px">The Deep End</button>
+    </div>
+    <div class="howto-grid" id="ht1">
       <div class="ht-row"><div class="ht-key">Move</div><div class="ht-txt"><em>Drag anywhere</em> to steer Jo — press and hold, and he follows your thumb. (Keyboard: WASD or arrows.)</div></div>
       <div class="ht-row"><div class="ht-key">Grab</div><div class="ht-txt">Walk over loot to pocket it. Everything you carry is <em>Greed Load</em> — it makes you richer, but slower, louder, more marked, and more hunted.</div></div>
-      <div class="ht-row"><div class="ht-key">Decide</div><div class="ht-txt">Glowing artifacts stop you for a choice: take it whole for gold, pry it for clean scraps, or spend it for <em>power</em> — a boon that bends the run.</div></div>
+      <div class="ht-row"><div class="ht-key">Drop</div><div class="ht-txt">Overloaded? Press <em>Q</em> (or tap DROP) to shed your heaviest piece — it cools your greed, quiets your bag, and can talk a sealed shutter back open.</div></div>
       <div class="ht-row"><div class="ht-key">Watch</div><div class="ht-txt">Guards chase what they see and give up when they lose you. Swiveling <em>sentries</em> can't see through walls — use cover, read the sweep.</div></div>
-      <div class="ht-row"><div class="ht-key">Places</div><div class="ht-txt">Every location fights differently. <em>Flood water</em> slows you but swallows your noise. <em>Wind</em> shoves everyone. The <em>dark</em> hides all but your lantern &mdash; and you. The Mint&rsquo;s <em>presses</em> crush whatever lingers, guards included.</div></div>
-      <div class="ht-row"><div class="ht-key">Tools</div><div class="ht-txt">The hideout&rsquo;s <em>Workbench</em> sells tools; one rides per job, with limited charges. Tap <em>TOOL</em> (or Space) to use it &mdash; smoke, a decoy, a grapple, lockpicks, even a portable portal. Never required; always greedy.</div></div>
-      <div class="ht-row"><div class="ht-key">Word</div><div class="ht-txt">Escapes earn you a name &mdash; earn it twice and the street starts talking. Your kind of work seeks you out at <em>+25% pay</em>, and one buyer starts paying you like they know you. And mind the <em>Gilded Fake</em>: it reads rich in the bag, fences for pennies&hellip; unless you find a buyer who can&rsquo;t tell. Dropped, its glitter makes fine bait.</div></div>
       <div class="ht-row"><div class="ht-key">Climb</div><div class="ht-txt">Walk up a <em>staircase</em> to reach high ground &mdash; guards can&rsquo;t follow you up. Step off a <em>ledge</em> to drop fast, but a loaded landing is loud and can cost a heart.</div></div>
       <div class="ht-row"><div class="ht-key">Escape</div><div class="ht-txt">The glowing exit is where you started. Hold it to leave and <em>bank</em> your haul. Get caught and the vault keeps everything.</div></div>
+    </div>
+    <div class="howto-grid" id="ht2" style="display:none">
       <div class="ht-row"><div class="ht-key">Heat</div><div class="ht-txt">The more you carry, the hotter it gets &mdash; guards grow faster and sharper-eyed, and at high Heat a <em>Bounty Hunter</em> enters. But danger pays: a hotter run sells for more.</div></div>
+      <div class="ht-row"><div class="ht-key">Decide</div><div class="ht-txt">Glowing artifacts stop you for a choice: take it whole for gold, pry it for clean scraps, or spend it for <em>power</em> — a boon that bends the run.</div></div>
+      <div class="ht-row"><div class="ht-key">Places</div><div class="ht-txt">Locations fight differently: <em>flood water</em> slows but silences you, <em>wind</em> shoves everyone, the <em>dark</em> hides all but your lantern, and the Mint&rsquo;s <em>presses</em> crush whatever lingers.</div></div>
+      <div class="ht-row"><div class="ht-key">Tools</div><div class="ht-txt">The <em>Workbench</em> sells tools; one rides per job, limited charges. Tap <em>TOOL</em> (or Space) &mdash; smoke, decoy, grapple, lockpicks, a portable portal. Never required; always greedy.</div></div>
+      <div class="ht-row"><div class="ht-key">Word</div><div class="ht-txt">Escapes earn a name &mdash; earn it twice and your kind of work pays <em>+25%</em>, one buyer knows you. The <em>Gilded Fake</em>: rich in the bag, pennies at the fence, fine bait dropped.</div></div>
       <div class="ht-row"><div class="ht-key">Notoriety</div><div class="ht-txt">Selling hot goods to the Syndicate raises your Notoriety. High Notoriety makes every job <em>start</em> hotter and the Hunter come sooner. Returning goods cools it back down.</div></div>
       <div class="ht-row"><div class="ht-key">Temptation</div><div class="ht-txt">Reach the exit rich and it whispers <em>one more thing</em> — a Vault Heart, deeper in. How greedy can you be before the vault owns you?</div></div>
     </div>
@@ -554,6 +571,7 @@
       <button class="btn" id="nextRunBtn">Choose Tonight&rsquo;s Job →</button>
       <button class="btn ghost" id="collectionBtn">The Collection</button>
       <button class="btn ghost" id="logBtn" style="font-size:14px;padding:12px 20px">📋 Report (<span id="logN">0</span>)</button>
+      <button class="btn ghost" id="menuBtn" style="font-size:14px;padding:12px 20px">⌂ Menu</button>
     </div>
     <div style="font-size:10px;letter-spacing:.12em;color:var(--muted);opacity:.65;margin-top:2px">build <span class="buildTag"></span></div>
     <div id="notoLine"></div>
@@ -651,7 +669,7 @@
 "use strict";
 // Build stamp — bump on every deploy. Shown on the title + hideout so a stale
 // Safari cache is instantly visible ("no report button" == old build).
-const BUILD = '2026-08-15.2';
+const BUILD = '2026-08-15.3';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 // Phones fill the screen in whichever way they're held — PORTRAIT (tall) or
@@ -2987,6 +3005,7 @@ function startRun(){
   show(null); $('hud').classList.add('on');
   if(isTouch){ touchWrap.style.display='block'; eBtn.style.display='flex'; dropBtn.style.display='flex'; }
   syncToolUI();
+  $('keyHints').style.display = isTouch ? 'none' : 'block';
   $('prompt').innerHTML = isTouch ? 'Hold the <b>gold button</b> — escape with your haul'
                                   : 'Hold <b>E</b> — Escape with your haul';
   if(activeMod.id!=='clean') toast(`${activeMod.name}: ${activeMod.good} ${activeMod.bad}`.trim(), 2600);
@@ -3609,10 +3628,13 @@ function renderDaily(){
     +   `<span class="chip">streak <b>${d.streak|0}</b><i>·${d.bestStreak|0}</i></span>`
     +   `<span class="chip">best <b>$${(d.best|0).toLocaleString()}</b></span>`
     +   historyChips(d)
+    +   `<span class="hchip" id="seedToggle" title="practice any shared vault">⌁ code</span>`
     + `</div>`
-    + `<div class="dc-seed"><input id="seedInput" placeholder="paste a code to practice any vault">`
+    + `<div class="dc-seed" id="seedRow" style="display:none"><input id="seedInput" placeholder="paste a code to practice any vault">`
     +   `<button id="seedGo">Practice</button></div>`
     + `</div>`;
+  const st=$('seedToggle'); if(st) st.onclick=()=>{ const r=$('seedRow');
+    r.style.display = r.style.display==='none' ? 'flex' : 'none'; };
   const btn=$('dailyBtn'); if(btn){ btn.disabled=played; btn.style.opacity=played?0.5:1;
     btn.textContent = played?'☀ Daily done — back tomorrow':'☀ Daily Run'; }
   const cc=$('dailyCode'); if(cc) cc.onclick=()=>{ copyText(code); toast('Daily code copied.',900); };
@@ -3660,6 +3682,7 @@ $('stayGreedy').onclick=resumeGreedy;
 $('bankBtn').onclick=bankHaul;
 $('logBtn').onclick=()=>{ copyText(buildReport()); toast('Playtest report copied — paste it to Claude.',1500); };
 $('jobsBack').onclick=openShop;
+$('menuBtn').onclick=()=>{ state='menu'; show('menu'); };
 document.querySelectorAll('.buildTag').forEach(el=>el.textContent=BUILD);
 let resetArmed=false;
 $('resetBtn').onclick=()=>{ const el=$('resetBtn');
@@ -3713,6 +3736,13 @@ $('abandonBtn').onclick=abandonRun;
 $('howtoBtn').onclick=()=>openHowTo('menu');
 $('pauseHowto').onclick=()=>openHowTo('paused');
 $('howtoBack').onclick=()=>{ show(howtoFrom); if(howtoFrom==='paused'){/* stay paused */} };
+// How-to pager: two pages so the reference fits on one screen
+function htPage(n){ $('ht1').style.display=n===1?'':'none'; $('ht2').style.display=n===2?'':'none';
+  $('htTab1').style.boxShadow=n===1?'0 0 0 1px var(--gold-deep) inset':'';
+  $('htTab2').style.boxShadow=n===2?'0 0 0 1px var(--gold-deep) inset':''; }
+$('htTab1').onclick=()=>htPage(1);
+$('htTab2').onclick=()=>htPage(2);
+htPage(1);
 // keyboard pause + mute toggles
 addEventListener('keydown', e=>{
   const k=e.key.toLowerCase();

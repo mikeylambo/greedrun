@@ -1,5 +1,17 @@
 # Changelog
 
+## Web build — playtest round 3: desktop UX (build 2026-08-15.3)
+
+- **How to Play is now two tabbed pages** (The Basics / The Deep End), two
+  columns on wide screens, measured to fit the stage with zero scrolling.
+- **DROP finally taught on desktop**: a persistent key-hint line in the HUD
+  (Q drop · Space tool · P pause, hidden on touch) and a "Drop" row in the
+  Basics page.
+- **⌂ Menu button** in the hideout — first way back to the title screen.
+- **Practice-a-code decluttered**: the seed input hides behind a small
+  "⌁ code" chip on the daily card (full practice-mode treatment deferred to
+  the design pass).
+
 ## Web build — playtest round 2: stale-cache killer, jobs-board back, tighter stick
 
 - **Stale builds fixed at the root**: "no report button" turned out to be
