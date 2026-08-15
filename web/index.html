@@ -573,6 +573,7 @@
       <div class="ht-row"><div class="ht-key">Tools</div><div class="ht-txt">The <em>Workbench</em> sells tools; one rides per job, limited charges. Tap <em>TOOL</em> (or Space) &mdash; smoke, decoy, grapple, lockpicks, a portable portal. Never required; always greedy.</div></div>
       <div class="ht-row"><div class="ht-key">Word</div><div class="ht-txt">Escapes earn a name &mdash; earn it twice and your kind of work pays <em>+25%</em>, one buyer knows you. The <em>Gilded Fake</em>: rich in the bag, pennies at the fence, fine bait dropped.</div></div>
       <div class="ht-row"><div class="ht-key">Notoriety</div><div class="ht-txt">Selling hot goods to the Syndicate raises your Notoriety. High Notoriety makes every job <em>start</em> hotter and the Hunter come sooner. Returning goods cools it back down.</div></div>
+      <div class="ht-row"><div class="ht-key">Secrets</div><div class="ht-txt"><em>Strongboxes</em> crack open if you stand close &mdash; loudly. A <em>shimmer</em> in the floor marks a hidden stash. A lost thief&rsquo;s <em>tool crate</em> swaps your kit for the night.</div></div>
       <div class="ht-row"><div class="ht-key">Temptation</div><div class="ht-txt">Reach the exit rich and it whispers <em>one more thing</em> — a Vault Heart, deeper in. How greedy can you be before the vault owns you?</div></div>
     </div>
     <div class="btn-row"><button class="btn" id="howtoBack">Got it</button></div>
@@ -730,7 +731,7 @@
 "use strict";
 // Build stamp — bump on every deploy. Shown on the title + hideout so a stale
 // Safari cache is instantly visible ("no report button" == old build).
-const BUILD = '2026-08-15.10';
+const BUILD = '2026-08-15.11';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 // Phones fill the screen in whichever way they're held — PORTRAIT (tall) or
@@ -838,6 +839,8 @@ const TOOLS = [
 function toolById(id){ return TOOLS.find(t=>t.id===id); }
 function ownsTool(id){ return !!(meta.tools && meta.tools[id]); }
 let toolCharges=0, toolMark=null, smokeT=0, baits=[];   // per-run tool state
+let runTool=null;                     // a FOUND tool riding in place of the equipped one (this run only)
+let chests=[], stashes=[], toolCache=null;   // level-design depth: strongboxes, hidden stashes, left-behind tools
 
 // ===== Reputation: the street remembers (GDD §Reputation System) =====
 // Escaped-run epithets accumulate; a dominant one (earned 2+ times) becomes your
@@ -887,6 +890,22 @@ function ascMods(level){
   const r=Object.assign({}, ASC_TABLE[clamp(level,1,ASC_MAX)-1]);
   r.fromStart = r.hun===HUNTER_FROM_START; if(r.fromStart) r.hun=0; return r;
 }
+// Every ascension level ALSO brings a named twist — cumulative, so climbing
+// changes what the vault IS, not just its numbers. (Playtest verdict on
+// numbers-only ascension: post-max play "felt kind of worthless".)
+const ASC_TWISTS=[   // index = level-1; every twist at or below your level is live
+  {id:'hound',  nm:'The Second Hound', ds:'another watchdog walks the floor'},
+  {id:'eyes',   nm:'Bright Eyes',      ds:'sentries sweep faster and see farther'},
+  {id:'rival',  nm:'The Rival’s Hour', ds:'the rival works every night, and quicker'},
+  {id:'curfew', nm:'The Curfew Bell',  ds:'free runs collapse in 150s'},
+  {id:'sleeper',nm:'Light Sleeper',    ds:'the vault remembers at Heat T5'},
+  {id:'watch',  nm:'Doubled Watch',    ds:'one more patrol on the floor'},
+  {id:'kennel', nm:'The Kennel',       ds:'a third hound joins the hunt'},
+  {id:'steel',  nm:'Sharper Steel',    ds:'pursuers tire slower and recover faster'},
+  {id:'sealed', nm:'Sealed Night',     ds:'the escape hold takes twice as long'},
+  {id:'own',    nm:'The Vault’s Own', ds:'the Bounty Hunter waits inside'},
+];
+function ascTwistOn(id){ const i=ASC_TWISTS.findIndex(t=>t.id===id); return i>=0 && ascensionLevel>=i+1; }
 let ascensionLevel=0, selectedAscension=0;
 function isMetaMaxed(){ return UPGRADES.every(u=>upgLevel(u.id)>=u.max); }   // the sole gate: all upgrades maxed
 function ascUnlocked(){ return meta.ascUnlocked|0; }
@@ -1398,6 +1417,16 @@ function drawSever(){
 // ===== Rival Thief: an AI competitor that races you for the loot =====
 function updateRivals(dt){
   for(const rv of rivals){
+    // chased? He drops the job and RUNS — barely faster than a guard, so the
+    // watch tires (winded) or collars him. Either way it's a show you can use.
+    const hunter=guards.find(g=>g.quarry==='rival'&&g.state==='chase');
+    if(hunter){
+      let fx=rv.x-hunter.x, fy=rv.y-hunter.y; const fd=Math.hypot(fx,fy)||1; fx/=fd; fy/=fd;
+      const f=(ascTwistOn('rival')?2.25:2.1)*dt*60; rv.face=Math.atan2(fy,fx); rv.target=null;
+      if(isOpenGround(rv.x+fx*f,rv.y,rv.r)) rv.x+=fx*f; else if(isOpenGround(rv.x,rv.y+(fy>=0?f:-f),rv.r)) rv.y+=(fy>=0?f:-f);
+      if(isOpenGround(rv.x,rv.y+fy*f,rv.r)) rv.y+=fy*f; else if(isOpenGround(rv.x+(fx>=0?f:-f),rv.y,rv.r)) rv.x+=(fx>=0?f:-f);
+      continue;
+    }
     // (re)target the nearest grabbable ground item; it leaves the big prizes (Heart,
     // artifacts, shrine) for you, so the race is over the bulk + notable loot.
     if(!rv.target || rv.target.got || rv.target.stolen || rv.target.hidden){
@@ -1411,7 +1440,7 @@ function updateRivals(dt){
     const t=rv.target; if(!t) continue;
     const nav=navTarget(vgraph,rv.x,rv.y,t.x,t.y);
     let dx=nav.x-rv.x, dy=nav.y-rv.y; const d=Math.hypot(dx,dy)||1; dx/=d; dy/=d; rv.face=Math.atan2(dy,dx);
-    const spd=1.7*dt*60;                                   // TUNE: a hair slower than a loaded sprint
+    const spd=(ascTwistOn('rival')?1.95:1.7)*dt*60;        // TUNE: a hair slower than a loaded sprint (A3: quicker)
     if(isOpenGround(rv.x+dx*spd,rv.y,rv.r)) rv.x+=dx*spd; else if(isOpenGround(rv.x+(dx>0?spd:-spd),rv.y,rv.r)) rv.x+=(dx>0?spd:-spd);
     if(isOpenGround(rv.x,rv.y+dy*spd,rv.r)) rv.y+=dy*spd; else if(isOpenGround(rv.x,rv.y+(dy>0?spd:-spd),rv.r)) rv.y+=(dy>0?spd:-spd);
     if(dist2(rv.x,rv.y,t.x,t.y) < (rv.r+14)**2){           // reached it → steal it
@@ -1419,6 +1448,102 @@ function updateRivals(dt){
       for(let i=0;i<8;i++)particles.push(mkP(t.x,t.y,'#ff7a3a'));
       if(dist2(rv.x,rv.y,player.x,player.y) < 360*360) toast('The rival snatched '+(t.name||t.type)+'!',1000);
     }
+  }
+}
+// ===== Level-design depth: strongboxes, hidden stashes, found tools =====
+function updateSecrets(dt){
+  // strongboxes: stand close and Jo works the lid — the CRACK carries when it gives
+  for(const c of chests){
+    if(c.open) continue;
+    if(player.plat===-1 && dist2(player.x,player.y,c.x,c.y) < (c.r+player.r+8)**2){
+      c.prog+=dt;
+      if(Math.random()<dt*9) particles.push(mkDust(c.x+rand(-9,9),c.y-5));
+      if(c.prog>=1){ c.open=true;
+        c.items.forEach((l,i)=>{ const a=(i/c.items.length)*6.28+0.7;
+          l.hidden=false; l.x=c.x+Math.cos(a)*24; l.y=c.y+Math.sin(a)*24; l.dropCd=0.2; });
+        S.artifact(); shake=Math.max(shake,6);
+        ring(c.x,c.y,'#f5c542',{vr:200,life:0.5});
+        for(let i=0;i<12;i++)particles.push(mkP(c.x,c.y,'#f5c542'));
+        toast('The strongbox gives — the vault heard that.',1300); lowNoiseRun=false;
+        let near=null,nd=340*340;   // the crack carries: the nearest guard comes to look
+        for(const g of guards){ const d=dist2(g.x,g.y,c.x,c.y); if(d<nd){nd=d;near=g;} }
+        if(near && near.state!=='chase'){ near.state='investigate'; near.lkp={x:c.x,y:c.y}; near.searchT=2.4; }
+        tip('chest','Strongboxes open if you stand close — loudly. Pick your moment.');
+      }
+    } else c.prog=Math.max(0,c.prog-dt*1.6);
+  }
+  // hidden stashes: invisible until you're near, then a shimmer — walk it to pry it out
+  for(const st of stashes){
+    if(st.taken) continue;
+    const d=dist2(player.x,player.y,st.x,st.y);
+    if(!st.found && d < 90*90 && player.plat===-1){ st.found=true;
+      floaters.push({x:st.x,y:st.y-10,txt:'something glints…',life:1.5,col:'#c9b37a'}); S.omen(); }
+    if(st.found && d < 26*26 && player.plat===-1){ st.taken=true;
+      st.items.forEach((l,i)=>{ const a=(i/st.items.length)*6.28; l.hidden=false;
+        l.x=st.x+Math.cos(a)*18; l.y=st.y+Math.sin(a)*18; l.dropCd=0.15; });
+      ring(st.x,st.y,'#c9b37a',{vr:160,life:0.4});
+      for(let i=0;i<10;i++)particles.push(mkP(st.x,st.y,'#c9b37a'));
+      toast('A hidden stash — pried from the cracks, silently.',1300);
+      tip('stash','Vaults keep secrets — a shimmer in the floor marks a hidden stash.');
+    }
+  }
+  // the found-tool crate: swaps your kit for tonight only
+  if(toolCache && !toolCache.taken && player.plat===-1 &&
+     dist2(player.x,player.y,toolCache.x,toolCache.y) < 26*26){
+    toolCache.taken=true;
+    const t=toolById(toolCache.id), prev=runTool||meta.equippedTool;
+    runTool=toolCache.id; toolCharges=t.uses+(capOn('trickster')?1:0); toolMark=null;
+    syncToolUI(); S.zip();
+    toast(`Found: ${t.nm} ×${toolCharges}${prev&&prev!==t.id?' — rides in place of your '+toolById(prev).nm+' tonight':' — on the belt for tonight'}.`,2200);
+    for(let i=0;i<10;i++)particles.push(mkP(toolCache.x,toolCache.y,'#8fc7e3'));
+  }
+}
+function drawSecrets(){
+  for(const c of chests){
+    if(!onCam(c.x,c.y)) continue;
+    ctx.save(); ctx.translate(c.x,c.y);
+    ctx.fillStyle='rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(0,8,15,6,0,0,6.28); ctx.fill();
+    const p=0.5+0.5*Math.sin(tPrev/300+c.x*0.13);
+    if(!c.open){ ctx.shadowColor='rgba(245,197,66,.55)'; ctx.shadowBlur=7+5*p; }
+    ctx.fillStyle='#3a2b15'; ctx.strokeStyle='#171310'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.rect(-13,-4,26,12); ctx.fill(); ctx.stroke();      // body
+    ctx.beginPath();                                                        // lid: shut dome / thrown open
+    if(c.open){ ctx.rect(-13,-14,26,4); ctx.fillStyle='#2a1f10'; }
+    else { ctx.moveTo(-13,-4); ctx.quadraticCurveTo(0,-15,13,-4); ctx.closePath(); }
+    ctx.fill(); ctx.stroke();
+    ctx.shadowBlur=0;
+    ctx.strokeStyle=c.open?'#6b5a3a':'#e2ab30'; ctx.lineWidth=2;            // gold bands + clasp
+    ctx.beginPath(); ctx.moveTo(-6,-11+(c.open?0:1)); ctx.lineTo(-6,8); ctx.moveTo(6,-11+(c.open?0:1)); ctx.lineTo(6,8); ctx.stroke();
+    if(!c.open){ ctx.fillStyle='#e2ab30'; ctx.fillRect(-2,-2,4,5); }
+    if(!c.open && c.prog>0){                                                // the lid is giving — progress arc
+      ctx.strokeStyle='#f5c542'; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(0,-20,8,-1.57,-1.57+6.28*Math.min(1,c.prog)); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  for(const st of stashes){
+    if(st.taken || !st.found || !onCam(st.x,st.y)) continue;
+    ctx.save(); ctx.translate(st.x,st.y);                                   // a glint working loose from the cracks
+    for(let i=0;i<3;i++){ const a=tPrev/400+i*2.09, r2=7+2*Math.sin(tPrev/230+i);
+      const tw=0.45+0.45*Math.sin(tPrev/160+i*1.7);
+      ctx.globalAlpha=tw; ctx.fillStyle='#f0dfa8';
+      ctx.beginPath(); ctx.arc(Math.cos(a)*r2,Math.sin(a)*r2*0.6,1.6,0,6.28); ctx.fill(); }
+    ctx.globalAlpha=1; ctx.restore();
+  }
+  if(toolCache && !toolCache.taken && onCam(toolCache.x,toolCache.y)){
+    const t=toolById(toolCache.id);
+    ctx.save(); ctx.translate(toolCache.x,toolCache.y);
+    ctx.fillStyle='rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(0,7,13,5,0,0,6.28); ctx.fill();
+    const p=0.5+0.5*Math.sin(tPrev/340);
+    ctx.shadowColor='rgba(143,199,227,.5)'; ctx.shadowBlur=6+4*p;
+    ctx.fillStyle='#20272e'; ctx.strokeStyle='#171310'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.rect(-12,-8,24,16); ctx.fill(); ctx.stroke();
+    ctx.shadowBlur=0;
+    ctx.strokeStyle='#8fc7e3'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(-12,-2); ctx.lineTo(12,-2); ctx.stroke();
+    ctx.fillStyle='#8fc7e3'; ctx.font='700 7px "Barlow Semi Condensed"'; ctx.textAlign='center';
+    ctx.fillText(t.short,0,6);
+    ctx.restore();
   }
 }
 function drawRivals(){
@@ -1494,7 +1619,8 @@ function buildWorld(){
   walls=[]; loot=[]; guards=[]; sentries=[]; particles=[]; floaters=[]; rings=[]; rivals=[]; rivalHaul=0;
   decor=[]; solidDecor=[]; landmark=null;   // cleared BEFORE isOpen is used for placement
   joSquash=0; dustT=0; lastChargeStep=-1;
-  baits=[]; toolMark=null; smokeT=0;
+  baits=[]; toolMark=null; smokeT=0; runTool=null;
+  chests=[]; stashes=[]; toolCache=null;
   vaultAwake=false; whisperT=0; awakeSeverT=0; sealNagT=0; heistStage=0; latches=[];
   hitsTaken=0; awakeTime=0; toolUses=0;
   toolCharges = (meta.equippedTool && ownsTool(meta.equippedTool)) ? toolById(meta.equippedTool).uses + (capOn('trickster')?1:0) : 0;
@@ -1512,6 +1638,7 @@ function buildWorld(){
   runHeatSeed = clamp(Math.floor(meta.curseDebt/2) - upgLevel('cool') - denCalm(), 0, 3) + ascMods(ascensionLevel).heat + (dailyMutator.heat||0) + activeMod.heat;  // world + den standing + ascension + weekly mutator + vault modifier
   runSpotted=false; runClock=0; peakHeat=0; runDamaged=false;
   runTimeLimit = activeContract && activeContract.type==='timed' ? activeContract.timeLimit : (activeMod.time||0);
+  if(!runTimeLimit && ascTwistOn('curfew')) runTimeLimit=150;   // A4: The Curfew Bell
   currentThemeKey = (activeContract && activeContract.themeKey) || forcedTheme || THEME_KEYS[Math.floor(vrng()*THEME_KEYS.length)];
   currentTheme = THEMES[currentThemeKey];
 
@@ -1663,6 +1790,43 @@ function buildWorld(){
     tip('sense','Treasure Sense — the gold arrow points to the Vault Heart.'); }
   else { loot[loot.length-1].hidden=true; }
 
+  // NEW (level-design depth): treasure chests — banded strongboxes deep in the
+  // vault. Stand close and Jo works the lid; the CRACK carries. Contents ride
+  // as hidden loot until the lid gives, so they count toward Clean Sweep —
+  // a real sweep cracks every box.
+  { const chestN = 1 + (vrng()<0.5?1:0);
+    for(let i=0;i<chestN;i++){
+      const s=deepSpot(placed,0.35,0.35); placed.push(s);
+      const c={x:s.x,y:s.y,r:15,open:false,prog:0,items:[]};
+      const rolls=2+(vrng()<0.4?1:0);
+      for(let k=0;k<rolls;k++){
+        const kr=vrng(), kind = kr<0.5?'gem':(kr<0.8?'coin':'idol');
+        loot.push(Object.assign({x:s.x,y:s.y,type:kind,glow:vrng()*6.28,got:false,plat:-1,hidden:true,chest:c}, LOOT_TYPES[kind]));
+        c.items.push(loot[loot.length-1]);
+      }
+      chests.push(c);
+    } }
+  // Hidden stash: some vaults keep a secret — invisible until you're close,
+  // then a shimmer in the cracks. Walk it to pry it out, silently.
+  { const sr=vrng(), s=deepSpot(placed,0.3,0.3);
+    if(sr<0.6){ placed.push(s);
+      const st={x:s.x,y:s.y,found:false,taken:false,items:[]};
+      for(const kind of ['gem','idol']){
+        loot.push(Object.assign({x:s.x,y:s.y,type:kind,glow:vrng()*6.28,got:false,plat:-1,hidden:true,stash:st}, LOOT_TYPES[kind]));
+        st.items.push(loot[loot.length-1]);
+      }
+      stashes.push(st);
+    } }
+  // Found tools: the last thief didn't make it out — his crate swaps your kit
+  // for tonight only. (Rolls always drawn; which tool it is avoids duplicating
+  // yours, which is player-state — but by then the stream is untouched.)
+  { const cr=vrng(), pickIdx=Math.floor(vrng()*TOOLS.length);
+    if(cr<0.5){ const s=openSpot(16,220,placed);
+      let tId=TOOLS[pickIdx].id;
+      if(tId===meta.equippedTool) tId=TOOLS[(pickIdx+1)%TOOLS.length].id;
+      toolCache={x:s.x,y:s.y,id:tId,taken:false}; placed.push(s);
+    } }
+
   // Reachability guarantee: arena layouts can (rarely) wall off a pocket. Flood-
   // fill open ground from the entrance and move any sealed-in ground loot to a
   // reachable spot — Clean Sweep must always be possible. All seeded (openSpot).
@@ -1681,7 +1845,13 @@ function buildWorld(){
       for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++) if(open.has(K(cx+dx,cy+dy))) return true; return false; };
     for(const l of loot){
       if(l.plat!==-1 || reach(l.x,l.y)) continue;
-      for(let t=0;t<120;t++){ const s=openSpot(14,140,null); if(reach(s.x,s.y)){ l.x=s.x; l.y=s.y; break; } }
+      for(let t=0;t<120;t++){ const s=openSpot(14,140,null); if(reach(s.x,s.y)){
+        // container contents move WITH their container, or the chest would
+        // pop open far from its own loot
+        if(l.chest){ l.chest.x=s.x; l.chest.y=s.y; for(const it of l.chest.items){ it.x=s.x; it.y=s.y; } }
+        else if(l.stash){ l.stash.x=s.x; l.stash.y=s.y; for(const it of l.stash.items){ it.x=s.x; it.y=s.y; } }
+        else { l.x=s.x; l.y=s.y; }
+        break; } }
     }
   }
 
@@ -1690,27 +1860,31 @@ function buildWorld(){
   runLootCount = loot.length;
 
   // patrolling guards
-  const gCount=clamp(Math.round(5*areaScale),5,8);
-  for(let i=0;i<gCount;i++){
+  const mkGuard=()=>{
     const a=guardSpot(placed.concat(guards));   // weighted toward deeper rooms in room grids
     const reg = vgraph ? vgraph.regionOf(a.x,a.y) : -1;
     const wps=[{x:a.x,y:a.y}];
     // In room grids keep a guard patrolling its own room; in open arenas roam freely.
     for(let k=0;k<2;k++){ const b = vgraph ? openSpotInRegion(reg,a) : openSpot(14,60,null); wps.push({x:b.x,y:b.y}); }
     guards.push({x:a.x,y:a.y,r:14,wps,wi:0,state:'patrol',alert:0,face:0,hitCd:0,lkp:null,searchT:0});
-  }
+  };
+  const mkDog=()=>{
+    const a=guardSpot(placed.concat(guards)); const reg=vgraph?vgraph.regionOf(a.x,a.y):-1;
+    const wps=[{x:a.x,y:a.y}]; for(let k=0;k<2;k++){ const b=vgraph?openSpotInRegion(reg,a):openSpot(14,60,null); wps.push({x:b.x,y:b.y}); }
+    guards.push({x:a.x,y:a.y,r:11,dog:true,wps,wi:0,state:'patrol',alert:0,face:0,hitCd:0,lkp:null,searchT:0});
+  };
+  const gCount=clamp(Math.round(5*areaScale),5,8);
+  for(let i=0;i<gCount;i++) mkGuard();
 
   // Watchdog: a fast hound that hunts by SOUND — a loud haul draws it straight to you.
-  { const a=guardSpot(placed.concat(guards)); const reg=vgraph?vgraph.regionOf(a.x,a.y):-1;
-    const wps=[{x:a.x,y:a.y}]; for(let k=0;k<2;k++){ const b=vgraph?openSpotInRegion(reg,a):openSpot(14,60,null); wps.push({x:b.x,y:b.y}); }
-    guards.push({x:a.x,y:a.y,r:11,dog:true,wps,wi:0,state:'patrol',alert:0,face:0,hitCd:0,lkp:null,searchT:0}); }
+  mkDog();
 
   // Rival Thief: a competitor working the same vault — whatever it grabs, you can't.
   // He works ~half of nights (playtest: constant presence read as furniture —
-  // absence makes his nights an event). Both draws are ALWAYS consumed so
-  // dailies and shared vault codes reproduce identically.
-  { const s=deepSpot([],0.4,0.45), tonight=vrng()<0.55;
-    if(tonight) rivals.push({x:s.x,y:s.y,r:13,target:null,face:0}); }
+  // absence makes his nights an event) — every night at Ascension 3+. The draw is
+  // ALWAYS consumed so dailies and shared vault codes reproduce identically.
+  { const s=deepSpot([],0.4,0.45), roll=vrng();
+    if(roll<0.55 || ascTwistOn('rival')) rivals.push({x:s.x,y:s.y,r:13,target:null,face:0}); }
 
   // NEW: stationary sentries with swiveling vision cones (guard the deep loot)
   const senCount=2+Math.floor(vrng()*2); // 2-3
@@ -1720,6 +1894,13 @@ function buildWorld(){
     sentries.push({x:s.x,y:s.y,r:12, ang:center, center, sweep:0.9+vrng()*0.5,
       dir:vrng()<.5?1:-1, coneHalf:0.42, view:250, cd:0, hot:0});
   }
+
+  // Ascension twists that add bodies — spawned LAST so the seeded stream up to
+  // here is identical at every level (ascension is declared difficulty; dailies
+  // pin it by weekday ladder, so ranked runs still match).
+  if(ascTwistOn('hound'))  mkDog();     // A1: The Second Hound
+  if(ascTwistOn('watch'))  mkGuard();   // A6: Doubled Watch
+  if(ascTwistOn('kennel')) mkDog();     // A7: The Kennel
 
   cam.x = clamp(player.x-VIEW.w/2,0,WORLD.w-VIEW.w);
   cam.y = clamp(player.y-VIEW.h/2,0,WORLD.h-VIEW.h);
@@ -1735,7 +1916,7 @@ function losClear(ax,ay,bx,by){
 }
 
 // sentry sees the player? (range + cone + line of sight)
-function sentryView(s){ return s.view*(vaultAwake?1.25:1); }
+function sentryView(s){ return s.view*(vaultAwake?1.25:1)*(ascTwistOn('eyes')?1.15:1); }   // A2: Bright Eyes
 function sentrySees(s){
   const dx=player.x-s.x, dy=player.y-s.y, d=Math.hypot(dx,dy);
   if(d>sentryView(s)) return false;
@@ -2040,7 +2221,7 @@ function dropLoot(){
 // ---------- the equipped tool (Space / TOOL button — optional, never required) ----------
 function useTool(){
   if(state!=='playing') return;
-  const id=meta.equippedTool; if(!id || !ownsTool(id)) return;
+  const id=runTool||meta.equippedTool; if(!id || (!runTool && !ownsTool(id))) return;   // a found tool needs no ownership
   const t=toolById(id); if(!t) return;
   if(toolCharges<=0 && !(id==='portal' && toolMark)){ toast('No charges left.',700); return; }
   let used=false;
@@ -2089,7 +2270,7 @@ function useTool(){
   if(used){ toolCharges--; toolUses++; syncToolUI(); }
 }
 function syncToolUI(){
-  const id=meta.equippedTool, t=id&&ownsTool(id)?toolById(id):null;
+  const id=runTool||meta.equippedTool, t=id&&(runTool||ownsTool(id))?toolById(id):null;
   const hud=document.getElementById('toolHud');
   if(hud){ hud.style.display=t?'block':'none';
     if(t) hud.innerHTML=`⛭ ${t.nm} <b>×${toolCharges}</b>${toolMark?' · marker set':''}${isTouch?'':' — SPACE'}`; }
@@ -2167,9 +2348,9 @@ toolBtn.addEventListener('pointercancel', toolRelease);
 // Greed-driven and reversible: hit Heat T6 and the vault pings your position to
 // every warden on a pulse, sweeps its sentries harder, slams its own doors, and
 // holds the exit shut longer. Shed loot below T6 and it settles (never forgets).
-function extractNeed(){ return vaultAwake?1.1:0.6; }
+function extractNeed(){ return (vaultAwake?1.1:0.6)*(ascTwistOn('sealed')?2:1); }   // A9: Sealed Night
 function updateVaultRemembers(dt){
-  const on = heatTier>=6;
+  const on = heatTier >= (ascTwistOn('sleeper')?5:6);   // A5: Light Sleeper
   if(on && !vaultAwake){
     vaultAwake=true; alarmFlash=1; shake=Math.max(shake,12);
     S.vaultWake(); toast('THE VAULT REMEMBERS — it knows where you are.',2600);
@@ -2316,6 +2497,7 @@ function update(dt){
   if(player.ghost>0) player.ghost-=dt;
   updateSever(dt);                        // greed closes the vault behind you
   updateRivals(dt);                       // a rival thief works the vault too
+  updateSecrets(dt);                      // strongboxes, hidden stashes, found tools
   if(updateHazards(dt)) return;           // water / wind / darkness / presses per location
   updateVaultRemembers(dt);               // Heat T6: the building joins the hunt
   updateHeist();                          // Legendary Heist stage flow
@@ -2416,22 +2598,33 @@ function update(dt){
           tip('toolready','You’re carrying a tool — Space / TOOL. Chases are what it’s for.'); }
       g.state='chase'; g.alert=Math.min(1,g.alert+dt*3);
       g.lkp={x:player.x,y:player.y}; runSpotted=true;   // no longer a silent job
+      g.quarry=null;   // you are always the better prize
       // even a chase has lungs: a pursuer that can't close the gap gives up winded.
       // Playtest: "sometimes it feels impossible to escape them" — watchdogs
       // especially (3 of 6 deaths) outrun a loaded Jo at any heat, forever.
       g.chaseT=(g.chaseT||0)+dt;
-      const tireAt = g.dog?4.5 : g.hunter?12 : 8;
-      if(g.chaseT>=tireAt){ g.winded=3; g.chaseT=0;
+      const tireAt = (g.dog?4.5 : g.hunter?12 : 8)*(ascTwistOn('steel')?1.5:1);   // A8: Sharper Steel
+      if(g.chaseT>=tireAt){ g.winded=ascTwistOn('steel')?2:3; g.chaseT=0;
         floaters.push({x:g.x,y:g.y-g.r-10,txt:'winded',life:1.2,col:'#9a917d'});
         tip('shake','You outlasted the chase — pursuers tire if they can’t catch you.'); }
+    } else if(rivals[0] && !g.dog && !g.hunter && !ghosting && smokeT<=0 && !(g.winded>0)
+              && dist2(g.x,g.y,rivals[0].x,rivals[0].y) < gDet*gDet
+              && losClear(g.x,g.y,rivals[0].x,rivals[0].y)){
+      // the rival is somebody's problem too — a guard that spots HIM gives chase.
+      // That's a distraction you can spend; sighting YOU always takes priority.
+      g.quarry='rival'; g.state='chase'; g.alert=Math.min(1,g.alert+dt*2);
+      g.lkp={x:rivals[0].x,y:rivals[0].y};
+      g.chaseT=(g.chaseT||0)+dt;
+      if(g.chaseT>=8*(ascTwistOn('steel')?1.5:1)){ g.winded=ascTwistOn('steel')?2:3; g.chaseT=0; g.quarry=null;
+        floaters.push({x:g.x,y:g.y-g.r-10,txt:'winded',life:1.2,col:'#9a917d'}); }
     } else if(g.state==='chase'){
       g.state='investigate'; g.searchT = (g.hunter?3.5:2.4)*searchMul();  // lost sight → go look (Cold Trail shortens it)
-      g.chaseT=0;
+      g.chaseT=0; g.quarry=null;
     } else if(g.alert>0){ g.alert=Math.max(0,g.alert-dt*0.5); g.chaseT=0; }
 
     // choose a target by state
     let tx,ty,spd,searching=false;
-    if(g.state==='chase'){ tx=player.x; ty=player.y; spd=gBase*1.35; }
+    if(g.state==='chase'){ const q=(g.quarry==='rival'&&rivals[0])?rivals[0]:player; tx=q.x; ty=q.y; spd=gBase*1.35; }
     else if(g.state==='investigate' && g.lkp){
       tx=g.lkp.x; ty=g.lkp.y; spd=gBase*1.05;
       if(dist2(g.x,g.y,tx,ty) < 30*30){        // reached last-known spot: look around
@@ -2455,6 +2648,23 @@ function update(dt){
       else if(passable(g.x+(dx>0?step:-step), g.y, g.r)) g.x+=(dx>0?step:-step);
     }
 
+    // collar the rival: caught, he's dragged off for the night — and everything
+    // he stole hits the floor as one sack you can reclaim. Bait the watch into
+    // him and his haul becomes yours.
+    if(g.quarry==='rival' && rivals[0] && dist2(g.x,g.y,rivals[0].x,rivals[0].y) < (g.r+rivals[0].r)**2){
+      const rv2=rivals[0];
+      if(rivalHaul>0){
+        loot.push(Object.assign({}, LOOT_TYPES.gem,
+          {x:rv2.x,y:rv2.y,type:'gem',glow:0,got:false,plat:-1,dropCd:0.3,
+           name:'the rival’s sack', value:Math.round(rivalHaul*0.6), weight:3, noise:1, curse:0, kind:'common'}));
+        runLootCount++; runLootTotal+=Math.round(rivalHaul*0.6);
+        floaters.push({x:rv2.x,y:rv2.y-14,txt:'his sack!',life:1.4,col:'#f5c542'});
+      }
+      for(let i=0;i<10;i++)particles.push(mkP(rv2.x,rv2.y,'#c86bff'));
+      toast('The watch collared the rival'+(rivalHaul>0?' — he dropped the sack!':'.'),1700);
+      rivals=[]; rivalHaul=0; g.quarry=null; g.state='patrol'; g.chaseT=0; g.alert=0;
+      tip('collar','Guards chase the rival too — feed him to the watch and take his sack.');
+    }
     // bodies are SOLID — you can never phase through a guard on your level.
     // (During your post-hit flicker you used to walk straight through them,
     // which read as "enemy has no collision" in playtests.)
@@ -2499,7 +2709,7 @@ function update(dt){
     if(s.cd>0) s.cd-=dt;
     if(s.hot>0) s.hot-=dt;
     // sweep back and forth around the sentry's mounting angle (harder when the vault Remembers)
-    s.ang += s.dir*1.1*dt*(vaultAwake?1.5:1);
+    s.ang += s.dir*1.1*dt*(vaultAwake?1.5:1)*(ascTwistOn('eyes')?1.35:1);
     if(s.ang > s.center + s.sweep){ s.ang=s.center+s.sweep; s.dir=-1; }
     if(s.ang < s.center - s.sweep){ s.ang=s.center-s.sweep; s.dir=1; }
     if(!ghosting && smokeT<=0 && sentrySees(s)){
@@ -2579,6 +2789,7 @@ function draw(){
   // sentries (draw cones under the mobile guards)
   for(const s of sentries) drawSentry(s);
   // guards
+  drawSecrets();
   drawRivals();
   for(const g of guards) drawGuard(g);
   // player
@@ -3443,8 +3654,8 @@ function startRun(){
   $('prompt').innerHTML = isTouch ? 'Hold the <b>gold button</b> — escape with your haul'
                                   : 'Hold <b>E</b> — Escape with your haul';
   if(activeMod.id!=='clean') toast(`${activeMod.name}: ${activeMod.good} ${activeMod.bad}`.trim(), 2600);
+  else if(!meta.tips.move) tip('move','Steal what shines — and remember: the exit is where you came in.');   // teaching beats flavor on run one
   else if(rivals.length) toast('A rival thief works this vault tonight — beat him to the goods.',2000);
-  else tip('move','Steal what shines — and remember: the exit is where you came in.');
 }
 function openOneMore(){
   state='onemore'; $('hud').classList.remove('on'); S.omen();
@@ -3589,7 +3800,7 @@ function endRun(escaped, cause){
     out:escaped?'escape':'caught', cause:escaped?null:(cause||'caught'), dur:Math.round(runClock),
     haul:haulVal, bank:null, pk:peakHeat, awake:Math.round(awakeTime), hits:hitsTaken,
     sec:loot.filter(l=>l.got).length, tot:runLootCount,
-    tool:meta.equippedTool||null, tuse:toolUses, ep:repEarned,
+    tool:runTool||meta.equippedTool||null, tuse:toolUses, ep:repEarned,
     hunter:hunterSpawned, spotted:runSpotted, clear:vaultCleared,
     heart:loot.some(l=>l.type==='heart'&&l.got), rival:rivalHaul });
 
@@ -4217,9 +4428,14 @@ function renderAscension(){
   const mk=(t,fn)=>{ const b=document.createElement('button'); b.textContent=t;
     b.style.cssText='min-width:34px;padding:4px 8px;background:#1c1730;color:var(--purple,#a98bff);border:1px solid #4a3a6a;border-radius:6px;cursor:pointer'; b.onclick=fn; return b; };
   const desc=document.createElement('span'); desc.style.flex='1'; desc.style.textAlign='center';
+  const tw=ASC_TWISTS[selectedAscension-1];
+  const twAll=ASC_TWISTS.slice(0,selectedAscension).map(t=>t.nm).join(' \u00b7 ');
   desc.innerHTML = selectedAscension===0
     ? `<b>Ascension 0</b> \u00b7 standard run \u00b7 highest unlocked A${ascUnlocked()}`
-    : `<b>Ascension ${selectedAscension}</b> \u00b7 guards +${Math.round((m.gs-1)*100)}% spd, +${Math.round((m.det-1)*100)}% detect \u00b7 Heat +${m.heat} \u00b7 Hunter ${m.fromStart?'from start':(m.hun>0?m.hun+' sooner':'\u2014')} \u00b7 payout \u00d7${m.pay.toFixed(2)} \u00b7 best $${bestForAsc(selectedAscension).toLocaleString()}`;
+    : `<b>Ascension ${selectedAscension}</b> \u00b7 <b style="color:var(--gold)">${tw.nm}</b> \u2014 ${tw.ds}`
+      + ` \u00b7 payout \u00d7${m.pay.toFixed(2)} \u00b7 best $${bestForAsc(selectedAscension).toLocaleString()}`
+      + `<br><span style="font-size:11px;opacity:.8">guards +${Math.round((m.gs-1)*100)}% spd \u00b7 +${Math.round((m.det-1)*100)}% detect \u00b7 Heat +${m.heat}`
+      + (selectedAscension>1?` \u00b7 carries: ${twAll}`:'')+`</span>`;
   box.append(mk('\u2212',()=>{selectedAscension=Math.max(0,selectedAscension-1);renderShop();}), desc, mk('+',()=>{selectedAscension=Math.min(ascUnlocked(),selectedAscension+1);renderShop();}));
   const nl=$('notoLine'); nl.parentNode.insertBefore(box, nl.nextSibling);
 }
@@ -4308,7 +4524,7 @@ function abandonRun(){ touchWrap.style.display='none'; $('hud').classList.remove
     out:'abandon', cause:null, dur:Math.round(runClock), haul:carriedValue, bank:0,
     pk:peakHeat, awake:Math.round(awakeTime), hits:hitsTaken,
     sec:loot.filter(l=>l.got).length, tot:runLootCount,
-    tool:meta.equippedTool||null, tuse:toolUses, ep:null,
+    tool:runTool||meta.equippedTool||null, tuse:toolUses, ep:null,
     hunter:hunterSpawned, spotted:runSpotted, clear:vaultCleared, heart:false, rival:rivalHaul });
   toast('Run abandoned \u2014 you walk out with nothing.',1600); openShop(); }
 function openHowTo(from){ howtoFrom=from; show('howto'); }
@@ -4392,6 +4608,10 @@ window.__greed = {
   get TOOLS(){ return TOOLS; }, useTool, dropBait,
   get toolCharges(){ return toolCharges; }, get toolMark(){ return toolMark; },
   get baits(){ return baits; }, get smokeT(){ return smokeT; },
+  // level-design depth surface
+  get chests(){ return chests; }, get stashes(){ return stashes; },
+  get toolCache(){ return toolCache; }, get runTool(){ return runTool; },
+  updateSecrets, ascTwistOn, get ASC_TWISTS(){ return ASC_TWISTS; },
   genContracts, repDominant, buyersFor, epithet,
   // vault-remembers / heist / lanes surface
   recompute, updateVaultRemembers, get vaultAwake(){ return vaultAwake; },

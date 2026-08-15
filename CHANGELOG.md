@@ -1,5 +1,36 @@
 # Changelog
 
+## Web build — level-design depth: strongboxes, stashes, found tools, ascension twists, living rival (build 2026-08-15.11)
+
+The "premier game" drop — the first slice of the R2.5 backlog.
+
+- **Strongboxes.** Every vault hides 1–2 banded chests deep inside. Stand
+  close and Jo works the lid (progress arc); when it gives, the CRACK
+  carries — loot spills out, the nearest guard comes to look. Contents
+  count toward Clean Sweep, so a real sweep cracks every box.
+- **Hidden stashes.** ~60% of vaults keep a secret: invisible until you're
+  near, then a shimmer of glints in the floor. Walk it to pry it out —
+  silently. Sweeps just got more interesting.
+- **Found tools.** Half of vaults hold a lost thief's crate. Walking over
+  it swaps your kit for tonight only — fresh charges, works even if you
+  don't own the tool, your equipped tool comes back next run. First taste
+  of every tool in the shop, free.
+- **Ascension twists.** Every ascension level now adds a named, cumulative
+  mechanic on top of the number scaling: A1 The Second Hound (another
+  watchdog), A2 Bright Eyes (faster, farther sentries), A3 The Rival's
+  Hour (rival every night, quicker), A4 The Curfew Bell (150s collapse on
+  free runs), A5 Light Sleeper (vault remembers at T5), A6 Doubled Watch,
+  A7 The Kennel, A8 Sharper Steel (pursuers tire slower), A9 Sealed Night
+  (double escape hold), A10 The Vault's Own (Hunter from the start). The
+  ascension picker names each twist and what it carries. Response to the
+  playtest verdict that post-max play "felt kind of worthless".
+- **The rival is alive.** Guards that spot him give chase (you are always
+  the better prize — sighting you takes priority). He drops his job and
+  runs; if the watch collars him, he's dragged off for the night and
+  everything he stole hits the floor as one sack you can reclaim. Bait
+  the watch into him and his haul becomes yours.
+- How to Play gains a Secrets row; telemetry reports found tools.
+
 ## Web build — escapable chases, findable Heart, eventful rival (build 2026-08-15.10)
 
 - **You can finally shake a chase.** Two changes, one promise kept:

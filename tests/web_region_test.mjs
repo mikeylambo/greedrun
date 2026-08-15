@@ -225,6 +225,59 @@ const res = await page.evaluate(() => {
       out.fails.push('rival stole a protected prize (Heart/artifact/shrine)');
     out.log.push(`rival: ${rivalNights}/${SEEDS.length} nights worked, stole ${stolen} items worth $${G.rivalHaul}`);
   }
+
+  // ---- Level-design depth: strongboxes ----
+  build(SEEDS[0]); const chestN = G.chests.length;
+  build(SEEDS[0]);
+  if (G.chests.length !== chestN) out.fails.push('chest count not deterministic for the same seed');
+  if (!chestN) out.fails.push('no strongbox spawned (should always be at least one)');
+  else {
+    const c = G.chests[0];
+    if (!c.items.length || !c.items.every(l => l.hidden)) out.fails.push('chest contents not hidden before opening');
+    G.player.x = c.x; G.player.y = c.y; G.player.plat = -1;
+    for (let i = 0; i < 30 && !c.open; i++) G.updateSecrets(0.05);   // ~1.5s dwell
+    if (!c.open) out.fails.push('chest did not open after dwelling next to it');
+    else if (c.items.some(l => l.hidden)) out.fails.push('chest loot still hidden after opening');
+    else out.log.push(`chests: ${chestN}/vault (deterministic), dwell-open spills ${c.items.length} pieces`);
+  }
+
+  // ---- Hidden stash: some vaults, revealed + pried on approach ----
+  let stashSeed = null, stashNights = 0;
+  for (const s of SEEDS) { build(s); if (G.stashes.length) { stashNights++; if (stashSeed === null) stashSeed = s; } }
+  if (stashSeed === null) out.fails.push('no hidden stash across all seeds');
+  else if (stashNights === SEEDS.length) out.fails.push('stash on every seed — the 60% gate is not firing');
+  else {
+    build(stashSeed); const st = G.stashes[0];
+    if (st.items.some(l => !l.hidden)) out.fails.push('stash loot visible before discovery');
+    G.player.x = st.x; G.player.y = st.y; G.player.plat = -1;
+    G.updateSecrets(0.05);
+    if (!st.taken || st.items.some(l => l.hidden)) out.fails.push('stash not pried open on walk-over');
+    else out.log.push(`stash: ${stashNights}/${SEEDS.length} vaults keep one; shimmer + pry works`);
+  }
+
+  // ---- Found-tool crate: swaps the kit for the night ----
+  let cacheSeed = null, cacheNights = 0;
+  for (const s of SEEDS) { build(s); if (G.toolCache) { cacheNights++; if (cacheSeed === null) cacheSeed = s; } }
+  if (cacheSeed === null) out.fails.push('no tool crate across all seeds');
+  else {
+    build(cacheSeed); const tc = G.toolCache;
+    G.player.x = tc.x; G.player.y = tc.y; G.player.plat = -1;
+    G.updateSecrets(0.05);
+    if (!tc.taken || G.runTool !== tc.id) out.fails.push('tool crate did not swap the kit (runTool=' + G.runTool + ')');
+    else if (G.toolCharges <= 0) out.fails.push('found tool came with no charges');
+    else out.log.push(`found tool: ${cacheNights}/${SEEDS.length} vaults, ${tc.id} ×${G.toolCharges} rides for the night`);
+  }
+
+  // ---- Ascension twists: ladder gates + bodies actually spawn ----
+  G.ascensionLevel = 0;
+  if (G.ascTwistOn('hound')) out.fails.push('twist live at Ascension 0');
+  G.ascensionLevel = 5;
+  if (!(G.ascTwistOn('hound') && G.ascTwistOn('sleeper')) || G.ascTwistOn('watch'))
+    out.fails.push('twist ladder wrong at A5 (want hound+sleeper on, watch off)');
+  build(SEEDS[1]); const dogsA5 = G.guards.filter(g => g.dog).length;
+  G.ascensionLevel = 0; build(SEEDS[1]); const dogsA0 = G.guards.filter(g => g.dog).length;
+  if (dogsA5 !== dogsA0 + 1) out.fails.push(`A5 should field exactly one extra hound (${dogsA0} -> ${dogsA5})`);
+  else out.log.push(`ascension twists: ladder gates correctly; A5 fields ${dogsA5} hounds vs ${dogsA0}`);
   return out;
 });
 

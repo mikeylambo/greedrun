@@ -103,20 +103,21 @@ mechanic/concept inspiration, not genre — look at its unlock cadence,
 in-run choice density, and reward presentation). Concrete ideas raised,
 in rough value order:
 
-- [ ] **Level-design depth**: flooded areas (full water rooms, not just
-  pools), trapdoors, treasure chests, hidden areas, found items — including
-  tool pickups that swap what's in the kit mid-run. Start with chests +
-  one hidden room per vault; both fit the existing seeded-generation
-  grammar. This is the biggest lever on "premier".
-- [ ] **Ascension needs impact**: a maxed-out player reported post-max play
-  "felt kind of worthless". Ascension currently only scales numbers
-  (guard speed/detect/pay). Ideas: per-level named twists (new hazard per
-  ascension), ascension-only loot/cosmetics, a visible "why climb" reward
-  track. Needs design before code.
-- [ ] **Rival escalation**: build .10 made the rival intermittent and
-  announced; the deeper ask — guards should react to him (chase him, drag
-  him off — a usable distraction), or he could contest YOU (shove, snatch
-  from your radius). Decide how alive he should be.
+- [x] **Level-design depth, slice 1** (shipped .11): strongboxes (1–2 per
+  vault, dwell-to-open, loud), hidden stashes (~60% of vaults, shimmer on
+  approach, silent), found-tool crates (~50%, swap the kit for the night).
+  Remaining ideas for slice 2: fully flooded rooms (extend the treasury
+  pool system to room-scale water), trapdoors/chutes (fast one-way travel,
+  fits the room graph), locked doors + keys.
+- [x] **Ascension twists** (shipped .11): every level adds a named,
+  cumulative mechanic (Second Hound → Bright Eyes → Rival's Hour → Curfew
+  Bell → Light Sleeper → Doubled Watch → Kennel → Sharper Steel → Sealed
+  Night → The Vault's Own). Still open: an ascension-only *reward* track
+  (cosmetics/titles) if twists alone don't make climbing feel worth it.
+- [x] **Rival escalation** (shipped .11): guards chase him on sight
+  (player sighting wins), he flees, a collar drags him off and drops his
+  stolen haul as a reclaimable sack. Still open: rival contesting the
+  player directly (shove/snatch).
 - [x] **Oust pursuers** (shipped .10): detection now requires line of
   sight, and chases tire — watchdog gives up winded after 4.5s of failing
   to catch you, grunts 8s, Hunter 12s.
