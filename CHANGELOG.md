@@ -1,5 +1,32 @@
 # Changelog
 
+## Web build — flooded rooms, the Old Tunnel, locked shutters + the brass key (build 2026-08-15.13)
+
+Level-design depth, slice 3 — the last of the queued procgen ideas:
+
+- **Fully flooded rooms.** In room-grid Treasury and Undercity vaults, one
+  or two whole rooms now sit under water — room-scale, not puddles.
+  Crossing is slow (0.75× wade) but your clinking drowns (noise ×0.45),
+  so a flooded room is both a moat and a stealth route. Guards wade
+  slowly too.
+- **The Old Tunnel.** ~60% of vaults keep a plank trapdoor deep inside.
+  Dwell on it and you drop — spat out next to the entrance, LOUD (nearby
+  guards come to the landing), and the tunnel collapses behind you. One
+  use. The return trip is the dangerous half of every heist; this is the
+  found shortcut through it, priced in noise.
+- **Locked shutters + the brass key.** ~70% of room-grid vaults start with
+  one loop-door shortcut locked behind a brass padlock (gold-lit plug, a
+  padlock at its center). A brass key glints somewhere on the floor —
+  pocket it, touch the door, it turns once and the shortcut grinds open.
+  A Lockpick charge also cracks it. Loop-only, so nothing is ever walled
+  off; guards path around it like any sealed door.
+- Sounds: the hatch slam-slide-thud of the tunnel, the key's jingle and
+  the lock's turn. Pause screen tracks the key and the unused tunnel.
+- Region suite: flooded rooms are room-scale, the tunnel teleports and
+  collapses, locks close at gen / open by key, and the doorway-passable
+  check now proves a locked door is always a loop door (never
+  disconnecting).
+
 ## Web build — the Breach, the Drop Chute, a named Hunter, the Ledger, the Altar (build 2026-08-15.12)
 
 All six greenlit "premier" ideas in one drop:

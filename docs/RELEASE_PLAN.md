@@ -114,9 +114,12 @@ in rough value order:
   (1-of-3 run boons on pedestals at the door, diegetic), and a
   secrets-sound pass (chest creak/crack, stash heartbeat + chime, chute
   swallow, breach rumble, altar chord).
-  Remaining ideas for slice 3: fully flooded rooms (extend the treasury
-  pool system to room-scale water), trapdoors/one-way travel, locked
-  doors + keys.
+- [x] **Level-design depth, slice 3** (shipped .13): fully flooded rooms
+  (room-scale water in Treasury/Undercity grids — slow but silent),
+  the Old Tunnel (one-use loud trapdoor drop back to the door), locked
+  shutters + the brass key (loop-door shortcuts; lockpick also works).
+  The procgen ideas queue is now EMPTY — next level-design work should
+  come from the next playtest report.
 - [x] **Ascension twists** (shipped .11): every level adds a named,
   cumulative mechanic (Second Hound → Bright Eyes → Rival's Hour → Curfew
   Bell → Light Sleeper → Doubled Watch → Kennel → Sharper Steel → Sealed

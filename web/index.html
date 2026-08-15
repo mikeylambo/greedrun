@@ -591,7 +591,7 @@
       <div class="ht-row"><div class="ht-key">Word</div><div class="ht-txt">Escapes earn a name &mdash; earn it twice and your kind of work pays <em>+25%</em>, one buyer knows you. The <em>Gilded Fake</em>: rich in the bag, pennies at the fence, fine bait dropped.</div></div>
       <div class="ht-row"><div class="ht-key">Notoriety</div><div class="ht-txt">Selling hot goods to the Syndicate raises your Notoriety. High Notoriety makes every job <em>start</em> hotter and the Hunter come sooner. Returning goods cools it back down.</div></div>
       <div class="ht-row"><div class="ht-key">Secrets</div><div class="ht-txt"><em>Strongboxes</em> crack open if you stand close &mdash; loudly. A <em>shimmer</em> in the floor marks a hidden stash. A lost thief&rsquo;s <em>tool crate</em> swaps your kit for the night.</div></div>
-      <div class="ht-row"><div class="ht-key">Ways out</div><div class="ht-txt">At Heat <em>T4</em> the east wall <em>breaches</em> &mdash; a second exit, no temptation attached. The <em>drop chute</em> banks your haul at 70&cent; on the dollar, yours even if you fall. The <em>altar</em> by the door offers one gift per night.</div></div>
+      <div class="ht-row"><div class="ht-key">Ways out</div><div class="ht-txt">At Heat <em>T4</em> the east wall <em>breaches</em> &mdash; a second exit, no temptation attached. The <em>drop chute</em> banks your haul at 70&cent; on the dollar, yours even if you fall. The <em>altar</em> by the door offers one gift per night. Old <em>trapdoor tunnels</em> drop you back near the door &mdash; once, loudly. Flooded rooms are slow but drown your clinking; a <em>brass key</em> (or a lockpick) opens the locked shutter.</div></div>
       <div class="ht-row"><div class="ht-key">Temptation</div><div class="ht-txt">Reach the exit rich and it whispers <em>one more thing</em> — a Vault Heart, deeper in. How greedy can you be before the vault owns you?</div></div>
     </div>
     <div class="btn-row"><button class="btn" id="howtoBack">Got it</button></div>
@@ -750,7 +750,7 @@
 "use strict";
 // Build stamp — bump on every deploy. Shown on the title + hideout so a stale
 // Safari cache is instantly visible ("no report button" == old build).
-const BUILD = '2026-08-15.12';
+const BUILD = '2026-08-15.13';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 // Phones fill the screen in whichever way they're held — PORTRAIT (tall) or
@@ -892,6 +892,8 @@ let breach=null;                             // the heat-cracked second exit —
 let chute=null, stashedValue=0;              // the drop chute: mid-run banking at 70¢, kept even in death
 let doorPicks=[], runPerk={id:null,speed:1,noise:1,pay:1,softLand:false};  // the Thieves' Altar: one gift per night
 let stashPingT=0;                            // proximity heartbeat for unfound stashes
+let trapdoor=null;                           // the Old Tunnel: one-use drop back to the door — loud
+let lockedDoors=[], brassKey=null, hasKey=false;   // a locked shortcut shutter + the key that turns it
 
 // ===== Reputation: the street remembers (GDD §Reputation System) =====
 // Escaped-run epithets accumulate; a dominant one (earned 2+ times) becomes your
@@ -1562,6 +1564,45 @@ function updateSecrets(dt){
       }
     }
   } else if(chute) chute.prog=Math.max(0,chute.prog-dt*2);
+  // The Old Tunnel: dwell on the hatch and drop — spat out by the door, LOUD,
+  // and the tunnel collapses behind you. One use.
+  if(trapdoor && !trapdoor.used && player.plat===-1 &&
+     dist2(player.x,player.y,trapdoor.x,trapdoor.y) < 20*20){
+    trapdoor.prog+=dt;
+    if(trapdoor.prog>=0.5){
+      trapdoor.used=true;
+      const ex=trapdoor.exit;
+      for(let i=0;i<10;i++)particles.push(mkP(trapdoor.x,trapdoor.y,'#6b5a3a'));
+      player.x=ex.x; player.y=ex.y; player.plat=-1; unstick(player);
+      cam.x=clamp(player.x-VIEW.w/2,0,WORLD.w-VIEW.w);   // snap — no cross-vault pan
+      cam.y=clamp(player.y-VIEW.h/2,0,WORLD.h-VIEW.h);
+      camLead.x=0; camLead.y=0;
+      S.trapdoor(); shake=Math.max(shake,12);
+      ring(ex.x,ex.y,'#c9b37a',{vr:240,life:0.5});
+      for(let i=0;i<12;i++)particles.push(mkP(ex.x,ex.y,'#8a7a5c'));
+      lowNoiseRun=false;   // that landing echoed
+      for(const g of guards){ if(g.state!=='chase' && dist2(g.x,g.y,ex.x,ex.y)<360*360){
+        g.state='investigate'; g.lkp={x:ex.x,y:ex.y}; g.searchT=2.4; } }
+      toast('The old tunnel spits you out by the door — and collapses behind you.',2000);
+      tip('tunnel','Trapdoor tunnels are one-use and LOUD — but they skip the whole walk back.');
+    }
+  } else if(trapdoor && !trapdoor.used) trapdoor.prog=Math.max(0,trapdoor.prog-dt*2);
+  // the brass key: pocketed on touch, spent on the locked shutter
+  if(brassKey && !brassKey.got && player.plat===-1 &&
+     dist2(player.x,player.y,brassKey.x,brassKey.y) < 24*24){
+    brassKey.got=true; hasKey=true; S.keyJingle();
+    floaters.push({x:brassKey.x,y:brassKey.y-14,txt:'the brass key',life:1.5,col:'#e2ab30'});
+    toast('A brass key — somewhere in here, a locked shutter wants it.',1800);
+  }
+  if(hasKey) for(const d of lockedDoors){
+    if(d.state!=='closed') continue;
+    if(dist2(player.x,player.y,d.center.x,d.center.y) < 54*54){
+      d.locked=false; lockedDoors.splice(lockedDoors.indexOf(d),1); hasKey=false;
+      reopenDoor(d); S.keyTurn();
+      toast('The brass key turns — the locked shortcut grinds open.',1600);
+      break;
+    }
+  }
   // The Thieves' Altar: walk a pedestal to take its gift — the others crumble
   for(const dp of doorPicks){
     if(dp.taken || runPerk.id) continue;
@@ -1680,6 +1721,52 @@ function drawSecrets(){
     }
     ctx.restore();
   }
+  // The Old Tunnel: a plank hatch with an iron ring; rubble once it collapses
+  if(trapdoor && onCam(trapdoor.x,trapdoor.y)){
+    ctx.save(); ctx.translate(trapdoor.x,trapdoor.y);
+    if(!trapdoor.used){
+      ctx.fillStyle='#2c2113'; ctx.beginPath(); ctx.rect(-13,-10,26,20); ctx.fill(); strokeInk(1.8);
+      ctx.strokeStyle='rgba(23,19,16,.8)'; ctx.lineWidth=1.5;
+      for(const px of [-6,0.5,7]){ ctx.beginPath(); ctx.moveTo(px,-10); ctx.lineTo(px,10); ctx.stroke(); }
+      ctx.strokeStyle='#8a8a92'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(0,2,4.5,0.3,3.6); ctx.stroke();      // the iron ring
+      if(trapdoor.prog>0){ ctx.strokeStyle='#c9b37a'; ctx.lineWidth=3;
+        ctx.beginPath(); ctx.arc(0,-18,8,-1.57,-1.57+6.28*Math.min(1,trapdoor.prog/0.5)); ctx.stroke(); }
+      ctx.fillStyle='rgba(201,179,122,.75)'; ctx.font='600 8px "Barlow Semi Condensed"'; ctx.textAlign='center';
+      ctx.fillText('OLD TUNNEL',0,24);
+    } else {
+      for(const [rx,ry,rr] of [[-6,2,5],[4,-3,4],[1,6,3],[-2,-5,2.5]]){
+        ctx.fillStyle='#3a2c17'; ctx.beginPath(); ctx.arc(rx,ry,rr,0,6.28); ctx.fill(); strokeInk(1.2); }
+    }
+    ctx.restore();
+  }
+  // the brass key — a small glint with a bow and two teeth
+  if(brassKey && !brassKey.got && onCam(brassKey.x,brassKey.y)){
+    ctx.save(); ctx.translate(brassKey.x,brassKey.y);
+    const p=0.5+0.5*Math.sin(tPrev/240);
+    ctx.globalAlpha=0.35+0.3*p;
+    const kg=ctx.createRadialGradient(0,0,1,0,0,14);
+    kg.addColorStop(0,'#e2ab30'); kg.addColorStop(1,'rgba(226,171,48,0)');
+    ctx.fillStyle=kg; ctx.beginPath(); ctx.arc(0,0,14,0,6.28); ctx.fill(); ctx.globalAlpha=1;
+    ctx.strokeStyle='#e2ab30'; ctx.lineWidth=2.2;
+    ctx.beginPath(); ctx.arc(-4,0,3.2,0,6.28); ctx.stroke();         // bow
+    ctx.beginPath(); ctx.moveTo(-1,0); ctx.lineTo(7,0); ctx.moveTo(4,0); ctx.lineTo(4,3); ctx.moveTo(7,0); ctx.lineTo(7,3); ctx.stroke();
+    ctx.restore();
+  }
+  // the locked shutter wears a brass padlock over its plug
+  for(const d of lockedDoors){
+    if(d.state!=='closed' || !onCam(d.center.x,d.center.y)) continue;
+    const p=d.plug;
+    ctx.save();
+    ctx.fillStyle='rgba(226,171,48,.14)'; ctx.fillRect(p.x,p.y,p.w,p.h);
+    ctx.strokeStyle='rgba(226,171,48,.55)'; ctx.lineWidth=2; ctx.strokeRect(p.x,p.y,p.w,p.h);
+    ctx.translate(d.center.x,d.center.y);
+    ctx.fillStyle='#e2ab30'; ctx.beginPath(); ctx.rect(-5,-2,10,8); ctx.fill(); strokeInk(1.4);
+    ctx.strokeStyle='#e2ab30'; ctx.lineWidth=2.2;
+    ctx.beginPath(); ctx.arc(0,-3,4,3.14,6.28); ctx.stroke();        // shackle
+    ctx.fillStyle='#171310'; ctx.beginPath(); ctx.arc(0,1.6,1.4,0,6.28); ctx.fill();
+    ctx.restore();
+  }
   if(toolCache && !toolCache.taken && onCam(toolCache.x,toolCache.y)){
     const t=toolById(toolCache.id);
     ctx.save(); ctx.translate(toolCache.x,toolCache.y);
@@ -1773,6 +1860,7 @@ function buildWorld(){
   chests=[]; stashes=[]; toolCache=null;
   breach=null; chute=null; stashedValue=0; stashPingT=0;
   doorPicks=[]; runPerk={id:null,speed:1,noise:1,pay:1,softLand:false};
+  trapdoor=null; lockedDoors=[]; brassKey=null; hasKey=false;
   vaultAwake=false; whisperT=0; awakeSeverT=0; sealNagT=0; heistStage=0; latches=[];
   hitsTaken=0; awakeTime=0; toolUses=0;
   toolCharges = (meta.equippedTool && ownsTool(meta.equippedTool)) ? toolById(meta.equippedTool).uses + (capOn('trickster')?1:0) : 0;
@@ -1870,6 +1958,33 @@ function buildWorld(){
   const pSpot = {x:150, y:spawnY};
   portal = {x:pSpot.x, y:pSpot.y, r:46, spin:0};
   if(vgraph) graphSetExit(vgraph, portal.x, portal.y);
+
+  // Fully flooded rooms: in room-grid Treasury/Undercity vaults, one or two
+  // whole rooms sit under water — slow to cross but your clinking drowns.
+  // A different route calculus, not just puddles.
+  if(vgraph && (currentThemeKey==='treasury'||currentThemeKey==='undercity')){
+    const fn=1+(vrng()<0.4?1:0);
+    const cands=[]; for(let i=0;i<vgraph.cols*vgraph.rows;i++){
+      const gd=vgraph.gradient(i); if(i!==vgraph.exit && gd>=0.2 && gd<=0.85) cands.push(i); }
+    for(let k=0;k<fn && cands.length;k++){
+      const ri=cands.splice(Math.floor(vrng()*cands.length),1)[0];
+      const R=vgraph.openRect(ri);
+      pools.push({x:R.x+6,y:R.y+6,w:R.w-12,h:R.h-12,flooded:true});
+    }
+  }
+
+  // Locked shutter + brass key: one loop door in room vaults starts LOCKED —
+  // a shortcut the brass key (or a lockpick charge) opens. Loop-only, so
+  // nothing is ever walled off; guards path around it like any severed door.
+  if(vgraph && vgraph.loopDoors.length && vrng()<0.7){
+    const deep=vgraph.loopDoors.filter(d=>(vgraph.gradient(d.a)+vgraph.gradient(d.b))/2>=0.35);
+    const pick=deep.length?deep:vgraph.loopDoors;
+    const d=pick[Math.floor(vrng()*pick.length)];
+    d.state='closed'; d.locked=true; walls.push(d.plug);
+    const ai=vgraph.adj[d.a].indexOf(d.b); if(ai>=0) vgraph.adj[d.a].splice(ai,1);
+    const bi=vgraph.adj[d.b].indexOf(d.a); if(bi>=0) vgraph.adj[d.b].splice(bi,1);
+    lockedDoors.push(d);
+  }
 
   // vault dressing BEFORE loot/guards: solid props join collision, so every
   // later openSpot/reachability decision already accounts for them.
@@ -2031,6 +2146,27 @@ function buildWorld(){
     // the door. (It also sheds weight, noise and Heat: greed's pressure valve.)
     for(let t=0;t<60;t++){ const s=deepSpot(placed,0.35,0.3);
       if(reach(s.x,s.y)){ chute={x:s.x,y:s.y,r:17,prog:0}; placed.push(s); break; } }
+
+    // The Old Tunnel: ~60% of vaults keep a one-use trapdoor DEEP inside that
+    // drops you back near the door — the return trip is the dangerous half,
+    // and this is the loud, collapsing shortcut through it.
+    { const tr=vrng();
+      if(tr<0.6){
+        for(let t=0;t<60;t++){ const s=deepSpot(placed,0.6,0.45);
+          if(reach(s.x,s.y)){
+            let ex={x:portal.x+96,y:portal.y};
+            if(!isOpen(ex.x,ex.y,14)) ex={x:portal.x+60,y:portal.y};
+            if(!isOpen(ex.x,ex.y,14)) ex={x:portal.x,y:portal.y};
+            trapdoor={x:s.x,y:s.y,exit:ex,used:false,prog:0}; placed.push(s); break; } }
+      } }
+
+    // The brass key rides somewhere on reachable ground (only when a locked
+    // shutter exists to want it).
+    if(lockedDoors.length){
+      for(let t=0;t<60;t++){ const s=openSpot(12,160,placed);
+        if(reach(s.x,s.y)){ brassKey={x:s.x,y:s.y,got:false}; placed.push(s); break; } }
+      if(!brassKey){ const s=openSpot(12,60,null); brassKey={x:s.x,y:s.y,got:false}; }
+    }
   }
 
   // total value/count in the vault (for the 100% payoff)
@@ -2320,6 +2456,12 @@ const S={
   breach(){ nburst(0.8,0.5,300); tone(58,30,0.8,{vol:0.5}); tone(90,48,0.7,{type:'sawtooth',vol:0.2,delay:0.1});
     [523,659].forEach((f,i)=>tone(f,f,0.3,{type:'triangle',vol:0.09,delay:0.5+i*0.08})); },
   altar(){ [440,554,659].forEach((f,i)=>tone(f,f,0.42,{vol:0.08,at:0.05,delay:i*0.06})); },
+  trapdoor(){ nburst(0.15,0.4,700); tone(140,60,0.25,{vol:0.3});          // hatch slams…
+    tone(500,120,0.4,{type:'sawtooth',vol:0.1,delay:0.15});               // …the slide down…
+    nburst(0.2,0.3,500,{delay:0.5}); tone(110,60,0.2,{vol:0.25,delay:0.5}); },  // …the loud landing
+  keyJingle(){ [2093,1568,2093].forEach((f,i)=>tone(f,f*0.99,0.07,{type:'triangle',vol:0.08,delay:i*0.06})); },
+  keyTurn(){ tone(392,392,0.07,{type:'square',vol:0.1}); nburst(0.06,0.2,1200,{delay:0.09});
+    tone(784,1046,0.16,{type:'triangle',vol:0.12,delay:0.16}); },
 };
 let nextBeat=0;
 function musicTick(){
@@ -2442,8 +2584,9 @@ function useTool(){
     S.zip(); used=true;
   } else if(id==='lockpick'){
     let best=null, bd=150*150;
-    for(const d of severStack){ const dd=dist2(player.x,player.y,d.center.x,d.center.y); if(dd<bd){ bd=dd; best=d; } }
+    for(const d of severStack.concat(lockedDoors)){ const dd=dist2(player.x,player.y,d.center.x,d.center.y); if(dd<bd){ bd=dd; best=d; } }
     if(!best){ toast('No sealed shutter in reach.',900); return; } // no charge spent
+    if(best.locked){ best.locked=false; const li=lockedDoors.indexOf(best); if(li>=0) lockedDoors.splice(li,1); }
     reopenDoor(best); used=true;
   } else if(id==='portal'){
     if(!toolMark){
@@ -4772,6 +4915,8 @@ function renderStats(){
   ];
   if(stashedValue>0) run.push(['Down the chute', `$${Math.round(stashedValue).toLocaleString()} banked \u2014 yours no matter what`]);
   if(runPerk.id) run.push(['Altar gift', runPerk.nm]);
+  if(hasKey) run.push(['Brass key', 'find the locked shutter']);
+  if(trapdoor && !trapdoor.used) run.push(['Old tunnel', 'a one-use drop back to the door']);
   if(breach) run.push(['The east wall', breach.open?'BREACHED \u2014 a second way out':`cracks at Heat T4 (now T${heatTier})`]);
   if(meta.curseDebt>0) run.push(['Notoriety', `${meta.curseDebt}/10 \u2014 the Hunter comes sooner`]);
   const cs=contractStatus(activeContract);
@@ -4885,6 +5030,9 @@ window.__greed = {
   get stashedValue(){ return stashedValue; }, get doorPicks(){ return doorPicks; },
   get runPerk(){ return runPerk; }, updateBreach, hunterName, renderLedger,
   get DOOR_PERKS(){ return DOOR_PERKS; },
+  // slice 3: floods / tunnels / locks
+  get trapdoor(){ return trapdoor; }, get lockedDoors(){ return lockedDoors; },
+  get brassKey(){ return brassKey; }, get hasKey(){ return hasKey; },
   genContracts, repDominant, buyersFor, epithet,
   // vault-remembers / heist / lanes surface
   recompute, updateVaultRemembers, get vaultAwake(){ return vaultAwake; },

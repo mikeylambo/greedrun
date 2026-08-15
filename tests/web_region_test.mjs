@@ -62,7 +62,11 @@ const res = await page.evaluate(() => {
     const seen = { [g.exit]: 1 }, q = [g.exit];
     while (q.length) { const c = q.shift(); for (const n of g.adj[c]) if (!seen[n]) { seen[n] = 1; q.push(n); } }
     if (Object.keys(seen).length !== g.cols * g.rows) out.fails.push(`seed ${s}: graph connects ${Object.keys(seen).length}/${g.cols * g.rows}`);
-    for (const k in g.doors) { const d = g.doors[k]; if (!isOpen(d.x, d.y, 14)) out.fails.push(`seed ${s}: doorway ${k} blocked`); }
+    // every doorway passable — except the one loop door a brass-key lock may hold shut at gen
+    const lockedKeys = new Set(G.lockedDoors.map(d => d.key));
+    for (const k in g.doors) { const d = g.doors[k];
+      if (lockedKeys.has(k)) { if (!g.loopKeys.includes(k)) out.fails.push(`seed ${s}: LOCKED a tree door ${k} — would disconnect`); continue; }
+      if (!isOpen(d.x, d.y, 14)) out.fails.push(`seed ${s}: doorway ${k} blocked`); }
     const open = flood();
     if (!reach(open, G.portal.x, G.portal.y)) out.fails.push(`seed ${s}: portal unreachable`);
     for (let i = 0; i < g.cols * g.rows; i++) if (!roomReach(open, g.openRect(i))) out.fails.push(`seed ${s}: room ${i} unreachable`);
@@ -324,6 +328,51 @@ const res = await page.evaluate(() => {
   const lp = document.getElementById('ledgerPanel');
   if (!lp || !lp.innerHTML.includes('Ledger')) out.fails.push('ledger panel did not render');
   else out.log.push('ledger: career page renders (epithets, nemesis, ends)');
+
+  // ---- Flooded rooms: treasury room-grids drown whole rooms ----
+  G.forcedTheme = 'treasury'; G.dailyMutator = { layout: 'rooms' };
+  let floodSeed = null;
+  for (const s of SEEDS) { build(s); if (G.pools.some(p => p.flooded)) { floodSeed = s; break; } }
+  if (floodSeed === null) out.fails.push('no flooded room across treasury room-grid seeds');
+  else {
+    const fp = G.pools.find(p => p.flooded);
+    if (fp.w < 150 || fp.h < 100) out.fails.push('flooded pool is not room-scale (' + fp.w + 'x' + fp.h + ')');
+    else out.log.push(`flooded rooms: room-scale water (${fp.w}x${fp.h}) in treasury grids`);
+  }
+  G.forcedTheme = null; G.dailyMutator = {};
+
+  // ---- The Old Tunnel: one-use drop back to the door, loud ----
+  let tunnelSeed = null;
+  for (const s of SEEDS) { build(s); if (G.trapdoor) { tunnelSeed = s; break; } }
+  if (tunnelSeed === null) out.fails.push('no trapdoor tunnel across seeds');
+  else {
+    const td = G.trapdoor;
+    G.player.x = td.x; G.player.y = td.y; G.player.plat = -1;
+    for (let i = 0; i < 15; i++) G.updateSecrets(0.05);
+    const distOut = Math.hypot(G.player.x - td.exit.x, G.player.y - td.exit.y);
+    if (!td.used) out.fails.push('trapdoor did not fire after dwell');
+    else if (distOut > 5) out.fails.push('trapdoor did not deliver the player to its exit (' + distOut.toFixed(0) + 'px off)');
+    else out.log.push('tunnel: dwell-drop teleports to the door and collapses (one use)');
+  }
+
+  // ---- Locked shutter + brass key ----
+  G.dailyMutator = { layout: 'rooms' };
+  let lockSeed = null;
+  for (const s of SEEDS) { build(s); if (G.lockedDoors.length && G.brassKey) { lockSeed = s; break; } }
+  if (lockSeed === null) out.fails.push('no locked shutter + key across room-grid seeds');
+  else {
+    const ld = G.lockedDoors[0];
+    if (ld.state !== 'closed') out.fails.push('locked door is not closed at gen');
+    G.player.x = G.brassKey.x; G.player.y = G.brassKey.y; G.player.plat = -1;
+    G.updateSecrets(0.05);
+    if (!G.hasKey) out.fails.push('brass key not pocketed on touch');
+    G.player.x = ld.center.x; G.player.y = ld.center.y;
+    G.updateSecrets(0.05);
+    if (G.lockedDoors.length || ld.state !== 'open') out.fails.push('brass key did not open the locked shutter');
+    else if (G.hasKey) out.fails.push('key not consumed on use');
+    else out.log.push('locks: shutter closed at gen, key pockets on touch, turns once, door opens');
+  }
+  G.dailyMutator = {};
   return out;
 });
 
