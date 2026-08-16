@@ -121,79 +121,91 @@ in rough value order:
   The procgen ideas queue is now EMPTY — next level-design work should
   come from the next playtest report.
 
-## Depth phases (user verdict: "needs far more depth" — maxed in 1-2h)
+## THE CONTENT ROADMAP (locked with the user, build-.16 session)
 
-- [x] **Phase A — re-pace what exists** (shipped .14): unlock ladder to
-  ~24 jobs with the secrets as announced discoveries; upgrade costs
-  double per level (tree = 6-8h); trophy restores ×1.8; heat re-centered
-  900→1050; shared seeds force full vaults for fairness. The 18-run
-  report that drove this: avg banked $11,974, maxed builds banking 4-5×
-  haul at sustained T6, 100% escapes at max gear.
-- [ ] **Phase B — the career ladder** (NEXT BUILD): visible rank driven by
-  the career ledger; ranks gate locations (Mint → Undercity → Fortress →
-  Treasury) and contract tiers with bigger vaults (`areaScale` is the
-  ready-made knob). The Ledger page becomes the progression screen.
-  **USER DIRECTION (PDF notes): rank names follow Jo's canonical
-  character arc — Thief → Strider → Mastermind** (with intermediates as
-  needed, e.g. Thief → Prowler → Strider → Shadowhand → Mastermind).
-  This replaces the generic "Pickpocket → Legend" idea; abilities and
-  challenges per rank should reflect that development arc. The epithet
-  system (per-run titles) stays descriptive, but review its names
-  against Jo's lore in the same pass. Jo's source game is an RPG — his
-  RPG skillset is fair game for rank abilities.
-- [ ] **Phase C — chapter climaxes**: a signature enemy per location and
-  a bespoke Legendary Heist finale per location (the heist system
-  exists); beating it promotes your rank.
-  **PDF notes to fold in**: (a) restore the original design log's three
-  mission types as full identities, not just contract flavors —
-  Greedrun (normal), Silent Job (detection raises alarms; PERFECT
-  stealth pays a rare relic), Timed Raid (collapse + guard rotation +
-  curse clock); (b) "more map design, puzzle elements almost" — puzzle
-  chambers in the room grammar (pressure plates, mirror-sentry rooms,
-  sequence locks on strongrooms); (c) smarter chest placement (deep
-  rooms, guarded corners — not open floor).
-- [ ] **"The Almshouse" — the greed lesson made mechanical (PROPOSAL,
-  needs user greenlight)**: the PDF asks for the game's missing moral —
-  Greed, and how it isn't good — expressed genuinely, not just as
-  difficulty. Proposal: a Den fixture where gold can be GIVEN AWAY
-  (a real sink — the money leaves forever). Giving cools notoriety,
-  earns quiet blessings (calmer starts, the street's goodwill) and a
-  visible "given away" ledger line — while hoarding keeps feeding the
-  Hunter and the vault's memory. The game never preaches; the systems
-  make generosity feel like relief and greed feel like weight, which is
-  already the game's thesis. Cheap to build, deep if it lands.
-- [ ] **Phase D — the long tail**: museum sets per loot kind, Jo's-room
-  cosmetics from epithets/feats, post-A10 horizon.
-- [ ] **Endgame economy watch**: maxed builds bank 4-5× haul via the
-  multiplier stack (buyers × contacts × danger × den × mastery ×
-  Fortune's Cache × ascension). Phase A stretches sinks instead of
-  nerfing income; if the next report still shows $20k+ banks pre-Phase-B,
-  consider a soft cap on the stacked sale multiplier.
-- [x] **Ascension twists** (shipped .11): every level adds a named,
-  cumulative mechanic (Second Hound → Bright Eyes → Rival's Hour → Curfew
-  Bell → Light Sleeper → Doubled Watch → Kennel → Sharper Steel → Sealed
-  Night → The Vault's Own). Still open: an ascension-only *reward* track
-  (cosmetics/titles) if twists alone don't make climbing feel worth it.
-- [x] **Rival escalation** (shipped .11): guards chase him on sight
-  (player sighting wins), he flees, a collar drags him off and drops his
-  stolen haul as a reclaimable sack. Still open: rival contesting the
-  player directly (shove/snatch).
-- [x] **Oust pursuers** (shipped .10): detection now requires line of
-  sight, and chases tire — watchdog gives up winded after 4.5s of failing
-  to catch you, grunts 8s, Hunter 12s.
-- [x] **Vault Heart findability** (shipped .10): Treasure Sense now draws
-  a gold compass arrow to the Heart (it was "revealed" but unfindable —
-  the user maxed the tree without ever seeing it).
+**Doctrine: content-complete first, then balance.** The user's words: "Once
+content is in fully we can balance." Do not spend drops on tuning until
+.21 ships; log balance observations in this file instead.
+
+**Standing design decisions (user-called, do not relitigate):**
+- **Jo IS the Mastermind.** No rank/reputation ladder renaming him or
+  charting his growth — for this game he is already at Mastermind level.
+  Progression is framed as **the Operation growing**: territory opens,
+  clients trust bigger jobs, the network deepens. Per-run epithets stay
+  (street-talk about him, not titles he wears).
+- **No Almshouse.** The greed lesson is subtle and systemic — expressed
+  through consequences (see .17), never a preachy mechanic.
+- **One-finger design is sacred.** No second active-tool button. Depth
+  via a QUEUED backup tool that auto-promotes when the active one runs
+  dry (zero new inputs).
+- Mission types are flavor folded into the tier system, not a separate
+  pass (sized at ~2-3h of mastery variety).
+
+### Build .17 — "The Operation" (progression spine)
+- Job tiers gate locations: Mint from the start → Undercity → Fortress →
+  Treasury, opened by the Operation's growth (career banked/escapes).
+- Contract tiers per territory: higher tier = bigger vaults (`areaScale`)
+  + richer tables + harder floors.
+- The Ledger becomes the Operation page: territory map-list, tier
+  progress, what the next tier unlocks.
+- **The greed lesson v1 (subtle):** the death screen learns one line —
+  "You passed the exit carrying $1,840. You died carrying $3,235." Let
+  the player do the moral arithmetic. And **failing a client's contract
+  now costs**: that client-type's jobs pay −20% until you complete one
+  (the street remembers failure). Track per-type in meta.
+### Build .18 — Location identity
+- A signature enemy per location (each place has a hazard; give each a
+  FACE): e.g. Treasury diver-warden that swims, Undercity lampsnuffer
+  that kills your light, Fortress ballista-sentry, Mint press-master.
+- Mission-type mechanics fold into tiers: Timed Raids rotate guard
+  posts mid-run; PERFECT Silent Jobs pay a rare relic on top; high-tier
+  quota runs raise a curse clock.
+- **Resolve the modifier problem** (recommendation: contracts roll
+  modifiers too, at ~50% of the free-run rate — 19/19 clean runs in the
+  latest report means the system currently doesn't exist in practice).
+### Build .19 — Finales & puzzle chambers
+- A bespoke Legendary Heist finale per location (three-stage system
+  exists); beating one promotes the Operation's tier.
+- Puzzle grammar in room grids: pressure-plate doors, mirror-sentry
+  rooms, sequence locks on strongrooms. Chest placement pass (deep
+  rooms, guarded corners — never open floor).
+### Build .20 — The long tail
+- Museum sets per loot kind in the Trophy Room; Jo's-room cosmetics
+  earned by feats/epithets (PSU-room payoff).
+- Second-sheath: found tools queue as backup, auto-promote (one-finger
+  safe). Post-A10 horizon hook.
+### Build .21 — Identity polish (pre-wrapper)
+- Vector-art quality pass (however far possible), OST pass on the
+  procedural bed (motif, per-location progression, heat layers), full
+  UI/copy sweep, mobile-landscape verification on device.
+### Then: CONTENT-COMPLETE → the big balance pass
+- Fresh-save ladder playthrough + veteran endgame audit in one report
+  cycle; retune quotas/heat/economy/multiplier-stack soft cap with all
+  content in. Then R4 wrapper → R6 QA → 1.0.
+
+**Balance observations parked until content-complete:**
+- Maxed builds bank 4-5× haul via the multiplier stack (buyers ×
+  contacts × danger × den × mastery × Fortune's Cache × ascension) —
+  candidate: soft cap on the stacked sale multiplier.
+- Escape rate at 84% in the latest 19-run report (watchdog the only
+  killer, 3×) — early-ladder difficulty reads soft for a skilled player.
+- Chute used 4/19 runs — healthy first adoption, watch the trend.
+
+**Shipped depth history:** Phase A re-pace (.14) · ascension twists (.11)
+· rival escalation (.11) · LOS + winded chases (.10) · Heart compass
+(.10) · secrets slices 1-3 (.11-.13) · ghost-loot fix + freebie-contract
+floors + buyer anchors (.16).
 
 ## R3 — Cut / keep decisions (user calls these)
 
 Present these to the user with data; don't decide unilaterally:
 
-- [ ] **Modifiers are invisible.** All 10 reported runs were "clean" —
-  because contracts and dailies dominate play and are always clean, the
-  modifier system effectively never fires. Options: (a) let twists apply to
-  contracts at reduced rate, (b) surface modifier choice on the free-run
-  card, (c) cut the system for 1.0. Needs a decision.
+- [ ] **Modifiers are invisible.** Every telemetry report confirms it
+  (latest: 19/19 clean) — contracts and dailies dominate play and are
+  always clean, so the system never fires. RECOMMENDATION (scheduled for
+  build .18): contracts roll modifiers too at ~50% of the free-run rate;
+  cut only if the user prefers. Options (b) surface modifier choice on
+  the free-run card / (c) cut for 1.0 remain fallbacks.
 - [ ] **Watchdog and shrine**: user verdicts pending from playtests —
   keep, retune, or cut.
 - [ ] Anything else the user flags as "doesn't belong per the GDD".
