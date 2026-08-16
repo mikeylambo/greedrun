@@ -559,6 +559,10 @@
       <button class="btn" id="startBtn">Enter the Vault</button>
       <button class="btn ghost" id="howtoBtn">How to Play</button>
     </div>
+    <div class="btn-row" style="margin-top:2px">
+      <button class="btn ghost" id="sfxBtn" style="font-size:13px;padding:8px 18px">Sound FX: On</button>
+      <button class="btn ghost" id="musBtn" style="font-size:13px;padding:8px 18px">Music: On</button>
+    </div>
     <div class="controls-hint">
       One finger. <em style="color:var(--scarf);font-style:normal">Drag anywhere to move.</em>
       &nbsp;·&nbsp; Grab loot, then get back to the exit alive.<br>
@@ -642,7 +646,8 @@
       <div class="den-perks" id="denPerks"></div>
     </div>
     <div id="tabGear" style="display:none">
-      <div class="bank" style="font-size:20px;margin-bottom:6px"><span class="c">Banked gold</span><span id="gearGold">$0</span></div>
+      <div class="bank" style="font-size:20px;margin-bottom:2px"><span class="c">Banked gold</span><span id="gearGold">$0</span></div>
+      <div id="gearNoto" style="width:min(560px,94%);text-align:center;font-size:12px;letter-spacing:.04em;margin-bottom:8px;line-height:1.5"></div>
       <div class="fence-grid" id="fenceGrid"></div>
       <div class="stat-head" id="wbHead" style="width:min(560px,94%);text-align:center;margin-top:4px">Trickster &middot; The Workbench &middot; one tool rides per job (Space / TOOL)</div>
       <div class="fence-grid" id="toolGrid" style="margin-top:10px"></div>
@@ -750,7 +755,7 @@
 "use strict";
 // Build stamp — bump on every deploy. Shown on the title + hideout so a stale
 // Safari cache is instantly visible ("no report button" == old build).
-const BUILD = '2026-08-15.14';
+const BUILD = '2026-08-15.15';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 // Phones fill the screen in whichever way they're held — PORTRAIT (tall) or
@@ -1293,15 +1298,33 @@ function isOpen(x,y,r){
   }
   return true;
 }
-// if an entity's center is embedded in a wall, spiral out to the nearest open point
+// if an entity's center is embedded in a wall, spiral out to the nearest open
+// point — on the SAME elevation. (Rescuing Jo onto a platform footprint while
+// his plat state said "ground" was the stuck-after-a-shove playtest bug.)
 function unstick(e){
-  if(isOpen(e.x,e.y,e.r)) return;
-  for(let rad=4; rad<=160; rad+=4){
-    for(let a=0;a<6.2832;a+=0.35){
-      const x=e.x+Math.cos(a)*rad, y=e.y+Math.sin(a)*rad;
-      if(isOpen(x,y,e.r)){ e.x=x; e.y=y; return; }
+  if(isOpen(e.x,e.y,e.r) && (e.plat===undefined || platAt(e.x,e.y)===e.plat || stairAt(e.x,e.y)!==-1)) return;
+  for(let pass=0; pass<2; pass++){
+    for(let rad=4; rad<=160; rad+=4){
+      for(let a=0;a<6.2832;a+=0.35){
+        const x=e.x+Math.cos(a)*rad, y=e.y+Math.sin(a)*rad;
+        if(!isOpen(x,y,e.r)) continue;
+        // pass 0 insists on the entity's own elevation; pass 1 takes any open
+        // spot and ADOPTS its elevation — never leave anyone in a broken state
+        if(pass===0 && e.plat!==undefined && platAt(x,y)!==e.plat && stairAt(x,y)===-1) continue;
+        e.x=x; e.y=y;
+        if(e.plat!==undefined && stairAt(x,y)===-1) e.plat=platAt(x,y);
+        return;
+      }
     }
   }
+}
+// forced moves (shoves, knockbacks) respect elevation: Jo never gets pushed
+// up onto — or through — a ledge sideways. Per-axis, like attemptMove.
+function forceMovePlayer(dx,dy){
+  const tryAxis=(nx,ny)=>{ if(isOpen(nx,ny,player.r) && platAt(nx,ny)===player.plat){ player.x=nx; player.y=ny; return true; } return false; };
+  const a=tryAxis(player.x+dx,player.y);
+  const b=tryAxis(player.x,player.y+dy);
+  return a||b;
 }
 // --- elevation ---
 function inRect(x,y,r){ return x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h; }
@@ -1497,7 +1520,7 @@ function updateRivals(dt){
     const hunter=guards.find(g=>g.quarry==='rival'&&g.state==='chase');
     if(hunter){
       let fx=rv.x-hunter.x, fy=rv.y-hunter.y; const fd=Math.hypot(fx,fy)||1; fx/=fd; fy/=fd;
-      const f=(ascTwistOn('rival')?2.25:2.1)*dt*60; rv.face=Math.atan2(fy,fx); rv.target=null;
+      const f=(ascTwistOn('rival')?2.25:2.1)*dt*60*(poolAt(rv.x,rv.y)?0.75:1); rv.face=Math.atan2(fy,fx); rv.target=null;
       if(isOpenGround(rv.x+fx*f,rv.y,rv.r)) rv.x+=fx*f; else if(isOpenGround(rv.x,rv.y+(fy>=0?f:-f),rv.r)) rv.y+=(fy>=0?f:-f);
       if(isOpenGround(rv.x,rv.y+fy*f,rv.r)) rv.y+=fy*f; else if(isOpenGround(rv.x+(fx>=0?f:-f),rv.y,rv.r)) rv.x+=(fx>=0?f:-f);
       continue;
@@ -1515,7 +1538,7 @@ function updateRivals(dt){
     const t=rv.target; if(!t) continue;
     const nav=navTarget(vgraph,rv.x,rv.y,t.x,t.y);
     let dx=nav.x-rv.x, dy=nav.y-rv.y; const d=Math.hypot(dx,dy)||1; dx/=d; dy/=d; rv.face=Math.atan2(dy,dx);
-    const spd=(ascTwistOn('rival')?1.95:1.7)*dt*60;        // TUNE: a hair slower than a loaded sprint (A3: quicker)
+    const spd=(ascTwistOn('rival')?1.95:1.7)*dt*60*(poolAt(rv.x,rv.y)?0.75:1);   // TUNE: a hair slower than a loaded sprint (A3: quicker); he wades too
     if(isOpenGround(rv.x+dx*spd,rv.y,rv.r)) rv.x+=dx*spd; else if(isOpenGround(rv.x+(dx>0?spd:-spd),rv.y,rv.r)) rv.x+=(dx>0?spd:-spd);
     if(isOpenGround(rv.x,rv.y+dy*spd,rv.r)) rv.y+=dy*spd; else if(isOpenGround(rv.x,rv.y+(dy>0?spd:-spd),rv.r)) rv.y+=(dy>0?spd:-spd);
     if(dist2(rv.x,rv.y,t.x,t.y) < (rv.r+14)**2){           // reached it → steal it
@@ -2385,6 +2408,9 @@ function guardSpeed(){ return (1.5 + heatTier*0.16 + carriedCurse*0.03) * ascMod
 let AC=null, masterBus=null, sfxBus=null, musBus=null, chaseG=null, noiseBuf=null, anyChase=false;
 let ambF=null, ambG=null, nextThump=0;   // location-ambience bed (retuned per theme)
 let audioMuted=false; try{ audioMuted=localStorage.getItem('greedrun_muted')==='1'; }catch(e){}
+// separate SFX / music switches (menu settings) — persisted like the mute
+let sfxOn=true, musOn=true;
+try{ sfxOn=localStorage.getItem('greedrun_sfx')!=='0'; musOn=localStorage.getItem('greedrun_mus')!=='0'; }catch(e){}
 function audioInit(){
   if(AC) return;
   const Ctor=window.AudioContext||window.webkitAudioContext; if(!Ctor) return;
@@ -2394,7 +2420,7 @@ function audioInit(){
     try{ if(navigator.audioSession) navigator.audioSession.type='playback'; }catch(e){}
     AC=new Ctor();
     masterBus=AC.createGain(); masterBus.gain.value=audioMuted?0:0.5; masterBus.connect(AC.destination);
-    sfxBus=AC.createGain(); sfxBus.gain.value=0.9; sfxBus.connect(masterBus);
+    sfxBus=AC.createGain(); sfxBus.gain.value=sfxOn?0.9:0; sfxBus.connect(masterBus);
     musBus=AC.createGain(); musBus.gain.value=0;   musBus.connect(masterBus);
     noiseBuf=AC.createBuffer(1,AC.sampleRate|0,AC.sampleRate|0);
     const d=noiseBuf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
@@ -2508,7 +2534,7 @@ let nextBeat=0;
 function musicTick(){
   if(!AC) return;
   const playing = state==='playing';
-  musBus.gain.setTargetAtTime(playing?0.32:0, AC.currentTime, playing?0.6:0.25);
+  musBus.gain.setTargetAtTime(playing&&musOn?0.32:0, AC.currentTime, playing?0.6:0.25);
   chaseG.gain.setTargetAtTime(playing&&anyChase?0.13:0, AC.currentTime, 0.5);
   // location ambience: water lap (louder while wading), rampart wind, cave hush,
   // and the Mint's low machine room — each location has a voice
@@ -2536,6 +2562,14 @@ function toggleMute(){
   syncMuteUI();
 }
 function syncMuteUI(){ const b=document.getElementById('muteBtn'); if(b) b.textContent=audioMuted?'🔇':'🔊'; }
+function toggleSfx(){ sfxOn=!sfxOn; try{ localStorage.setItem('greedrun_sfx',sfxOn?'1':'0'); }catch(e){}
+  if(AC&&sfxBus) sfxBus.gain.setTargetAtTime(sfxOn?0.9:0, AC.currentTime, 0.02); syncSoundUI(); }
+function toggleMus(){ musOn=!musOn; try{ localStorage.setItem('greedrun_mus',musOn?'1':'0'); }catch(e){} syncSoundUI(); }
+function syncSoundUI(){
+  const s=document.getElementById('sfxBtn'), m=document.getElementById('musBtn');
+  if(s) s.textContent=`Sound FX: ${sfxOn?'On':'Off'}`;
+  if(m) m.textContent=`Music: ${musOn?'On':'Off'}`;
+}
 // unlock on the very first gesture, whatever it is (capture phase beats the handlers)
 const audioUnlock=()=>{ audioInit(); if(AC&&AC.state==='suspended') AC.resume(); };
 addEventListener('pointerdown', audioUnlock, {capture:true});
@@ -3026,7 +3060,7 @@ function update(dt){
       const nav = navTarget(vgraph, g.x, g.y, tx, ty);
       let dx=nav.x-g.x, dy=nav.y-g.y; const d=Math.hypot(dx,dy)||1;
       dx/=d; dy/=d; g.face=Math.atan2(dy,dx);
-      const step=spd*dt*60*(poolAt(g.x,g.y)?0.8:1);   // guards wade slowly too
+      const step=spd*dt*60*(poolAt(g.x,g.y)?0.7:1);   // guards wade SLOWER than Jo (0.75) — water is a real escape route
       const passable = g.hunter ? isOpen : isOpenGround;   // the Hunter can climb; grunts can't
       if(passable(g.x+dx*step,g.y,g.r)) g.x+=dx*step;
       else if(passable(g.x, g.y+ (dy>0?step:-step), g.r)) g.y+= (dy>0?step:-step);
@@ -3057,8 +3091,13 @@ function update(dt){
     if(!ghosting && (player.plat===-1 || g.hunter)){
       const bdx=player.x-g.x, bdy=player.y-g.y, bd=Math.hypot(bdx,bdy), bmin=g.r+player.r-2;
       if(bd>0.01 && bd<bmin){ const px=bdx/bd*(bmin-bd), py=bdy/bd*(bmin-bd);
-        if(isOpen(player.x+px,player.y+py,player.r)){ player.x+=px; player.y+=py; }
-        else { g.x-=px; g.y-=py; }   // cornered — the guard gives ground instead
+        // elevation-safe: a bump can never push Jo up onto a ledge (playtest:
+        // bumped mid-chase, stranded on a platform with broken state)
+        if(!forceMovePlayer(px,py)){   // cornered — the guard gives ground instead
+          const pass=g.hunter?isOpen:isOpenGround;
+          if(pass(g.x-px,g.y,g.r)) g.x-=px;
+          if(pass(g.x,g.y-py,g.r)) g.y-=py;
+        }
       }
     }
     // contact — grunts only reach ground-level Jo; the Hunter reaches you anywhere.
@@ -3067,8 +3106,7 @@ function update(dt){
       player.hp-- ; player.inv=1.1; g.hitCd=0.8; g.chaseT=0; shake=14; hitStop=Math.max(hitStop,0.07); runDamaged=true; hitsTaken++;   // a landed grab resets the tire clock
       S.hit(); joSquash=Math.max(joSquash,0.45); ring(player.x,player.y,'#e0503f',{vr:220,life:0.45});
       const kx=player.x-g.x, ky=player.y-g.y, km=Math.hypot(kx,ky)||1, push=26;
-      if(isOpen(player.x+kx/km*push, player.y, player.r)) player.x+=kx/km*push;
-      if(isOpen(player.x, player.y+ky/km*push, player.r)) player.y+=ky/km*push;
+      forceMovePlayer(kx/km*push, ky/km*push);   // knockback stays on Jo's own level
       unstick(player);
       // Fragile loot shatters when you take a hit
       const frag=loot.find(l=>l.kind==='fragile'&&l.got);
@@ -3970,7 +4008,7 @@ function syncHud(){
   // greed load
   const gp=clamp(carriedWeight/40,0,1);
   $('greedFill').style.width=(gp*100)+'%';
-  $('greedTxt').textContent = carriedWeight<6?'Light': carriedWeight<16?'Laden': carriedWeight<28?'Heavy':'Backbreaking';
+  $('greedTxt').textContent = carriedWeight<6?'Light': carriedWeight<16?'Loaded': carriedWeight<28?'Heavy':'Super Heavy';   // plain words a kid reads at a glance
   const np=clamp(noiseNow()/14,0,1);
   $('noiseFill').style.width=(np*100)+'%';
   $('noiseTxt').textContent = noiseNow()<1?'Silent': noiseNow()<5?'Clinking': noiseNow()<9?'Loud':'Deafening';
@@ -4743,6 +4781,17 @@ function renderShop(){
   $('nextRunBtn').innerHTML = unlocked('contracts') ? 'Choose Tonight&rsquo;s Job →' : 'Begin Tonight&rsquo;s Job →';
   applyShopTab();
   $('gearGold').textContent='$'+meta.gold.toLocaleString();
+  // Notoriety reads on the Gear screen too (playtest ask) — the Syndicate's
+  // ledger should be visible wherever you spend
+  { const gn=$('gearNoto');
+    if(gn){ if(meta.curseDebt>0){
+        const seed=clamp(Math.floor(meta.curseDebt/2)-upgLevel('cool')-denCalm(),0,3);
+        const hunterAt=Math.max(2,4-Math.floor(meta.curseDebt/3));
+        gn.style.color='var(--curse-glow)';
+        gn.innerHTML=`Notoriety <b>${meta.curseDebt}/10</b>`+(seed>0?` · jobs start at Heat T${seed}`:'')
+          +` · the Hunter enters at T${hunterAt} — <span style="color:var(--ok)">“Return it” at the fence cools it</span>`;
+      } else { gn.style.color='var(--muted)';
+        gn.innerHTML=`Notoriety <b>0</b> — the streets are quiet. Syndicate sales raise it; returning goods cools it.`; } } }
   const ln=$('logN'); if(ln) ln.textContent=runLog.length;
   { const el=$('bankAmt'), prev=parseInt((el.textContent||'').replace(/\D/g,''))||0;
     if(prev!==meta.gold) animateMoney(el, prev, meta.gold, 700);
@@ -4985,6 +5034,7 @@ function abandonRun(){ touchWrap.style.display='none'; $('hud').classList.remove
 function openHowTo(from){ howtoFrom=from; show('howto'); }
 $('pauseBtn').onclick=pauseGame;
 $('muteBtn').onclick=toggleMute; syncMuteUI();
+$('sfxBtn').onclick=toggleSfx; $('musBtn').onclick=toggleMus; syncSoundUI();
 $('fsBtn').onclick=toggleFullscreen;
 if(isTouch) $('fsBtn').style.display='none';   // phones are already full-bleed
 // one shared click cue for every interactive element (the same gesture unlocks audio)
@@ -5075,6 +5125,8 @@ window.__greed = {
   // slice 3: floods / tunnels / locks
   get trapdoor(){ return trapdoor; }, get lockedDoors(){ return lockedDoors; },
   get brassKey(){ return brassKey; }, get hasKey(){ return hasKey; },
+  // elevation-safety surface
+  get platforms(){ return platforms; }, unstick, forceMovePlayer, stairAt,
   genContracts, repDominant, buyersFor, epithet,
   // vault-remembers / heist / lanes surface
   recompute, updateVaultRemembers, get vaultAwake(){ return vaultAwake; },

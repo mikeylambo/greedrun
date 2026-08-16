@@ -173,7 +173,14 @@ Present these to the user with data; don't decide unilaterally:
   keep, retune, or cut.
 - [ ] Anything else the user flags as "doesn't belong per the GDD".
 
-## R4 — Release wrapper (the "this is a real game" pass)
+## R4 — Release wrapper
+
+**OST (playtest ask, build .15):** the audio is a procedural WebAudio bed
+(drone + heartbeat + chase tremolo + location ambiences). For release,
+either give the bed a real musical pass (a motif, a chord progression per
+location, heat-driven intensity layers — stays zero-asset) or license a
+track. User decides direction; the Sound FX / Music menu toggles shipped
+in .15 so an OST drops straight in. (the "this is a real game" pass)
 
 - [ ] Drop "MVP" / "Vertical Slice" branding everywhere (title screen,
   hideout, README).

@@ -1,5 +1,30 @@
 # Changelog
 
+## Web build — the stuck-on-platform fix + playtest notes (build 2026-08-15.15)
+
+- **FIXED: bumped onto a platform and stuck (twice-reported).** Three
+  direct position writes bypassed the climb logic: the guard body-shove,
+  the hit knockback, and the wall-unstick spiral could all move Jo onto a
+  platform footprint while his state said "ground" — after which every
+  move was blocked. All forced moves now go through an elevation-safe
+  path (a shove can never push you up or through a ledge; a cornered
+  guard gives ground instead), and `unstick` self-heals: if Jo ever ends
+  up in a broken elevation state it adopts the correct level instead of
+  leaving him stranded. A regression test corrupts the state exactly like
+  the report and proves both the heal and the refusal.
+- **Water slows everyone properly**: guards wade at 0.7× (slower than
+  Jo's 0.75 — flooded rooms are now a genuine escape route), and the
+  rival wades at 0.75× in both his looting and fleeing.
+- Copy: the greed meter reads Light / Loaded / Heavy / **Super Heavy**
+  (was "Backbreaking").
+- **Notoriety on the Gear screen**: the Syndicate's ledger now reads
+  where you spend — "Notoriety 4/10 · jobs start at Heat T2 · the Hunter
+  enters at T3 — 'Return it' at the fence cools it."
+- **Sound settings on the menu**: separate Sound FX and Music toggles,
+  persisted, alongside the existing mute (M).
+- OST noted for the release wrapper phase (R4): the procedural bed gets
+  a proper motif pass, or a licensed track — user call.
+
 ## Web build — Phase A: the depth re-pace (build 2026-08-15.14)
 
 The 18-run report proved the diagnosis: a skilled player maxes everything

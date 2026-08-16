@@ -377,6 +377,33 @@ const res = await page.evaluate(() => {
     else out.log.push('locks: shutter closed at gen, key pockets on touch, turns once, door opens');
   }
   G.dailyMutator = {};
+
+  // ---- Elevation safety: shoves can't strand Jo on a platform (stuck bug) ----
+  { let platSeed = null;
+    for (const s of SEEDS) { build(s); if (G.platforms.length) { platSeed = s; break; } }
+    if (platSeed === null) out.log.push('elevation: no platform seed found — skipped');
+    else {
+      const P = G.platforms[0];
+      // corrupt the state exactly like the reported bug: Jo inside a platform
+      // footprint while his state says "ground" — unstick must self-heal it
+      G.player.x = P.x + P.w / 2; G.player.y = P.y + P.h / 2; G.player.plat = -1;
+      G.unstick(G.player);
+      const healed = G.platAt(G.player.x, G.player.y) === G.player.plat || G.stairAt(G.player.x, G.player.y) !== -1;
+      if (!healed) out.fails.push('unstick left Jo in a broken elevation state');
+      // and a forced shove from open ground must refuse to cross the ledge
+      let ok = true, tested = false;
+      for (let off = 20; off <= 60 && !tested; off += 10) {
+        const gx = P.x - off, gy = P.y + P.h / 2;
+        if (!G.isOpen(gx, gy, 14) || G.platAt(gx, gy) !== -1) continue;
+        G.player.x = gx; G.player.y = gy; G.player.plat = -1;
+        G.forceMovePlayer(off + 30, 0);   // shove straight at the platform
+        tested = true;
+        if (G.platAt(G.player.x, G.player.y) !== -1) ok = false;
+      }
+      if (tested && !ok) out.fails.push('a forced shove pushed Jo up onto a platform');
+      if (healed && (!tested || ok)) out.log.push('elevation: unstick self-heals, shoves never cross a ledge');
+    }
+  }
   G.meta.runs = 0;   // leave the page as we found it
   return out;
 });
