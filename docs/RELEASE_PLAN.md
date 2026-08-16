@@ -170,12 +170,19 @@ content is in fully we can balance." Do not spend drops on tuning until
 - NOT done (deliberate): the high-tier quota "curse clock" — it would be
   a second heat engine stacked on the Assessor. Revisit only if the
   telemetry says quota runs feel flat.
-### Build .19 — Finales & puzzle chambers
-- A bespoke Legendary Heist finale per location (three-stage system
-  exists); beating one promotes the Operation's tier.
-- Puzzle grammar in room grids: pressure-plate doors, mirror-sentry
-  rooms, sequence locks on strongrooms. Chest placement pass (deep
-  rooms, guarded corners — never open floor).
+### Build .19 — Finales & puzzle chambers — SHIPPED
+- Four named finales (The Last Die / The Lightless Crown / The Windward
+  Vault / The Drowned Ledger); the Chief Assessor turns stage 3 into a
+  race against his pen; taking one grows the Operation by itself
+  (opTier = max(bankedTier, finalesTaken)).
+- The Weighted Gate is the puzzle chamber: a barred cache + pressure
+  plate solved by DROPPING loot on it (no new inputs, uses the drop
+  verb, self-contained walls so connectivity is untouched).
+- Assessor corner-wedge fixed (slide, then abandon the plinth).
+- Chest placement now prefers enclosed spots.
+- NOT built (deliberate, revisit if wanted): mirror-sentry rooms and
+  sequence locks. One well-taught puzzle beats three shallow ones; the
+  gate teaches a verb the game already has.
 ### Build .20 — The long tail
 - Museum sets per loot kind in the Trophy Room; Jo's-room cosmetics
   earned by feats/epithets (PSU-room payoff).

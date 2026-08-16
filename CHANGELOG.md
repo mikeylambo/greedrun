@@ -1,5 +1,37 @@
 # Changelog
 
+## Web build — the Weighted Gate, per-location finales, Assessor unstick (build 2026-08-15.19)
+
+- **FIXED: the Assessor could wedge on a corner.** He walks to a fixed
+  plinth, so unlike a waypoint guard he had no way to give up on a bad
+  approach. He now detects the wedge, slides along the wall to get
+  around it, and if the corner really has him, drops that plinth from
+  tonight's rounds and moves to the next one. His rounds never deadlock.
+- **The Weighted Gate — the first puzzle chamber.** Some vaults hold a
+  barred cache with a pressure plate outside it. The plate wants weight,
+  and your bag is full of weight: **drop a heavy piece on it**, walk in,
+  take the cache, walk out, pick your piece back up. It costs you time
+  and leaves your best item lying on the floor while you're inside —
+  greed paying its own toll, using the DROP verb you already have and
+  not one new button. It never shuts on you while you're inside, and
+  it's built as its own four walls so vault connectivity is untouched.
+  Opens once the Operation is past its first standing.
+- **Every location's Legendary Heist is now its own finale**: *The Last
+  Die* (the Old Mint), *The Lightless Crown* (the Undercity Vaults),
+  *The Windward Vault* (the Cliffside Fortress), *The Drowned Ledger*
+  (the Sunken Treasury) — each announced with its own line as the job
+  begins.
+- **The Chief Assessor.** When the exit bolts in a finale's third stage,
+  the Assessor stops touring and opens his book in earnest — he writes
+  nearly twice as fast, and every entry is a Heat tier you have to carry
+  to a sealed door. The finale is a race against his pen.
+- **Finales grow the Operation on their own.** Taking a location's finale
+  is worth a standing by itself, so there are now two roads up: bank the
+  money, or take the job nobody else will. The Trophy Room lists all four
+  and marks the ones you've taken.
+- Chests now prefer enclosed spots — deep rooms and guarded corners
+  instead of open floor.
+
 ## Web build — THE ASSESSOR + mission identities + modifiers that finally fire (build 2026-08-15.18)
 
 - **The Assessor.** The vault's own bookkeeper walks his rounds by

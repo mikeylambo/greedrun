@@ -597,6 +597,7 @@
       <div class="ht-row"><div class="ht-key">Word</div><div class="ht-txt">Escapes earn a name &mdash; earn it twice and your kind of work pays <em>+25%</em>, one buyer knows you. The <em>Gilded Fake</em>: rich in the bag, pennies at the fence, fine bait dropped.</div></div>
       <div class="ht-row"><div class="ht-key">Notoriety</div><div class="ht-txt">Selling hot goods to the Syndicate raises your Notoriety. High Notoriety makes every job <em>start</em> hotter and the Hunter come sooner. Returning goods cools it back down.</div></div>
       <div class="ht-row"><div class="ht-key">Secrets</div><div class="ht-txt"><em>Strongboxes</em> crack open if you stand close &mdash; loudly. A <em>shimmer</em> in the floor marks a hidden stash. A lost thief&rsquo;s <em>tool crate</em> swaps your kit for the night.</div></div>
+      <div class="ht-row"><div class="ht-key">The Gate</div><div class="ht-txt">Some caches sit behind bars with a <em>pressure plate</em> outside. The plate wants weight &mdash; and so does your bag. <em>Drop</em> a heavy piece on it, walk in, take the cache, then pick your piece back up.</div></div>
       <div class="ht-row"><div class="ht-key">Ways out</div><div class="ht-txt">At Heat <em>T4</em> the east wall <em>breaches</em> &mdash; a second exit, no temptation attached. The <em>drop chute</em> banks your haul at 70&cent; on the dollar, yours even if you fall. The <em>altar</em> by the door offers one gift per night. Old <em>trapdoor tunnels</em> drop you back near the door &mdash; once, loudly. Flooded rooms are slow but drown your clinking; a <em>brass key</em> (or a lockpick) opens the locked shutter.</div></div>
       <div class="ht-row"><div class="ht-key">Temptation</div><div class="ht-txt">Reach the exit rich and it whispers <em>one more thing</em> — a Vault Heart, deeper in. How greedy can you be before the vault owns you?</div></div>
     </div>
@@ -758,7 +759,7 @@
 "use strict";
 // Build stamp — bump on every deploy. Shown on the title + hideout so a stale
 // Safari cache is instantly visible ("no report button" == old build).
-const BUILD = '2026-08-15.18';
+const BUILD = '2026-08-15.19';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 // Phones fill the screen in whichever way they're held — PORTRAIT (tall) or
@@ -890,8 +891,19 @@ const OPERATION = [
   { nm:'The Grand Design',    at:200000, scale:1.26, pay:1.80,
     themes:['mint','undercity','fortress','treasury'],  ds:'every door in the city, and the biggest jobs behind them' },
 ];
+// Each location's Legendary Heist is its own finale — a named job with its own
+// closing line, and taking one is worth a standing on its own.
+const FINALES={
+  mint:     { nm:'The Last Die',        line:'Lift it and every wheel in the Mint stops to listen.' },
+  undercity:{ nm:'The Lightless Crown', line:'Down here the dark was the only warden. Tonight it watches you.' },
+  fortress: { nm:'The Windward Vault',  line:'The ramparts hold their breath. They will not hold it long.' },
+  treasury: { nm:'The Drowned Ledger',  line:'The water remembers what the Heart was resting on.' },
+};
+function finalesDone(){ return Object.keys(meta.finales||{}).length; }
 function careerBanked(){ return (meta.career && meta.career.banked)|0; }
-function opTier(){ let t=0; for(let i=0;i<OPERATION.length;i++) if(careerBanked()>=OPERATION[i].at) t=i; return t; }
+// Two roads to a bigger operation: bank the money, or take a location's finale.
+function opTier(){ let t=0; for(let i=0;i<OPERATION.length;i++) if(careerBanked()>=OPERATION[i].at) t=i;
+  return Math.min(OPERATION.length-1, Math.max(t, finalesDone())); }
 // Shared vaults play fair: dailies and shared codes always build at full reach,
 // so the same code is the same vault for everyone.
 function opTierForVault(){ return (dailyMode||pinnedSeed) ? OPERATION.length-1 : opTier(); }
@@ -948,6 +960,10 @@ let breach=null;                             // the heat-cracked second exit —
 let chute=null, stashedValue=0;              // the drop chute: mid-run banking at 70¢, kept even in death
 let doorPicks=[], runPerk={id:null,speed:1,noise:1,pay:1,softLand:false};  // the Thieves' Altar: one gift per night
 let stashPingT=0;                            // proximity heartbeat for unfound stashes
+// THE WEIGHTED GATE — a barred cache with a pressure plate outside it. The
+// plate wants WEIGHT, and you are carrying weight. Drop a piece on it, walk in,
+// take the good stuff, walk out, pick your piece back up. Greed pays its own toll.
+let gate=null;
 let trapdoor=null;                           // the Old Tunnel: one-use drop back to the door — loud
 let lockedDoors=[], brassKey=null, hasKey=false;   // a locked shortcut shutter + the key that turns it
 
@@ -1172,7 +1188,7 @@ let rivals = [], rivalHaul = 0;   // a rival thief races you for the loot
 let assessor = null, assessorHeat = 0;
 // Timed Raids don't just run a clock — the watch changes posts while you work,
 // so a route you scouted on the way in is not the route on the way out.
-let rotateT = 0, rotations = 0, pendingPerfectSilent = false;
+let rotateT = 0, rotations = 0, pendingPerfectSilent = false, pendingFinale = null;
 function updateRotation(dt){
   if(!(activeContract && activeContract.type==='timed')) return;
   rotateT-=dt; if(rotateT>0) return;
@@ -1629,6 +1645,53 @@ function updateRivals(dt){
     }
   }
 }
+// ===== THE WEIGHTED GATE =====
+// The plate holds the bars up while something heavy rests on it. You are
+// something heavy — but so is the idol in your bag, and only one of you can
+// stand there and still walk through the door.
+function inGateBox(x,y){ return gate && x>gate.x-gate.w/2 && x<gate.x+gate.w/2 && y>gate.y-gate.h/2 && y<gate.y+gate.h/2; }
+function updateGate(dt){
+  if(!gate) return;
+  const p=gate.plate;
+  let held = player.plat===-1 && dist2(player.x,player.y,p.x,p.y) < p.r*p.r;
+  if(!held) for(const l of loot){
+    if(l.got||l.hidden||l.stolen||l.stashed||l.caged||l.plat!==-1) continue;
+    if((l.weight||0)>=2 && dist2(l.x,l.y,p.x,p.y) < p.r*p.r){ held=true; break; }
+  }
+  if(held===gate.held) return;
+  gate.held=held;
+  if(held){                                   // the bars rise
+    const i=walls.indexOf(gate.wall); if(i>=0) walls.splice(i,1);
+    gate.open=true; S.severOpen(); ring(gate.wall.x+8,gate.wall.y+gate.wall.h/2,'#8fe39a',{vr:180,life:0.45});
+    tip('gate','The plate wants weight. Drop a piece on it, take the cache, then pick your piece back up.');
+  } else {
+    if(inGateBox(player.x,player.y)) { gate.held=true; return; }   // never shut you inside
+    if(!walls.includes(gate.wall)) walls.push(gate.wall);
+    gate.open=false; S.severSlam(); shake=Math.max(shake,6);
+  }
+}
+function drawGate(){
+  if(!gate || !onCam(gate.x,gate.y)) return;
+  const w=gate.wall, p=gate.plate;
+  ctx.save();
+  // the plate: a sunken brass square that lights when it's carrying weight
+  const pu=0.5+0.5*Math.sin(tPrev/300);
+  ctx.fillStyle=gate.held?'rgba(143,227,154,.30)':`rgba(226,171,48,${0.13+0.08*pu})`;
+  ctx.fillRect(p.x-p.r,p.y-p.r*0.72,p.r*2,p.r*1.44);
+  ctx.strokeStyle=gate.held?'#8fe39a':'#8a6b2c'; ctx.lineWidth=2.5;
+  ctx.strokeRect(p.x-p.r,p.y-p.r*0.72,p.r*2,p.r*1.44);
+  ctx.fillStyle=gate.held?'rgba(143,227,154,.9)':'rgba(201,179,122,.8)';
+  ctx.font='600 8px "Barlow Semi Condensed"'; ctx.textAlign='center';
+  ctx.fillText(gate.held?'HELD':'NEEDS WEIGHT', p.x, p.y+p.r+10);
+  // the bars — drawn only while they're down (open removes the wall entirely)
+  if(!gate.open){
+    ctx.strokeStyle='#8a8a92'; ctx.lineWidth=3;
+    for(let i=1;i<=4;i++){ const yy=w.y+(w.h/5)*i;
+      ctx.beginPath(); ctx.moveTo(w.x+2,yy); ctx.lineTo(w.x+w.w-2,yy); ctx.stroke(); }
+  }
+  ctx.restore();
+}
+
 // ===== THE ASSESSOR: the vault's bookkeeper =====
 // He walks to the places you've already robbed and logs them. Each entry adds
 // a Heat tier (capped at 3), so the greedier the night, the tighter the vault
@@ -1643,8 +1706,9 @@ function updateAssessor(dt){
   if(a.site && (a.site.done || !taken(a.site))) { a.site=null; a.inspect=0; }
   if(!a.site && a.marks<ASSESSOR_MAX_MARKS){    // nearest emptied plinth he hasn't logged
     let best=null,bd=1e18;
-    for(const s of a.sites){ if(s.done||!taken(s)) continue;
+    for(const s of a.sites){ if(s.done||!taken(s)||(a.skip&&a.skip.has(s))) continue;
       const d=dist2(a.x,a.y,s.x,s.y); if(d<bd){ bd=d; best=s; } }
+    if(!best && a.skip && a.skip.size){ a.skip.clear(); }   // nothing else to do — try the awkward ones again
     if(best){ a.site=best; a.idle=null; }
   }
   // with nothing to log he keeps walking the inventory — alive, and a warning
@@ -1663,12 +1727,30 @@ function updateAssessor(dt){
     let dx=nav.x-a.x, dy=nav.y-a.y; const d=Math.hypot(dx,dy)||1; dx/=d; dy/=d;
     a.face=Math.atan2(dy,dx);
     const step=0.78*dt*60*(poolAt(a.x,a.y)?0.7:1);    // deliberately slow — you can always outpace him
+    const px=a.x, py=a.y;
     if(isOpenGround(a.x+dx*step,a.y,a.r)) a.x+=dx*step;
     else if(isOpenGround(a.x,a.y+(dy>0?step:-step),a.r)) a.y+=(dy>0?step:-step);
     if(isOpenGround(a.x,a.y+dy*step,a.r)) a.y+=dy*step;
     else if(isOpenGround(a.x+(dx>0?step:-step),a.y,a.r)) a.x+=(dx>0?step:-step);
+    // He walks a fixed target, so a corner can wedge him where a waypoint guard
+    // would just move on (playtest: "saw the Assessor get stuck on a corner").
+    // Detect the wedge, slide along the wall, and give up on the plinth if the
+    // corner really has him — the rounds continue either way.
+    if(dist2(a.x,a.y,px,py) < (step*0.25)**2){
+      a.stuck=(a.stuck||0)+dt;
+      const sx=-dy, sy=dx;                             // perpendicular: hug the wall
+      const slide=(a.slideDir||1)*step;
+      if(isOpenGround(a.x+sx*slide,a.y+sy*slide,a.r)){ a.x+=sx*slide; a.y+=sy*slide; }
+      else a.slideDir=-(a.slideDir||1);                // that way's blocked too — try the other
+      if(a.stuck>2.2){                                 // properly wedged: pick a new errand
+        a.stuck=0; a.slideDir=1;
+        if(a.site){ a.skip=a.skip||new Set(); a.skip.add(a.site); a.site=null; }
+        else a.idle=null;
+        unstick(a);
+      }
+    } else { a.stuck=0; }
   } else if(a.site){
-    a.inspect+=dt;
+    a.inspect+=dt*(a.chief?1.9:1);                     // the Chief writes fast
     if(a.inspect>=1.7){                                // the entry goes in the book
       a.site.done=true; a.site=null; a.inspect=0; a.marks++;
       assessorHeat=Math.min(ASSESSOR_MAX_MARKS,a.marks); recompute();
@@ -2084,10 +2166,10 @@ function buildWorld(){
   joSquash=0; dustT=0; lastChargeStep=-1;
   baits=[]; toolMark=null; smokeT=0; runTool=null;
   chests=[]; stashes=[]; toolCache=null;
-  assessor=null; assessorHeat=0; rotateT=0; rotations=0; pendingPerfectSilent=false;
+  assessor=null; assessorHeat=0; rotateT=0; rotations=0; pendingPerfectSilent=false; pendingFinale=null;
   breach=null; chute=null; stashedValue=0; stashPingT=0;
   doorPicks=[]; runPerk={id:null,speed:1,noise:1,pay:1,softLand:false};
-  trapdoor=null; lockedDoors=[]; brassKey=null; hasKey=false;
+  trapdoor=null; lockedDoors=[]; brassKey=null; hasKey=false; gate=null;
   vaultAwake=false; whisperT=0; awakeSeverT=0; sealNagT=0; heistStage=0; latches=[];
   hitsTaken=0; awakeTime=0; toolUses=0;
   toolCharges = (meta.equippedTool && ownsTool(meta.equippedTool)) ? toolById(meta.equippedTool).uses + (capOn('trickster')?1:0) : 0;
@@ -2301,7 +2383,16 @@ function buildWorld(){
   { const chestsOn=vaultFeatureOn('chests');   // draws always run; placement is earned
     const chestN = 1 + (vrng()<0.5?1:0);
     for(let i=0;i<chestN;i++){
-      const s=deepSpot(placed,0.35,0.35);
+      // chests belong in the deep rooms and tucked corners, not out on the open
+      // floor (playtest: "better placement of treasure chests"). Take the
+      // most-enclosed of a few candidates — walls on more sides wins.
+      let s=deepSpot(placed,0.45,0.4), cover=-1;
+      for(let t=0;t<5;t++){
+        const c=deepSpot(placed,0.45,0.4);
+        let sides=0;
+        for(const [ox,oy] of [[46,0],[-46,0],[0,46],[0,-46]]) if(!isOpen(c.x+ox,c.y+oy,12)) sides++;
+        if(sides>cover){ cover=sides; s=c; }
+      }
       const c={x:s.x,y:s.y,r:15,open:false,prog:0,items:[]};
       const rolls=2+(vrng()<0.4?1:0), kinds=[];
       for(let k=0;k<rolls;k++){
@@ -2371,6 +2462,7 @@ function buildWorld(){
     const reach=(x,y)=>{ const cx=(x/R)|0, cy=(y/R)|0;
       for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++) if(open.has(K(cx+dx,cy+dy))) return true; return false; };
     for(const l of loot){
+      if(l.caged) continue;                     // behind the gate ON PURPOSE — leave it be
       if(l.plat!==-1 || reach(l.x,l.y)) continue;
       for(let t=0;t<120;t++){ const s=openSpot(14,140,null); if(reach(s.x,s.y)){
         // container contents move WITH their container, or the chest would
@@ -2423,13 +2515,34 @@ function buildWorld(){
   }
 
   // total value/count in the vault (for the 100% payoff)
+  // The Weighted Gate: a barred cache whose plate wants weight. Self-contained
+  // (its own four walls), so it never touches the room graph or connectivity.
+  // Opens once the Operation is past its first standing — bigger jobs, better locks.
+  { const gr=vrng(), gy=vr(180,WORLD.h-180), gx=vr(WORLD.w*0.42,WORLD.w-260);
+    if(gr<0.65 && opTierForVault()>=1 && isOpen(gx,gy,120) && platAt(gx,gy)===-1 && !poolAt(gx,gy)){
+      const W=118, H=96, T=16;
+      const bx=gx-W/2, by=gy-H/2;
+      const barWall={x:bx+W-T, y:by, w:T, h:H};            // the gate itself (east face)
+      const shell=[{x:bx,y:by,w:W,h:T},{x:bx,y:by+H-T,w:W,h:T},{x:bx,y:by,w:T,h:H}];
+      for(const w of shell) walls.push(w);
+      walls.push(barWall);
+      gate={x:gx,y:gy,w:W,h:H,wall:barWall,open:false,shell,
+            plate:{x:clamp(gx+W/2+58,60,WORLD.w-60),y:gy,r:26},held:false};
+      // the cache: two good pieces, caged until the gate lifts
+      for(let i=0;i<2;i++){
+        const kind = i===0?'idol':'gem';
+        loot.push(Object.assign({x:gx-16+i*26,y:gy,type:kind,glow:vrng()*6.28,got:false,plat:-1,caged:true}, LOOT_TYPES[kind]));
+        placed.push({x:gx,y:gy});
+      }
+    } }
+
   // The Assessor takes his rounds from the vault's own inventory: every notable
   // piece is a plinth he'll eventually check. Positions are snapshotted so a
   // moved/pocketed item can't drag his route around.
   { const s=deepSpot([],0.5,0.5);
     assessor={x:s.x,y:s.y,r:14,face:0,site:null,idle:null,marks:0,inspect:0,wake:16,sites:[],lamp:0};
-    for(const l of loot){ if(l.hidden||l.value<150||l.kind==='shrine') continue;
-      assessor.sites.push({x:l.x,y:l.y,l,done:false}); } }
+    for(const l of loot){ if(l.hidden||l.caged||l.value<150||l.kind==='shrine') continue;
+      assessor.sites.push({x:l.x,y:l.y,l,done:false}); } }   // caged goods sit behind bars he won't cross
 
   runLootTotal = loot.reduce((a,l)=>a+l.value,0);
   runLootCount = loot.length;
@@ -3006,6 +3119,13 @@ function updateHeist(){
   if(heistStage<=2 && h && h.got){ heistStage=3; spawnLatches(); }
   else if(heistStage===1 && h && dist2(player.x,player.y,h.x,h.y)<240*240){
     heistStage=2; toast('The Heart chamber. Take it — and the vault will know.',2000); }
+  // Once the exit bolts, the Assessor becomes the CHIEF Assessor: he stops
+  // touring and closes the book fast. Every entry now is a tier of Heat you
+  // carry to a sealed door — the finale is a race against his pen.
+  if(heistStage===3 && assessor && !assessor.chief){
+    assessor.chief=true; assessor.wake=0; assessor.marks=0; assessor.skip=null;
+    toast('The Chief Assessor opens his book. Break the latches before he finishes.',2400);
+  }
   if(heistStage===3){
     for(const L of latches){
       if(L.broken || dist2(player.x,player.y,L.x,L.y)>(player.r+18)**2) continue;
@@ -3119,6 +3239,7 @@ function update(dt){
   updateSever(dt);                        // greed closes the vault behind you
   updateRivals(dt);                       // a rival thief works the vault too
   updateSecrets(dt);                      // strongboxes, hidden stashes, found tools
+  updateGate(dt);                         // the weighted gate holds while the plate is loaded
   updateAssessor(dt);                     // the vault's bookkeeper tallies your greed
   updateRotation(dt);                     // Timed Raids: the watch changes posts
   if(updateHazards(dt)) return;           // water / wind / darkness / presses per location
@@ -3425,6 +3546,7 @@ function draw(){
   for(const s of sentries) drawSentry(s);
   // guards
   drawSecrets();
+  drawGate();
   drawAssessor();
   drawRivals();
   for(const g of guards) drawGuard(g);
@@ -4282,6 +4404,8 @@ function startRun(){
   if(activeContract && activeContract.type==='heart'){
     const h=loot.find(l=>l.type==='heart'); if(h){ h.hidden=false; heartRevealed=true; }
     seenOneMore=true; heistStage=1;
+    const F=FINALES[currentThemeKey];
+    if(F) setTimeout(()=>{ if(state==='playing') toast(`${F.nm} — ${F.line}`,3200); }, 1200);
   }
   state='playing';
   show(null); $('hud').classList.add('on');
@@ -4449,6 +4573,15 @@ function endRun(escaped, cause){
     pendingContractInfo={title:activeContract.title, done, reward:activeContract.reward,
       client:activeContract.client, madeGood:done&&wasOwed, nowOwed:!done&&!wasOwed};
     if(done){ pendingContractReward=activeContract.reward; pendingNotoDown=activeContract.notoDown||0; }
+    // A location's finale, taken. The Operation grows on the strength of the
+    // job alone — this is the road that doesn't run through the bank.
+    if(done && activeContract.type==='heart'){
+      meta.finales=meta.finales||{};
+      if(!meta.finales[currentThemeKey]){
+        meta.finales[currentThemeKey]=1;
+        pendingFinale=(FINALES[currentThemeKey]||{}).nm||'the finale';
+      }
+    }
     // A PERFECT Silent Job — never seen, never touched, never heard — and the
     // client parts with something off their own shelf.
     if(done && activeContract.type==='silent' && !runDamaged && lowNoiseRun){
@@ -4493,6 +4626,7 @@ function endRun(escaped, cause){
       ? `<div>${pendingContractInfo.title}<b style="color:var(--ok)">\u2713 +$${pendingContractInfo.reward.toLocaleString()}</b></div>`
         + (pendingContractInfo.madeGood?`<div>Made good with ${pendingContractInfo.client}<b style="color:var(--ok)">full pay restored</b></div>`:'')
         + (pendingPerfectSilent?`<div>Never seen, never touched, never heard<b style="color:var(--gold)">The Quiet Commission</b></div>`:'')
+        + (pendingFinale?`<div>${pendingFinale} — taken<b style="color:var(--gold)">the Operation grows on this alone</b></div>`:'')
       : `<div>${pendingContractInfo.title}<b style="color:var(--heat)">unfinished</b></div>`
         + (pendingContractInfo.nowOwed?`<div>${pendingContractInfo.client} remembers<b style="color:var(--heat)">their work pays \u221220% until you make one good</b></div>`:'');
   }
@@ -4753,6 +4887,10 @@ function renderLedger(){
     </div>
     <div class="led-eps">${terr}</div>
     ${owed.length?`<div class="led-nem">Unfinished business: ${owed.map(k=>CLIENT_OF[k]||k).join(' \u00b7 ')} \u2014 their work pays \u221220% until you finish one.</div>`:''}
+    <div class="led-eps" style="margin-top:8px">${THEME_KEYS.map(k=>{
+      const f=FINALES[k], had=!!(meta.finales&&meta.finales[k]);
+      return `<div class="led-ep ${had?'on':''}"><b>${f.nm}${had?' \u2726':''}</b><span>${had?'taken \u2014 '+THEMES[k].name:'the finale of '+THEMES[k].name+' \u2014 not yet'}</span></div>`;
+    }).join('')}</div>
     <div class="led-title" style="margin-top:14px">The Thief\u2019s Ledger</div>
     <div class="led-row">
       <div class="led-cell"><span>Jobs</span><b>${car.runs}</b></div>
@@ -4858,7 +4996,7 @@ async function loadMeta(){
           for(const r of runLog) if(r.out==='caught'&&r.cause) meta.career.deaths[r.cause]=(meta.career.deaths[r.cause]|0)+1;
         }
         meta.hunterName=d.hunterName||''; meta.hunterKills=d.hunterKills|0;
-        meta.forfeit=d.forfeit||{}; meta.seenOp=d.seenOp|0;
+        meta.forfeit=d.forfeit||{}; meta.seenOp=d.seenOp|0; meta.finales=d.finales||{};
       }
       refreshAscUnlock();  // already-maxed saves unlock Ascension 1
     }
@@ -4872,7 +5010,7 @@ async function saveMeta(){
     tips:meta.tips, seenUnlocks:meta.seenUnlocks,
     ascUnlocked:meta.ascUnlocked, bestByAsc:meta.bestByAsc, modsCleared:meta.modsCleared, daily:meta.daily,
     career:meta.career, hunterName:meta.hunterName, hunterKills:meta.hunterKills,
-    forfeit:meta.forfeit, seenOp:meta.seenOp })); }
+    forfeit:meta.forfeit, seenOp:meta.seenOp, finales:meta.finales })); }
   catch(e){}
 }
 async function wipeMeta(){
@@ -4882,7 +5020,7 @@ async function wipeMeta(){
   meta.collection={idol:0,relic:0,jewel:0,relicart:0,heart:0};
   meta.tools={smoke:0,decoy:0,grapple:0,lockpick:0,portal:0}; meta.equippedTool=''; meta.rep={};
   meta.career={runs:0,esc:0,banked:0,deaths:{}}; meta.hunterName=''; meta.hunterKills=0;
-  meta.forfeit={}; meta.seenOp=0;
+  meta.forfeit={}; meta.seenOp=0; meta.finales={};
   meta.tips={}; meta.seenUnlocks={};
   meta.ascUnlocked=0; meta.bestByAsc={}; meta.modsCleared={}; selectedAscension=0; ascensionLevel=0;
   meta.daily={ playedDay:'', playedScore:0, playedEscaped:false, streak:0, bestStreak:0, best:0, history:[] };
@@ -5408,7 +5546,8 @@ window.__greed = {
   mkContract, get TYPE_MAKER(){ return TYPE_MAKER; },
   // the Assessor / mission identities
   get assessor(){ return assessor; }, get assessorHeat(){ return assessorHeat; },
-  updateAssessor, updateRotation,
+  updateAssessor, updateRotation, updateGate,
+  get gate(){ return gate; }, get FINALES(){ return FINALES; }, finalesDone,
   // slice 3: floods / tunnels / locks
   get trapdoor(){ return trapdoor; }, get lockedDoors(){ return lockedDoors; },
   get brassKey(){ return brassKey; }, get hasKey(){ return hasKey; },

@@ -489,6 +489,51 @@ const res = await page.evaluate(() => {
     if (!heistClean) out.fails.push('a Legendary Heist rolled a modifier');
     G.activeContract = null;
   }
+  // ---- The Weighted Gate: the plate wants weight, and greed is weight ----
+  {
+    G.meta.career.banked = 500000;                 // gates open past the first standing
+    let gSeed = null;
+    for (const s of [...SEEDS, 3, 9, 17, 55, 101, 777]) { build(s); if (G.gate) { gSeed = s; break; } }
+    if (gSeed === null) out.fails.push('no weighted gate across seeds');
+    else {
+      const g = G.gate, caged = G.loot.filter(l => l.caged);
+      if (caged.length < 2) out.fails.push('the gate cache is empty');
+      if (G.isOpen(g.wall.x + g.wall.w / 2, g.wall.y + g.wall.h / 2, 6))
+        out.fails.push('the gate started open');
+      // a light coin must NOT hold it; a heavy piece must
+      const coin = { x: g.plate.x, y: g.plate.y, weight: 1, plat: -1, value: 60 };
+      const idol = { x: g.plate.x, y: g.plate.y, weight: 5, plat: -1, value: 460 };
+      G.player.x = 40; G.player.y = 40; G.player.plat = -1;   // player far from the plate
+      G.loot.push(coin); G.updateGate(0.05);
+      if (G.gate.open) out.fails.push('pocket change held the plate down');
+      G.loot.push(idol); G.updateGate(0.05);
+      if (!G.gate.open) out.fails.push('a heavy piece did not hold the plate');
+      else if (G.isOpen(g.wall.x + g.wall.w / 2, g.wall.y + g.wall.h / 2, 6) === false)
+        out.fails.push('the bars stayed solid while held');
+      // lifting the weight drops the bars again
+      G.loot.splice(G.loot.indexOf(idol), 1); G.updateGate(0.05);
+      if (G.gate.open) out.fails.push('the gate stayed open with nothing on the plate');
+      // ...but it must never shut on you
+      G.loot.push(idol); G.updateGate(0.05);
+      G.player.x = g.x; G.player.y = g.y;
+      G.loot.splice(G.loot.indexOf(idol), 1); G.updateGate(0.05);
+      if (!G.gate.open) out.fails.push('the gate shut with the player inside');
+      out.log.push('gate: bars down at gen, coin too light, idol holds, never shuts on you');
+    }
+  }
+
+  // ---- Finales: each location's heist is its own, and one grows the Operation ----
+  {
+    const themes = Object.keys(G.FINALES);
+    if (themes.length !== 4) out.fails.push('finales missing for some locations');
+    G.meta.career.banked = 0; G.meta.finales = {};
+    const t0 = G.opTier();
+    G.meta.finales = { mint: 1, undercity: 1 };
+    if (G.finalesDone() !== 2) out.fails.push('finale count wrong');
+    if (G.opTier() <= t0) out.fails.push('taking finales did not grow the Operation');
+    else out.log.push(`finales: 4 named jobs; 2 taken lifts a broke Operation to tier ${G.opTier()}`);
+    G.meta.finales = {};
+  }
   G.meta.runs = 0;   // leave the page as we found it
   return out;
 });
