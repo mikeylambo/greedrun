@@ -192,10 +192,9 @@ content is in fully we can balance." Do not spend drops on tuning until
   figure, per-location key, heat-layered voices); title reads "A Jo
   Story", MVP tag gone.
 - STILL OPEN from .21's original scope (not blockers, carry into R4):
-  the vector-art quality pass (broad; needs an art direction call from
-  the user) and on-device mobile-landscape verification (needs the
-  user's phone — the safe-area padding shipped in .15/.16 is untested
-  on real hardware).
+  the vector-art quality pass. NOTE: the user DOES playtest on real
+  hardware every round — do not assume otherwise or ask them to verify
+  what they have already verified.
 
 ## CONTENT COMPLETE — next is the balance pass
 Everything the roadmap scoped is in the build. Per the user's standing

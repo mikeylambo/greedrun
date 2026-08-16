@@ -1,5 +1,34 @@
 # Changelog
 
+## Web build — THE ECONOMY PASS + phone density (build 2026-08-15.23)
+
+The 24-run report showed the real problem: hauls of $2,230-$5,170 banking
+$7,000 / $19,677 / $13,907 / $50,434 / $46,646. Every bonus multiplied
+every other bonus, so a maxed build turned a $5k haul into $50k and no
+sink could ever keep up.
+
+- **The fence has a ceiling now.** Gear x collection x den x mastery x
+  danger x perfect heist x ascension x operation fees used to compound
+  without limit. The first 2x still rides free and every bonus still
+  counts — more is always strictly better — but the stack now bends
+  toward a 5x asymptote instead of running to 20x and beyond. Danger and
+  skill stay the story instead of the spreadsheet.
+- **The fence says so out loud**: when the stack is being bent, a chip
+  reads "Fence ceiling — x4.6 of x12.3, the trade only pays so much". No
+  hidden math.
+- **One payout formula, three call sites.** The multiplier chain was
+  duplicated in the bank, the fence preview, and the bulk-only path — a
+  standing invitation for them to drift apart. They now share
+  `payoutOuter()`.
+- **Gear costs rebased** (x2 -> x2.15 per level) against the corrected
+  income curve, so the tree outlasts the first 25 jobs.
+- **Phone density pass** (playtest: "it gets crowded on phone"). Every
+  screen has gained rows since launch — the Operation line, the ledger,
+  the fence ceiling, the Assessor tally. On coarse-pointer screens the
+  chrome tightens — stat cells, buyer chips, ledger rows, fence cards,
+  legends — so nothing has to be hidden. The Den still measures to a
+  single screen.
+
 ## Web build — duplicate trophies count, deeper collection ladder (build 2026-08-15.22)
 
 - **FIXED: a second trophy of the same kind vanished.** The "Keep it"

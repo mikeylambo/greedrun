@@ -137,6 +137,34 @@
   @keyframes goldIn{0%{opacity:0}30%{opacity:1}100%{opacity:0}}
   /* Short landscape phones: compact the menu chrome so a whole screen fits without
      clipping; anything still too tall scrolls (see .overlay overflow-y:auto). */
+  /* PHONE DENSITY (playtest: "UI gets crowded on phone"). Every screen has
+     gained rows since launch — the Operation line, the ledger, the fence
+     ceiling, the Assessor tally. On small screens the chrome tightens rather
+     than the content dropping: nothing is hidden, everything just fits. */
+  @media (pointer:coarse){
+    .stat-line{gap:8px 14px;margin-bottom:16px;}
+    .stat-line b{font-size:17px;}
+    .stat-grid{gap:5px;}
+    .stat-cell{padding:5px 7px;}
+    .stat-cell span{font-size:9.5px;}
+    .stat-cell b{font-size:12.5px;}
+    .fence-list{gap:8px;}
+    .fitem{padding:9px 10px;}
+    .buyers{gap:5px;}
+    .buyer{flex:1 1 104px;padding:6px 8px;}
+    .buyer .bn{font-size:11.5px;} .buyer .bp{font-size:13.5px;} .buyer .bf{font-size:9.5px;line-height:1.25;}
+    .fence-legend{gap:4px 6px;font-size:10px;} .fence-legend .lg{padding:2px 8px;}
+    .led-row{gap:6px 14px;margin-bottom:9px;}
+    .led-cell b{font-size:16px;} .led-cell span{font-size:9px;}
+    .led-eps{grid-template-columns:1fr;gap:4px;}
+    .led-ep{padding:5px 8px;font-size:10.5px;}
+    #ledgerPanel{padding:12px 12px;margin:12px 0 6px;}
+    .led-title{font-size:15px;margin-bottom:8px;}
+    .fence .ds{min-height:0;margin:3px 0 7px;font-size:11.5px;}
+    .fence{padding:10px 11px;}
+    #opLine{font-size:11.5px;}
+    .den-perks{gap:4px;}
+  }
   @media (pointer:coarse) and (orientation:landscape){
     .overlay{padding:3.5% calc(6% + env(safe-area-inset-right)) calc(3.5% + env(safe-area-inset-bottom)) calc(6% + env(safe-area-inset-left));}
     #hud{padding-left:calc(8px + env(safe-area-inset-left));padding-right:calc(8px + env(safe-area-inset-right));}
@@ -760,7 +788,7 @@
 "use strict";
 // Build stamp — bump on every deploy. Shown on the title + hideout so a stale
 // Safari cache is instantly visible ("no report button" == old build).
-const BUILD = '2026-08-15.22';
+const BUILD = '2026-08-15.23';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 // Phones fill the screen in whichever way they're held — PORTRAIT (tall) or
@@ -837,7 +865,7 @@ function upgLevel(id){ return meta.upg[id]|0; }                 // works for old
 // TUNE — each level costs DOUBLE (was ×1.55): telemetry showed a skilled player
 // maxing the whole tree in 1-2 hours; the doubling stretches the acquisition arc
 // to a premium 6-8h while leaving level-1 prices (the first-hour dopamine) alone.
-function upgCost(u){ return Math.round(u.base * Math.pow(2, upgLevel(u.id))); }
+function upgCost(u){ return Math.round(u.base * Math.pow(2.15, upgLevel(u.id))); }   // TUNE — x2 -> x2.15 with the payout ceiling in (24-run report: tree bought out by run 24)
 
 // ===== Onboarding: the unlock ladder (progressive disclosure) =====
 // A fresh thief meets ONLY move/grab/escape. Systems open one per job, announced
@@ -4716,6 +4744,24 @@ function applyContractRewards(){
   if(pendingNotoDown>0){ meta.curseDebt=clamp(meta.curseDebt-pendingNotoDown,0,10); }
   pendingContractReward=0; pendingNotoDown=0;
 }
+// TUNE — THE PAYOUT STACK. Every bonus used to multiply cleanly against every
+// other one: gear x collection x den x mastery x danger x perfect heist x
+// ascension x operation fees. A maxed build turned a $5,170 haul into $50,434
+// (24-run telemetry). Every bonus still counts and more is always strictly
+// better — but the product now bends toward a ceiling instead of compounding
+// without limit, so danger and skill stay the story instead of the spreadsheet.
+const PAY_FREE=2.0, PAY_CAP=5.0;   // the first 2x rides free; the stack asymptotes at 5x
+function softCap(m){ return m<=PAY_FREE ? m : PAY_CAP-(PAY_CAP-PAY_FREE)*Math.exp(-(m-PAY_FREE)/(PAY_CAP-PAY_FREE)); }
+// Sale totals already carry sellMult() (it's baked into every buyer price), so
+// this returns the OUTER factor to apply on top, cap included.
+function payoutOuter(perfect){
+  const sm=sellMult()||1;
+  const outer=(perfect?1.4:1)*pendingDangerMult*collGoldMult()*denBonus()*ascMods(ascensionLevel).pay;
+  return softCap(sm*outer)/sm;
+}
+function payoutStackRaw(perfect){
+  return (sellMult()||1)*(perfect?1.4:1)*pendingDangerMult*collGoldMult()*denBonus()*ascMods(ascensionLevel).pay;
+}
 function sellMult(){ return (1 + 0.08*upgLevel('contacts') + 0.03*collLevel('idol')) * activeMod.pay * masteryMult() * runPerk.pay; }
 // which buyers want a given loot kind, and what they pay / cost — every chip
 // carries a plain-words consequence so the choice reads without a manual
@@ -4760,7 +4806,7 @@ function routeAfterResult(){
   if(runOutcome && pendingHaul.length){ openFence(); return; }
   // no items to haggle over — bank any loose bulk directly, then to the hideout
   if(runOutcome && pendingBulk.n>0){
-    let t=Math.round(pendingBulk.val*sellMult()); if(pendingPerfect) t=Math.round(t*1.4); t=Math.round(t*pendingDangerMult*collGoldMult()*denBonus()*ascMods(ascensionLevel).pay); meta.gold+=t;
+    let t=Math.round(pendingBulk.val*sellMult()*payoutOuter(pendingPerfect)); meta.gold+=t;
     logBank(t);
   } else if(runOutcome) logBank(0);
   applyContractRewards();
@@ -4831,7 +4877,7 @@ function renderFence(){
         toast(`The Noble carries one piece home — your ${o.name} goes to the Black Market instead.`,1700); } } });
     }
     pendingHaul[i].saleIdx=bi; renderFence(); });
-  if(pendingPerfect) total=Math.round(total*1.4); total=Math.round(total*pendingDangerMult*collGoldMult()*denBonus()*ascMods(ascensionLevel).pay);
+  total=Math.round(total*payoutOuter(pendingPerfect));
   // the contract client's fee rides on top of the sale — show it here so the
   // number that lands in the bank is the number this screen promised
   if(pendingContractReward>0){
@@ -4857,6 +4903,11 @@ function renderFence(){
   if(collGoldMult()>1) bon.push(chip('#ff9a4a','Fortune\u2019s Cache',`+${Math.round((collGoldMult()-1)*100)}%`));
   if(activeMod.pay!==1) bon.push(chip('var(--curse-glow)',activeMod.name,`\u00d7${activeMod.pay}`));
   if(ascMods(ascensionLevel).pay>1) bon.push(chip('var(--curse-glow)',`Ascension ${ascensionLevel}`,`\u00d7${ascMods(ascensionLevel).pay.toFixed(2)}`));
+  // Say it plainly when the stack is being bent: the bonuses are all real, but
+  // past a point they stop compounding, and the player deserves to see that.
+  { const raw=payoutStackRaw(pendingPerfect), eff=softCap(raw);
+    if(raw>eff+0.05) bon.push(chip('var(--muted)','Fence ceiling',
+      `\u00d7${eff.toFixed(1)} of \u00d7${raw.toFixed(1)} \u2014 the trade only pays so much`)); }
   $('fenceNote').innerHTML = noto
     + (bon.length?`<div class="fence-legend" style="margin-top:9px">${bon.join('')}</div>`:'');
 }
@@ -4870,7 +4921,7 @@ function bankHaul(){
       if(t && collLevel(tid)<t.max){ const lv=collLevel(tid)+1; meta.collection[tid]=lv;
         toast(lv===1 ? `${t.passive} \u2014 added to the Collection.`
                      : `${t.passive} restored to Lv${lv} \u2014 ${t.eff(lv)}.`, 1700); } } }
-  if(pendingPerfect) total=Math.round(total*1.4); total=Math.round(total*pendingDangerMult*collGoldMult()*denBonus()*ascMods(ascensionLevel).pay);
+  total=Math.round(total*payoutOuter(pendingPerfect));
   meta.gold+=total; meta.curseDebt=clamp(meta.curseDebt+curseD,0,10);
   logBank(total);
   S.cash();
