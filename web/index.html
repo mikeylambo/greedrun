@@ -138,7 +138,8 @@
   /* Short landscape phones: compact the menu chrome so a whole screen fits without
      clipping; anything still too tall scrolls (see .overlay overflow-y:auto). */
   @media (pointer:coarse) and (orientation:landscape){
-    .overlay{padding:3.5% 6% calc(3.5% + env(safe-area-inset-bottom));}
+    .overlay{padding:3.5% calc(6% + env(safe-area-inset-right)) calc(3.5% + env(safe-area-inset-bottom)) calc(6% + env(safe-area-inset-left));}
+    #hud{padding-left:calc(8px + env(safe-area-inset-left));padding-right:calc(8px + env(safe-area-inset-right));}
     h1.title{font-size:clamp(26px,7.6vh,54px);}
     h1.title .sub{font-size:.22em;}
     .eyebrow{font-size:10px;margin-bottom:5px;}
@@ -755,7 +756,7 @@
 "use strict";
 // Build stamp — bump on every deploy. Shown on the title + hideout so a stale
 // Safari cache is instantly visible ("no report button" == old build).
-const BUILD = '2026-08-15.15';
+const BUILD = '2026-08-15.16';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 // Phones fill the screen in whichever way they're held — PORTRAIT (tall) or
@@ -818,9 +819,9 @@ const meta = {
 };
 const UPGRADES = [
   { id:'feet',    nm:'Quick Feet',       base:650,  max:5, ds:'+11% base movement speed per level.' },
-  { id:'straps',  nm:'Reinforced Straps',base:750,  max:5, ds:'Weight drags you down less with each level.' },
+  { id:'straps',  nm:'Reinforced Straps',base:750,  max:5, ds:'EVERY piece you carry slows you a little less.' },
   { id:'boots',   nm:'Muffled Boots',    base:650,  max:5, ds:'Loot makes less noise with each level.' },
-  { id:'pockets', nm:'Deep Pockets',     base:850,  max:4, ds:'Raise your speed floor under a heavy load.' },
+  { id:'pockets', nm:'Deep Pockets',     base:850,  max:4, ds:'A speed you NEVER drop below, no matter the load — Super Heavy stops hurting.' },
   { id:'contacts',nm:'Guild Contacts',   base:900,  max:5, ds:'+8% from every buyer, per level.' },
   { id:'luck',    nm:'Thief\u2019s Luck', base:1200, max:3, ds:'+1 starting heart per level.' },
   { id:'cool',    nm:'Cool Head',        base:1100, max:3, ds:'Start each job one Heat tier calmer, per level.' },
@@ -1094,6 +1095,15 @@ const ARTIFACTS = [
   { name:'Crown of Seven Debts', flavor:'Every jewel is a promise someone broke.' },
   { name:'The Usurer\u2019s Lantern', flavor:'It only lights the way to what you owe.' },
   { name:'The Empty Throne',     flavor:'Whoever sat here always wanted one more thing.' },
+  // playtest: "we could be finding swords, heirlooms\u2026" \u2014 the vault holds more
+  // than debts: blades, keepsakes, instruments, maps, seals
+  { name:'The Widow\u2019s Heirloom',      flavor:'Three families died certain it was theirs.' },
+  { name:'Blade of the Last Auction',   flavor:'Sold once. For everything.' },
+  { name:'The Cartographer\u2019s Regret', flavor:'A map of every vault he never left.' },
+  { name:'The Choir of Coins',          flavor:'It sings when you walk. Guards know the tune.' },
+  { name:'The Locksmith\u2019s Confession',flavor:'Every key he ever cut, melted into one.' },
+  { name:'The Sleeping Signet',         flavor:'Press it to wax, and armies move.' },
+  { name:'The Glutton\u2019s Chalice',     flavor:'It has never once been full.' },
 ];
 // the "leverage" option grants one of these run-altering boons
 const BOONS = {
@@ -1217,20 +1227,25 @@ let activeContract=null, offeredContracts=[];
 let runSpotted=false, runClock=0, runTimeLimit=0;
 let pendingContractReward=0, pendingContractInfo=null, pendingNotoDown=0;
 
-// generators return a fresh job; check() reads live run globals at extraction time
+// generators return a fresh job; check() reads live run globals at extraction time.
+// Contracts scale to YOUR recent hauls (the clients know your reputation) —
+// static targets drift as skill grows.
+function recentHaulAvg(){
+  const esc=runLog.filter(r=>r.out==='escape').slice(-10);
+  return esc.length>=3 ? esc.reduce((a,r)=>a+(r.haul||0),0)/esc.length : 1100;
+}
 const CONTRACT_MAKERS = [
-  ()=>{ // TUNE — the quota tracks YOUR recent hauls (the Guild knows your reputation).
-    // Static bands drift as skill grows: 1400-2400 was 13% success at ~$1k avg haul,
-    // the 900-1600 retune hit 100% once the avg passed $2k. Target ~40-60% success.
-    const esc=runLog.filter(r=>r.out==='escape').slice(-10);
-    const base=esc.length>=3 ? esc.reduce((a,r)=>a+(r.haul||0),0)/esc.length : 1100;
-    const t=clamp(Math.round(base*rand(0.9,1.25)/50)*50, 900, 4000);
+  ()=>{ // TUNE — target ~40-60% success at any skill level.
+    const t=clamp(Math.round(recentHaulAvg()*rand(0.9,1.25)/50)*50, 900, 4000);
     return {type:'quota',
     client:'the Merchant Guild', desc:`Smuggle out at least $${t.toLocaleString()} of goods.`,
     reward:Math.round(t*0.35), target:t, check:()=>carriedValue>=t }; },
-  ()=>({type:'silent', client:'a Nervous Client',
-    desc:'Extract without being spotted once. No alarms, no chases.',
-    reward:750, check:()=>!runSpotted }),
+  ()=>{ // playtest: "some missions feel like freebies — grab one coin and leave."
+    // Every constraint job now also demands a real haul.
+    const m=clamp(Math.round(recentHaulAvg()*0.35/50)*50, 300, 1500);
+    return {type:'silent', client:'a Nervous Client', minHaul:m,
+    desc:`Extract unseen — no alarms, no chases — carrying at least $${m.toLocaleString()}.`,
+    reward:750, check:()=>!runSpotted && carriedValue>=m }; },
   ()=>{ const opts=[['idol','a Golden Idol'],['mask','a Marked Relic'],['living','the Skitterjewel']];
     const [k,nm]=opts[Math.floor(Math.random()*opts.length)];
     return {type:'steal', client:'a Noble Collector', targetKind:k,
@@ -1239,18 +1254,21 @@ const CONTRACT_MAKERS = [
   ()=>({type:'sweep', client:'a Rival Thief',
     desc:'Clear the vault completely, then escape. Leave nothing.',
     reward:1100, check:()=>vaultCleared }),
-  ()=>{ const tl=Math.round(rand(85,120)); return {type:'timed', client:'the Tollhouse Keeper',
-    desc:`The vault is set to collapse. Get out within ${tl}s.`,
-    reward:850, timeLimit:tl, check:()=>true }; },
+  ()=>{ const tl=Math.round(rand(85,120));
+    const m=clamp(Math.round(recentHaulAvg()*0.45/50)*50, 400, 2000);
+    return {type:'timed', client:'the Tollhouse Keeper', minHaul:m,
+    desc:`The vault collapses in ${tl}s. Get out in time with at least $${m.toLocaleString()}.`,
+    reward:850, timeLimit:tl, check:()=>carriedValue>=m }; },
   ()=>({type:'recovery', client:'an Old Fence', notoDown:2,
     desc:'Return marked goods instead of fencing them. Cools your notoriety.',
     reward:400, check:()=>true }),
   ()=>({type:'heart', client:'a Legend-Chaser',
     desc:'Three stages: case the chamber, take the Vault Heart, break the seal-latches to get out. The vault will fight you the whole way.',
     reward:2400, check:()=>loot.some(l=>l.type==='heart'&&l.got) }),
-  ()=>({type:'untouched', client:'a Perfectionist',
-    desc:'Extract without taking a single hit \u2014 no shattered relics, no lost hearts.',
-    reward:950, check:()=>!runDamaged }),
+  ()=>{ const m=clamp(Math.round(recentHaulAvg()*0.35/50)*50, 300, 1500);
+    return {type:'untouched', client:'a Perfectionist', minHaul:m,
+    desc:`Take no hits \u2014 and don\u2019t come back light: at least $${m.toLocaleString()} in the bag.`,
+    reward:950, check:()=>!runDamaged && carriedValue>=m }; },
   ()=>({type:'hot', client:'a Thrill-Seeker',
     desc:'Let it get dangerous \u2014 push the vault to Heat T4 or higher, then escape.',
     reward:1050, check:()=>peakHeat>=4 }),
@@ -1527,10 +1545,10 @@ function updateRivals(dt){
     }
     // (re)target the nearest grabbable ground item; it leaves the big prizes (Heart,
     // artifacts, shrine) for you, so the race is over the bulk + notable loot.
-    if(!rv.target || rv.target.got || rv.target.stolen || rv.target.hidden){
+    if(!rv.target || rv.target.got || rv.target.stolen || rv.target.hidden || rv.target.stashed){
       rv.target=null; let bd=1e18;
       for(const l of loot){
-        if(l.got||l.stolen||l.hidden||l.plat>=0) continue;
+        if(l.got||l.stolen||l.hidden||l.stashed||l.plat>=0) continue;
         if(l.kind==='artifact'||l.kind==='mythic'||l.kind==='shrine') continue;
         const d=dist2(rv.x,rv.y,l.x,l.y); if(d<bd){ bd=d; rv.target=l; }
       }
@@ -1662,15 +1680,21 @@ function updateSecrets(dt){
       break;
     }
   }
-  // the found-tool crate: swaps your kit for tonight only
-  if(toolCache && !toolCache.taken && player.plat===-1 &&
-     dist2(player.x,player.y,toolCache.x,toolCache.y) < 26*26){
-    toolCache.taken=true;
-    const t=toolById(toolCache.id), prev=runTool||meta.equippedTool;
-    runTool=toolCache.id; toolCharges=t.uses+(capOn('trickster')?1:0); toolMark=null;
-    syncToolUI(); S.zip();
-    toast(`Found: ${t.nm} ×${toolCharges}${prev&&prev!==t.id?' — rides in place of your '+toolById(prev).nm+' tonight':' — on the belt for tonight'}.`,2200);
-    for(let i=0;i<10;i++)particles.push(mkP(toolCache.x,toolCache.y,'#8fc7e3'));
+  // the found-tool crate: DWELL to swap — a walk-past can't cost you your kit.
+  // (playtest ask: "item swaps with a Y/N choice" — on mobile the choice is
+  // your feet: stand to say yes, keep walking to say no)
+  if(toolCache && !toolCache.taken){
+    if(player.plat===-1 && dist2(player.x,player.y,toolCache.x,toolCache.y) < 26*26){
+      toolCache.prog=(toolCache.prog||0)+dt;
+      if(toolCache.prog>=0.6){
+        toolCache.taken=true;
+        const t=toolById(toolCache.id), prev=runTool||meta.equippedTool;
+        runTool=toolCache.id; toolCharges=t.uses+(capOn('trickster')?1:0); toolMark=null;
+        syncToolUI(); S.zip();
+        toast(`Swapped: ${t.nm} ×${toolCharges}${prev&&prev!==t.id?' rides in place of your '+toolById(prev).nm+' tonight':' — on the belt for tonight'}.`,2200);
+        for(let i=0;i<10;i++)particles.push(mkP(toolCache.x,toolCache.y,'#8fc7e3'));
+      }
+    } else toolCache.prog=Math.max(0,(toolCache.prog||0)-dt*2);
   }
 }
 function drawSecrets(){
@@ -1825,6 +1849,12 @@ function drawSecrets(){
     ctx.beginPath(); ctx.moveTo(-12,-2); ctx.lineTo(12,-2); ctx.stroke();
     ctx.fillStyle='#8fc7e3'; ctx.font='700 7px "Barlow Semi Condensed"'; ctx.textAlign='center';
     ctx.fillText(t.short,0,6);
+    if((toolCache.prog||0)>0){ ctx.strokeStyle='#8fc7e3'; ctx.lineWidth=3;   // the swap is a held choice
+      ctx.beginPath(); ctx.arc(0,-16,8,-1.57,-1.57+6.28*Math.min(1,toolCache.prog/0.6)); ctx.stroke(); }
+    if(player && dist2(player.x,player.y,toolCache.x,toolCache.y)<110*110){
+      ctx.fillStyle='rgba(143,199,227,.85)'; ctx.font='600 8px "Barlow Semi Condensed"';
+      ctx.fillText(`stand to swap for ${t.nm}`,0,20);
+    }
     ctx.restore();
   }
 }
@@ -2646,7 +2676,7 @@ function useTool(){
   } else if(id==='grapple'){
     let best=null, bd=270*270;
     for(const l of loot){
-      if(l.got||l.hidden||l.stolen||l.kind==='artifact'||l.kind==='shrine') continue;
+      if(l.got||l.hidden||l.stolen||l.stashed||l.kind==='artifact'||l.kind==='shrine') continue;
       const d=dist2(player.x,player.y,l.x,l.y);
       if(d<bd && losClear(player.x,player.y,l.x,l.y)){ bd=d; best=l; }
     }
@@ -2954,7 +2984,10 @@ function update(dt){
   // loot pickup
   for(const l of loot){
     if(l.dropCd>0){ l.dropCd-=dt; continue; }   // freshly dropped — brief re-grab grace
-    if(l.got||l.hidden||l.stolen) continue;
+    // The chute ghost-loot bug: stashed items kept their original x/y, and this
+    // loop didn't skip them — so a mid-fight chute dump made everything "drop
+    // and respawn on the path", re-grabbable for double credit. Never again.
+    if(l.got||l.hidden||l.stolen||l.stashed) continue;
     if((l.plat!==undefined?l.plat:-1)!==player.plat) continue;   // must be on the same level
     l.glow+=dt*4;
     if(dist2(player.x,player.y,l.x,l.y) < (player.r+16+6*collLevel('jewel'))**2){
@@ -3209,7 +3242,7 @@ function draw(){
   // portal
   drawPortal();
   // loot
-  for(const l of loot){ if(!l.got && !l.hidden && !l.stolen) drawLoot(l); }
+  for(const l of loot){ if(!l.got && !l.hidden && !l.stolen && !l.stashed) drawLoot(l); }   // stashed goods went DOWN the chute — they never come back
   drawSever();   // pulsing warning on a door about to slam
   drawBaits();   // glittering decoys / dropped fakes
   drawToolMark();
@@ -4379,10 +4412,18 @@ function renderFence(){
     total+=chosen.payout; if(chosen.fx==='curse+')curseD++; else if(chosen.fx==='curse-')curseD--;
     const row=document.createElement('div'); row.className='fitem';
     let chips='';
+    // anchor every offer to the Black Market so the CHOICE reads in dollars
+    // (playtest: "I still don't feel the value when deciding")
+    const mkt=it.buyers.find(b=>b.id==='black');
     it.buyers.forEach((b,bi)=>{
       const pay = b.fx==='keep' ? b.passive : '$'+b.payout.toLocaleString();
       const busy = b.id==='noble' && nobleAt>=0 && nobleAt!==i;
-      const note = busy ? `his hands are full with your ${pendingHaul[nobleAt].name} — tap to switch` : (b.note||'&nbsp;');
+      let note = busy ? `his hands are full with your ${pendingHaul[nobleAt].name} — tap to switch` : (b.note||'&nbsp;');
+      if(!busy && mkt && b.id!==mkt.id && b.fx!=='keep' && b.payout>0){
+        const d=b.payout-mkt.payout;
+        if(d>0) note=`+$${d.toLocaleString()} over the market · ${b.note||''}`;
+        else if(d<0) note=`$${(-d).toLocaleString()} under the market · ${b.note||''}`;
+      }
       chips+=`<div class="buyer ${b.cls} ${b.top&&!busy?'top':''} ${bi===it.saleIdx?'sel':''} ${busy?'busy':''}" data-i="${i}" data-b="${bi}">
         <div class="bn">${b.nm}</div><div class="bp">${pay}</div>
         <div class="bf">${note}</div></div>`;
@@ -4974,9 +5015,11 @@ function contractStatus(c){
   switch(c.type){
     case 'quota': return carriedValue>=c.target ? `\u2713 quota met \u2014 get out`
       : `$${carriedValue.toLocaleString()} of $${c.target.toLocaleString()} smuggled`;
-    case 'timed': return `${Math.max(0,Math.ceil(runTimeLimit-runClock))}s before the collapse`;
-    case 'silent': return runSpotted ? 'blown \u2014 you were seen' : 'clean so far \u2014 stay unseen';
-    case 'untouched': return runDamaged ? 'blown \u2014 you took a hit' : 'untouched so far';
+    case 'timed': return `${Math.max(0,Math.ceil(runTimeLimit-runClock))}s left \u00b7 $${carriedValue.toLocaleString()} of $${(c.minHaul||0).toLocaleString()}`;
+    case 'silent': return runSpotted ? 'blown \u2014 you were seen'
+      : carriedValue>=(c.minHaul||0) ? 'clean, quota met \u2014 get out' : `clean \u00b7 $${carriedValue.toLocaleString()} of $${(c.minHaul||0).toLocaleString()}`;
+    case 'untouched': return runDamaged ? 'blown \u2014 you took a hit'
+      : carriedValue>=(c.minHaul||0) ? 'untouched, quota met \u2014 get out' : `untouched \u00b7 $${carriedValue.toLocaleString()} of $${(c.minHaul||0).toLocaleString()}`;
     case 'sweep': return `${loot.filter(l=>l.got||l.stolen).length} of ${runLootCount} pieces`;
     case 'steal': return loot.some(l=>l.kind===c.targetKind&&l.got) ? '\u2713 in the bag \u2014 get out' : 'the target isn\u2019t in your bag yet';
     case 'heart': return loot.some(l=>l.type==='heart'&&l.got) ? '\u2713 the Heart is yours \u2014 RUN' : 'the Heart still waits';

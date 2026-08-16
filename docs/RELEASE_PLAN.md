@@ -129,14 +129,39 @@ in rough value order:
   900→1050; shared seeds force full vaults for fairness. The 18-run
   report that drove this: avg banked $11,974, maxed builds banking 4-5×
   haul at sustained T6, 100% escapes at max gear.
-- [ ] **Phase B — the career ladder**: visible thief rank (Pickpocket →
-  Legend of the Street) driven by the career ledger; ranks gate
-  locations (Mint → Undercity → Fortress → Treasury) and contract tiers
-  with bigger vaults (`areaScale` is the ready-made knob). The Ledger
-  page becomes the progression screen.
+- [ ] **Phase B — the career ladder** (NEXT BUILD): visible rank driven by
+  the career ledger; ranks gate locations (Mint → Undercity → Fortress →
+  Treasury) and contract tiers with bigger vaults (`areaScale` is the
+  ready-made knob). The Ledger page becomes the progression screen.
+  **USER DIRECTION (PDF notes): rank names follow Jo's canonical
+  character arc — Thief → Strider → Mastermind** (with intermediates as
+  needed, e.g. Thief → Prowler → Strider → Shadowhand → Mastermind).
+  This replaces the generic "Pickpocket → Legend" idea; abilities and
+  challenges per rank should reflect that development arc. The epithet
+  system (per-run titles) stays descriptive, but review its names
+  against Jo's lore in the same pass. Jo's source game is an RPG — his
+  RPG skillset is fair game for rank abilities.
 - [ ] **Phase C — chapter climaxes**: a signature enemy per location and
   a bespoke Legendary Heist finale per location (the heist system
   exists); beating it promotes your rank.
+  **PDF notes to fold in**: (a) restore the original design log's three
+  mission types as full identities, not just contract flavors —
+  Greedrun (normal), Silent Job (detection raises alarms; PERFECT
+  stealth pays a rare relic), Timed Raid (collapse + guard rotation +
+  curse clock); (b) "more map design, puzzle elements almost" — puzzle
+  chambers in the room grammar (pressure plates, mirror-sentry rooms,
+  sequence locks on strongrooms); (c) smarter chest placement (deep
+  rooms, guarded corners — not open floor).
+- [ ] **"The Almshouse" — the greed lesson made mechanical (PROPOSAL,
+  needs user greenlight)**: the PDF asks for the game's missing moral —
+  Greed, and how it isn't good — expressed genuinely, not just as
+  difficulty. Proposal: a Den fixture where gold can be GIVEN AWAY
+  (a real sink — the money leaves forever). Giving cools notoriety,
+  earns quiet blessings (calmer starts, the street's goodwill) and a
+  visible "given away" ledger line — while hoarding keeps feeding the
+  Hunter and the vault's memory. The game never preaches; the systems
+  make generosity feel like relief and greed feel like weight, which is
+  already the game's thesis. Cheap to build, deep if it lands.
 - [ ] **Phase D — the long tail**: museum sets per loot kind, Jo's-room
   cosmetics from epithets/feats, post-A10 horizon.
 - [ ] **Endgame economy watch**: maxed builds bank 4-5× haul via the

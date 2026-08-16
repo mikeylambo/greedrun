@@ -1,5 +1,40 @@
 # Changelog
 
+## Web build — the ghost-loot fix + the 19-session notes round (build 2026-08-15.16)
+
+- **FIXED: "everything I picked up dropped and respawned on the path."**
+  It was the Drop Chute. A mid-fight dwell dumped the bag; stashed items
+  kept their original coordinates, and the draw/pickup/rival/grapple
+  loops never learned to skip them — so the whole haul re-rendered at its
+  spawn points and could be picked up again for double credit. Every
+  loot filter now excludes stashed goods, and a regression test dumps,
+  re-dwells, and proves no second credit.
+- **No more freebie contracts.** Silent Job, Timed Raid, and Ghost Job
+  now demand a real haul, scaled to your recent averages: "Extract
+  unseen carrying at least $700", "collapse in 96s — out in time with at
+  least $1,100", "no hits — and don't come back light." The pause screen
+  tracks both halves ("clean · $400 of $700").
+- **Buyers anchored in dollars**: every fence chip now reads against the
+  Black Market — "+$348 over the market · takes one piece a visit",
+  "$276 under the market · the honest road" — so the choice is a number,
+  not a vibe.
+- **Found-tool crates are a choice, not an ambush**: stand 0.6s to swap
+  (progress arc, "stand to swap for Decoy ×2" label); walking past costs
+  nothing.
+- **Artifact pool more than doubled**: heirlooms, blades, maps, seals —
+  the Widow's Heirloom, Blade of the Last Auction, the Cartographer's
+  Regret, the Choir of Coins, the Locksmith's Confession, the Sleeping
+  Signet, the Glutton's Chalice.
+- Copy: Reinforced Straps ("EVERY piece slows you a little less") vs
+  Deep Pockets ("a speed you NEVER drop below") finally read as
+  different upgrades.
+- Landscape phones: notch-side safe-area padding on the HUD and overlays.
+- Release plan absorbs the PDF's design directions: Jo's canonical rank
+  arc (Thief → Strider → Mastermind) drives Phase B next build; mission-
+  type identities + puzzle chambers land in Phase C; "The Almshouse"
+  (give gold away — the greed lesson made mechanical) proposed for
+  greenlight.
+
 ## Web build — the stuck-on-platform fix + playtest notes (build 2026-08-15.15)
 
 - **FIXED: bumped onto a platform and stuck (twice-reported).** Three

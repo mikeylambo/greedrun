@@ -268,9 +268,11 @@ const res = await page.evaluate(() => {
     build(cacheSeed); const tc = G.toolCache;
     G.player.x = tc.x; G.player.y = tc.y; G.player.plat = -1;
     G.updateSecrets(0.05);
-    if (!tc.taken || G.runTool !== tc.id) out.fails.push('tool crate did not swap the kit (runTool=' + G.runTool + ')');
+    if (tc.taken) out.fails.push('tool crate swapped instantly — the dwell confirm is gone');
+    for (let i = 0; i < 15 && !tc.taken; i++) G.updateSecrets(0.05);   // ~0.75s dwell > 0.6s
+    if (!tc.taken || G.runTool !== tc.id) out.fails.push('tool crate did not swap after dwelling (runTool=' + G.runTool + ')');
     else if (G.toolCharges <= 0) out.fails.push('found tool came with no charges');
-    else out.log.push(`found tool: ${cacheNights}/${SEEDS.length} vaults, ${tc.id} ×${G.toolCharges} rides for the night`);
+    else out.log.push(`found tool: ${cacheNights}/${SEEDS.length} vaults, dwell-to-swap, ${tc.id} ×${G.toolCharges} rides tonight`);
   }
 
   // ---- Ascension twists: ladder gates + bodies actually spawn ----
@@ -306,7 +308,14 @@ const res = await page.evaluate(() => {
     for (let i = 0; i < 25; i++) G.updateSecrets(0.05);   // 1.25s dwell > 0.8s trigger
     if (G.stashedValue <= 0) out.fails.push('chute banked nothing');
     else if (G.loot.some(l => l.got && l.type !== 'heart')) out.fails.push('chute left carried goods behind');
-    else out.log.push(`chute: swallowed $${before.toLocaleString()} carried, credited $${Math.round(G.stashedValue).toLocaleString()} (70c, Heart refused)`);
+    else {
+      // the ghost-loot regression: stashed items must be gone for good —
+      // never re-credited by a second dwell (they "respawned on the path")
+      const credited = G.stashedValue;
+      for (let i = 0; i < 25; i++) G.updateSecrets(0.05);
+      if (G.stashedValue !== credited) out.fails.push('a second chute dwell re-credited stashed goods (ghost loot)');
+      else out.log.push(`chute: swallowed $${before.toLocaleString()}, credited $${Math.round(credited).toLocaleString()} once (70c, Heart refused, no ghosts)`);
+    }
   }
 
   // ---- The Thieves' Altar: one of three gifts, gated by the unlock ladder ----
