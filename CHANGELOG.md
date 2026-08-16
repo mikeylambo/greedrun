@@ -1,5 +1,96 @@
 # Changelog
 
+## Web build — JO IS THE MASTERMIND: Tact, the Mirage Toolkit, disciplines, commissions & Heist Profiles (build 2026-08-16.24)
+
+An identity pass, not a systems pass. Greedrun was already content-complete and
+the loop was already good — but it still read as *a thief getting better*. Jo
+finished that arc before this game starts. He is who powerful people call when
+obtaining something is the problem. The Operation grows; Jo does not rank up.
+Nothing here redesigns art, and the economy was deliberately left alone (the
+audit moves 1–4%, entirely from seed reshuffling; every sink is byte-identical).
+
+- **TACT replaces the manual.** The two-page How to Play reference is gone. The
+  first run teaches exactly three verbs — **MOVE / TAKE / LEAVE** — and nothing
+  else. Everything after that arrives as a **Tact**: a short read in Jo's own
+  voice, fired once, the first time a situation actually happens.
+  *TACT — LOAD · "Heavy haul. Loud feet. Drop what isn't worth carrying."*
+  *TACT — ASSESSOR · "He's not chasing me. He's counting."*
+  24 entries cover load, Heat, the Assessor, the Weighted Gate, water, wind, the
+  dark, the presses, shutters, strongboxes, stashes, the chute, the tunnel, the
+  breach, the second sheath, the rival and more. Every read is reviewable from
+  pause or the title under **Tact** — optional, never forced into the flow.
+  Old saves keep their state: a teaching moment already seen never fires again.
+- **THE MIRAGE TOOLKIT.** The Workbench is now Jo's kit, and the pieces have his
+  names, with the plain mechanical line underneath where the name used to have
+  to do the explaining: **Shadow Step** (break pursuit and vanish), **Illusion**
+  (a glittering double guards go and look at), **Strider's Line** (reel the
+  nearest valuable to your hand), **Subversion Kit** (turn a sealed shutter back
+  open), **Mirage Gate** (plant a marker, return to it from anywhere). Same five
+  ids on disk — every owned tool survives the rename.
+- **Progression is four Mastermind disciplines**, not a flat list of stat buys.
+  The same ten upgrades and the same five capstone effects, reorganized into
+  **STRIDER** (movement, load, traversal, landing → *The Long Walk*),
+  **MIRAGE CLOAK** (concealment, silence, exposure → *Cold Trail*),
+  **SUBTERFUGE** (setup and contingency → *The Grand Scheme*) and
+  **CALCULATE** (information advantage → *Appraiser's Eye*), with the Toolkit as
+  its own axis (*Sleight of Hand*). Each header states the method, how deep it
+  runs, and what waits at the end of it. No power added, none removed.
+- **Jobs are COMMISSIONS.** The board is clients who bring impossible acquisition
+  problems: a Power Broker, a Political Operator, a Collector of Unusual
+  Importance, the Custodians, an Institution, a Private House, a Speculator, a
+  Rival Operator, and a party that does not give its name. Each card carries five
+  facts and one line of the client's voice — **CLIENT / Acquire: TARGET /
+  LOCATION / CONDITION / Fee** — and named work names a real piece (the Meridian
+  Key, the Last Die, the Lightless Crown, the Windward Key…). No paragraphs
+  before you have even chosen.
+- **HEIST PROFILES: procgen rolls situations, not only rooms.** Every seed now
+  opens with an operational setup, built purely by weighting systems the game
+  already had: **Accounted House** (the Assessor starts early and writes fast),
+  **Locked House** (a shutter locked from the start, and they close faster),
+  **Flooded Route** (standing water wherever the job is), **Rival Claim**,
+  **Hot Vault** (two Heat tiers before you touch anything — and danger pays),
+  **Deep Storage** (thin floors, extra strongboxes, a stash and a gated cache),
+  **Clean Commission** (one standout piece, less around it worth the weight),
+  and the plain Working House. The roll is the FIRST draw of the vault stream and
+  depends on the seed alone, so a shared code is the same job for everybody at
+  any standing. Read as **INTEL** at the start of the run; owning **Treasure
+  Sense** turns the read into the stated mechanical fact — Calculate finally
+  buys information instead of a marker.
+- **The Generous Gift.** At the fence, one piece per haul — the one whose value
+  you can actually feel — can be given away instead of sold. It pays no gold. It
+  pays **twice its appraisal in Operation reach**, quiets the talk by a
+  notoriety, and makes you good with every client you left waiting. Not an
+  alignment meter, no `GOOD +10`: an option a Mastermind has because he settled
+  this question a long time ago. Reach counts toward territory exactly like
+  banked gold — no new currency.
+- **The four addresses have reasons to exist.** The Old Mint is a financial
+  machine that never fully stopped — dies, reserves, sealed assets, state proofs.
+  The Undercity Vaults are hidden infrastructure. The Cliffside Fortress holds
+  what justifies a garrison. The Sunken Treasury was cut off long enough that
+  exceptional things survived inside it. Every commission card says so.
+- **The HUD says less at once.** Four things persist — **health, haul, load,
+  Heat**. Noise appears when it is actually costing you (a clinking bag, or eyes
+  already turning). The objective announces the job and then stands down; live
+  progress lives on the pause screen, on request. The secured count speaks when
+  it changes. The Assessor rides the Heat label while he is working, with no new
+  chrome. Keyboard hints retire after the fourth job. Nothing was shrunk to fit.
+- **Title screen**: A JO STORY / GREEDRUN / HOW MUCH CAN YOU TAKE? / **Play**.
+  The explanatory paragraph is gone — the game teaches its own premise now.
+- **Terminology sweep**: the street-legend epithets became how the trade refers
+  to him (*THE QUIET HAND*, *NOTHING LEFT*, *THE IMPOSSIBLE ONE*, *THE FULL
+  MEASURE*, *IN AND OUT*), migrated in place so no earned standing is lost. The
+  Thieves' Altar is the Threshold Offering, the rival is a Rival Operator, the
+  den grows from a borrowed room to the whole board rather than alley to kingpin,
+  and the Thief's Ledger is the Operation Ledger.
+- **Saves are preserved.** Nothing was renamed on disk: upgrade ids, tool ids,
+  collection ids and seen-Tact keys are untouched, reputation keys migrate, and
+  the two new fields default cleanly on an old save.
+- New suite `tests/web_mastermind_test.mjs` (`npm run test:mastermind`) covers
+  the title, the Tact system, the Toolkit vocabulary, the discipline
+  reorganization, the commission card's five facts, profile determinism *and*
+  that each profile bends the system it claims to, the Gift's economics, the
+  contextual HUD, and a full pre-pass save surviving every rename.
+
 ## Web build — THE ECONOMY PASS + phone density (build 2026-08-15.23)
 
 The 24-run report showed the real problem: hauls of $2,230-$5,170 banking
