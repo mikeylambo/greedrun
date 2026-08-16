@@ -1,5 +1,44 @@
 # Changelog
 
+## Web build — the long tail + identity polish · CONTENT COMPLETE (build 2026-08-15.21)
+
+The last two content drops, together. Everything the roadmap scoped is in.
+
+**The long tail (.20)**
+
+- **The second sheath.** Find a tool while your belt still has charges and
+  it no longer overwrites what you're holding — it rides as **backup** and
+  takes over by itself the moment your active tool runs dry. Tool order
+  becomes something you plan, and it cost exactly zero new buttons: the
+  one-finger rule holds.
+- **Museum sets.** A collection is worth more than its pieces. Two
+  trophies is *A Beginning* (+3% on all gold), three *A Proper Cabinet*
+  (+7%), four *A Private Museum* (+12%), all five *The Whole Story*
+  (+20%) — a real reason to keep a piece instead of fencing it, and the
+  Trophy Room shows the next set and what it pays.
+- **Jo's room earns its furniture.** The hideout scene now fills in with
+  what you've actually *done*: a map wall marked with each finale you've
+  taken, the Hunter's notice nailed up once your feud starts, banners for
+  the names you've earned, a plaque when the collection is complete, and
+  a mark for reaching the top of the ladder. Nothing here is for sale.
+- **The Long Night.** Past Ascension 10 the ladder keeps climbing — every
+  twist live, the Hunter waiting inside from the first second, and the
+  pay curve rising forever. A finished player always has a next number.
+
+**Identity polish (.21)**
+
+- **Terminology sweep**: the street-era language is gone — "the street
+  remembers" is now "word travels", "the street calls you" is "they call
+  you", notoriety reads as talk in the trade. The Operation is past the
+  streets.
+- **The game has a theme now.** A four-note figure — a minor-seventh
+  climb, the greed motif — plays over the ambient bed, transposed into
+  its own key per location (the Mint, the Undercity, the Fortress, the
+  Treasury each sound different), thickening with an octave voice at
+  Heat T2 and a low saw at T4. Still zero audio assets: the same
+  oscillators, finally playing a tune.
+- Title drops the "Vertical Slice" tag and reads **A Jo Story**.
+
 ## Web build — the Weighted Gate, per-location finales, Assessor unstick (build 2026-08-15.19)
 
 - **FIXED: the Assessor could wedge on a corner.** He walks to a fixed

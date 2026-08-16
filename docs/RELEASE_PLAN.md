@@ -183,15 +183,30 @@ content is in fully we can balance." Do not spend drops on tuning until
 - NOT built (deliberate, revisit if wanted): mirror-sentry rooms and
   sequence locks. One well-taught puzzle beats three shallow ones; the
   gate teaches a verb the game already has.
-### Build .20 — The long tail
-- Museum sets per loot kind in the Trophy Room; Jo's-room cosmetics
-  earned by feats/epithets (PSU-room payoff).
-- Second-sheath: found tools queue as backup, auto-promote (one-finger
-  safe). Post-A10 horizon hook.
-### Build .21 — Identity polish (pre-wrapper)
-- Vector-art quality pass (however far possible), OST pass on the
-  procedural bed (motif, per-location progression, heat layers), full
-  UI/copy sweep, mobile-landscape verification on device.
+### Build .20 + .21 — long tail + identity polish — SHIPPED (as build .21)
+- Second sheath (backup tool auto-promotes, no new inputs); museum set
+  bonuses (2/3/4/5 pieces = +3/7/12/20% gold); Jo's-room feat props
+  (finale map wall, Hunter's notice, epithet banners, collection plaque,
+  ladder mark); The Long Night (endless ascension past A10).
+- Terminology swept off street-era language; OST motif (four-note greed
+  figure, per-location key, heat-layered voices); title reads "A Jo
+  Story", MVP tag gone.
+- STILL OPEN from .21's original scope (not blockers, carry into R4):
+  the vector-art quality pass (broad; needs an art direction call from
+  the user) and on-device mobile-landscape verification (needs the
+  user's phone — the safe-area padding shipped in .15/.16 is untested
+  on real hardware).
+
+## CONTENT COMPLETE — next is the balance pass
+Everything the roadmap scoped is in the build. Per the user's standing
+doctrine ("once content is in fully we can balance"), the next cycle is:
+1. A fresh-save ladder playthrough AND a veteran endgame session, in the
+   same report round.
+2. Retune with all content present: quota targets, heat curve, the
+   multiplier-stack soft cap, watchdog lethality (it has been the ONLY
+   killer in the last three reports), Assessor mark pacing.
+3. Then R4 wrapper (art call, PWA/store packaging, OG/favicon/1.0
+   string), then R6 QA sweep, then 1.0.
 ### Then: CONTENT-COMPLETE → the big balance pass
 - Fresh-save ladder playthrough + veteran endgame audit in one report
   cycle; retune quotas/heat/economy/multiplier-stack soft cap with all

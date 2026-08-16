@@ -551,7 +551,7 @@
 
   <!-- Title -->
   <div class="overlay on" id="menu">
-    <div class="eyebrow">A Jo Spin-off · Vertical Slice</div>
+    <div class="eyebrow">A Jo Story</div>
     <h1 class="title">Greedrun<span class="sub">HOW MUCH CAN YOU TAKE?</span></h1>
     <p class="tagline">Jo doesn't clear the vault. He <em>robs</em> it. Every treasure makes him
       richer — and heavier, louder, more marked, more hunted. The exit is where you started.
@@ -594,7 +594,7 @@
       <div class="ht-row"><div class="ht-key">Decide</div><div class="ht-txt">Glowing artifacts stop you for a choice: take it whole for gold, pry it for clean scraps, or spend it for <em>power</em> — a boon that bends the run.</div></div>
       <div class="ht-row"><div class="ht-key">Places</div><div class="ht-txt">Locations fight differently: <em>flood water</em> slows but silences you, <em>wind</em> shoves everyone, the <em>dark</em> hides all but your lantern, and the Mint&rsquo;s <em>presses</em> crush whatever lingers.</div></div>
       <div class="ht-row"><div class="ht-key">Tools</div><div class="ht-txt">The <em>Workbench</em> sells tools; one rides per job, limited charges. Tap <em>TOOL</em> (or Space) &mdash; smoke, decoy, grapple, lockpicks, a portable portal. Never required; always greedy.</div></div>
-      <div class="ht-row"><div class="ht-key">Word</div><div class="ht-txt">Escapes earn a name &mdash; earn it twice and your kind of work pays <em>+25%</em>, one buyer knows you. The <em>Gilded Fake</em>: rich in the bag, pennies at the fence, fine bait dropped.</div></div>
+      <div class="ht-row"><div class="ht-key">Word</div><div class="ht-txt">Escapes earn you a name &mdash; earn it twice and your kind of work pays <em>+25%</em>, one buyer knows you. The <em>Gilded Fake</em>: rich in the bag, pennies at the fence, fine bait dropped.</div></div>
       <div class="ht-row"><div class="ht-key">Notoriety</div><div class="ht-txt">Selling hot goods to the Syndicate raises your Notoriety. High Notoriety makes every job <em>start</em> hotter and the Hunter come sooner. Returning goods cools it back down.</div></div>
       <div class="ht-row"><div class="ht-key">Secrets</div><div class="ht-txt"><em>Strongboxes</em> crack open if you stand close &mdash; loudly. A <em>shimmer</em> in the floor marks a hidden stash. A lost thief&rsquo;s <em>tool crate</em> swaps your kit for the night.</div></div>
       <div class="ht-row"><div class="ht-key">The Gate</div><div class="ht-txt">Some caches sit behind bars with a <em>pressure plate</em> outside. The plate wants weight &mdash; and so does your bag. <em>Drop</em> a heavy piece on it, walk in, take the cache, then pick your piece back up.</div></div>
@@ -665,6 +665,7 @@
     <div class="eyebrow">The Trophy Room</div>
     <h1 class="title" style="font-size:clamp(26px,5vw,42px);margin-bottom:2px">Your Trophies</h1>
     <div class="bank" style="font-size:19px"><span id="collGold">$0</span></div>
+    <div id="collSetLine" style="width:min(620px,94%);font-size:12.5px;letter-spacing:.03em;line-height:1.5;margin-top:4px"></div>
     <div class="trophy-room" id="trophyGrid"></div>
     <div id="ledgerPanel"></div>
     <div class="btn-row"><button class="btn" id="collBack">Back to the Hideout</button></div>
@@ -751,7 +752,7 @@
   </div>
 
   <div class="toast" id="toast"></div>
-  <div class="credit">GREEDRUN · MVP</div>
+  <div class="credit">GREEDRUN</div>
 </div>
 
 <script>
@@ -759,7 +760,7 @@
 "use strict";
 // Build stamp — bump on every deploy. Shown on the title + hideout so a stale
 // Safari cache is instantly visible ("no report button" == old build).
-const BUILD = '2026-08-15.19';
+const BUILD = '2026-08-15.21';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 // Phones fill the screen in whichever way they're held — PORTRAIT (tall) or
@@ -813,7 +814,7 @@ const meta = {
          landing:0, scanner:0, pockets:0, contacts:0, cool:0, revive:0 },
   collection: { idol:0, relic:0, jewel:0, relicart:0, heart:0 },
   tools: { smoke:0, decoy:0, grapple:0, lockpick:0, portal:0 }, equippedTool:'',
-  rep: {},           // epithet -> times earned; the street remembers (reputation system)
+  rep: {},           // epithet -> times earned; word travels (reputation system)
   tips: {},          // one-time contextual teaching moments already shown
   seenUnlocks: {},   // unlock-ladder announcements already made
   ascUnlocked: 0, bestByAsc: {},
@@ -955,6 +956,10 @@ function toolById(id){ return TOOLS.find(t=>t.id===id); }
 function ownsTool(id){ return !!(meta.tools && meta.tools[id]); }
 let toolCharges=0, toolMark=null, smokeT=0, baits=[];   // per-run tool state
 let runTool=null;                     // a FOUND tool riding in place of the equipped one (this run only)
+// The second sheath: a found tool you're not ready to use yet rides as BACKUP
+// and takes over the moment the active one runs dry. Depth without a second
+// button — the one-finger rule holds.
+let backupTool=null, backupCharges=0;
 let chests=[], stashes=[], toolCache=null;   // level-design depth: strongboxes, hidden stashes, left-behind tools
 let breach=null;                             // the heat-cracked second exit — danger opens doors
 let chute=null, stashedValue=0;              // the drop chute: mid-run banking at 70¢, kept even in death
@@ -967,7 +972,7 @@ let gate=null;
 let trapdoor=null;                           // the Old Tunnel: one-use drop back to the door — loud
 let lockedDoors=[], brassKey=null, hasKey=false;   // a locked shortcut shutter + the key that turns it
 
-// ===== Reputation: the street remembers (GDD §Reputation System) =====
+// ===== Reputation: word travels (GDD §Reputation System) =====
 // Escaped-run epithets accumulate; a dominant one (earned 2+ times) becomes your
 // STANDING: matching contracts seek you out at +25%, and one buyer knows your name.
 const REP_INFO = {
@@ -1013,8 +1018,14 @@ const ASC_TABLE=[  // TUNE — gs=guard speed, det=detection, heat=starting-heat
 function ascMods(level){
   if(level<=0) return {gs:1,det:1,heat:0,hun:0,pay:1,fromStart:false};
   const r=Object.assign({}, ASC_TABLE[clamp(level,1,ASC_MAX)-1]);
-  r.fromStart = r.hun===HUNTER_FROM_START; if(r.fromStart) r.hun=0; return r;
+  r.fromStart = r.hun===HUNTER_FROM_START; if(r.fromStart) r.hun=0;
+  // The Long Night: past A10 the ladder keeps climbing forever, so a finished
+  // player always has a next number to chase.
+  if(level>ASC_MAX){ const over=level-ASC_MAX;
+    r.gs+=0.02*over; r.det+=0.06*over; r.pay+=0.45*over; r.heat=3; r.fromStart=true; }
+  return r;
 }
+function ascCeiling(){ return (meta.ascUnlocked|0)>=ASC_MAX ? ASC_MAX+20 : ASC_MAX; }   // the endless tail
 // Every ascension level ALSO brings a named twist — cumulative, so climbing
 // changes what the vault IS, not just its numbers. (Playtest verdict on
 // numbers-only ascension: post-max play "felt kind of worthless".)
@@ -1100,7 +1111,19 @@ const KIND_TROPHY = { loud:'idol', cursed:'relic', living:'jewel', artifact:'rel
 function collLevel(id){ return (meta.collection && meta.collection[id]) | 0; }
 function trophyById(id){ return TROPHIES.find(t=>t.id===id); }
 function restoreCost(t){ return Math.round(t.base * Math.pow(1.8, collLevel(t.id)-1)); } // level 1→2 costs base; ×1.8/level (long-tail sink, was 1.5)
-function collGoldMult(){ return 1 + 0.04*collLevel('relicart'); }
+// Museum sets: a collection is worth more than the sum of its pieces. Owning
+// more of the five trophies pays on everything — the long-tail reason to keep
+// a piece instead of fencing it.
+const COLL_SETS=[
+  {n:2, nm:'A Beginning',      pay:0.03, ds:'two pieces on the shelf — collectors talk'},
+  {n:3, nm:'A Proper Cabinet', pay:0.07, ds:'a cabinet worth visiting'},
+  {n:4, nm:'A Private Museum', pay:0.12, ds:'buyers come to YOU'},
+  {n:5, nm:'The Whole Story',  pay:0.20, ds:'every piece of the vault’s tale, under one roof'},
+];
+function collOwned(){ return TROPHIES.filter(t=>collLevel(t.id)>0).length; }
+function collSet(){ let s=null; for(const c of COLL_SETS) if(collOwned()>=c.n) s=c; return s; }
+function collSetNext(){ return COLL_SETS.find(c=>collOwned()<c.n)||null; }
+function collGoldMult(){ return 1 + 0.04*collLevel('relicart') + (collSet()?collSet().pay:0); }
 function effLabel(id,l){
   switch(id){
     case 'feet': return `+${Math.round(11*l)}% speed`;
@@ -1917,11 +1940,19 @@ function updateSecrets(dt){
       toolCache.prog=(toolCache.prog||0)+dt;
       if(toolCache.prog>=0.6){
         toolCache.taken=true;
-        const t=toolById(toolCache.id), prev=runTool||meta.equippedTool;
-        runTool=toolCache.id; toolCharges=t.uses+(capOn('trickster')?1:0); toolMark=null;
-        syncToolUI(); S.zip();
-        toast(`Swapped: ${t.nm} ×${toolCharges}${prev&&prev!==t.id?' rides in place of your '+toolById(prev).nm+' tonight':' — on the belt for tonight'}.`,2200);
+        const t=toolById(toolCache.id), charges=t.uses+(capOn('trickster')?1:0);
+        const active=runTool||meta.equippedTool;
         for(let i=0;i<10;i++)particles.push(mkP(toolCache.x,toolCache.y,'#8fc7e3'));
+        S.zip();
+        if(active && toolCharges>0){          // your belt is still working — sheath this one
+          backupTool=t.id; backupCharges=charges;
+          toast(`${t.nm} ×${charges} goes in the second sheath — it takes over when your ${toolById(active).nm} runs dry.`,2600);
+          tip('sheath','A found tool you can’t use yet rides as backup. It takes over automatically.');
+        } else {                              // nothing live on the belt — straight to hand
+          runTool=t.id; toolCharges=charges; toolMark=null;
+          toast(`${t.nm} ×${charges} — on the belt for tonight.`,2000);
+        }
+        syncToolUI();
       }
     } else toolCache.prog=Math.max(0,(toolCache.prog||0)-dt*2);
   }
@@ -2164,7 +2195,7 @@ function buildWorld(){
   walls=[]; loot=[]; guards=[]; sentries=[]; particles=[]; floaters=[]; rings=[]; rivals=[]; rivalHaul=0;
   decor=[]; solidDecor=[]; landmark=null;   // cleared BEFORE isOpen is used for placement
   joSquash=0; dustT=0; lastChargeStep=-1;
-  baits=[]; toolMark=null; smokeT=0; runTool=null;
+  baits=[]; toolMark=null; smokeT=0; runTool=null; backupTool=null; backupCharges=0;
   chests=[]; stashes=[]; toolCache=null;
   assessor=null; assessorHeat=0; rotateT=0; rotations=0; pendingPerfectSilent=false; pendingFinale=null;
   breach=null; chute=null; stashedValue=0; stashPingT=0;
@@ -2845,7 +2876,7 @@ const S={
   keyTurn(){ tone(392,392,0.07,{type:'square',vol:0.1}); nburst(0.06,0.2,1200,{delay:0.09});
     tone(784,1046,0.16,{type:'triangle',vol:0.12,delay:0.16}); },
 };
-let nextBeat=0;
+let nextBeat=0, nextMotif=0;
 function musicTick(){
   if(!AC) return;
   const playing = state==='playing';
@@ -2863,6 +2894,20 @@ function musicTick(){
   if(currentThemeKey==='mint' && now>=nextThump){   // distant press machinery, forever
     nextThump=now+2.6;
     tone(78,58,0.3,{vol:0.12,bus:musBus}); tone(392,392,0.05,{type:'square',vol:0.03,delay:0.14,bus:musBus});
+  }
+  // THE MOTIF — Greedrun's four-note figure, transposed per location so each
+  // vault has its own key, and voiced thicker as the Heat climbs. Still zero
+  // assets: it's the same oscillators, finally playing a tune.
+  if(now>=nextMotif){
+    nextMotif=now+4.4;
+    const ROOT={ mint:196, undercity:147, fortress:220, treasury:165 }[currentThemeKey]||196;
+    const FIG=[0,3,7,10];                                   // minor-seventh climb: the greed figure
+    FIG.forEach((st,i)=>{
+      const f=ROOT*Math.pow(2,st/12);
+      tone(f,f,1.05,{type:'triangle',vol:0.050,at:0.16,delay:i*0.52,bus:musBus});
+      if(heatTier>=2) tone(f*2,f*2,0.85,{type:'triangle',vol:0.022,at:0.2,delay:i*0.52+0.05,bus:musBus});
+      if(heatTier>=4) tone(f/2,f/2,1.25,{type:'sawtooth',vol:0.030,at:0.28,delay:i*0.52,bus:musBus});
+    });
   }
   if(now>=nextBeat){
     const iv=Math.max(0.5, 1.9-heatTier*0.23);               // TUNE — Heat quickens the pulse
@@ -2990,13 +3035,22 @@ function useTool(){
     for(let i=0;i<12;i++) particles.push(mkP(player.x,player.y,'#a98bff'));
     toolMark=null; S.portalGo(); toast('Snap — back at the marker.',1000); used=true;
   }
-  if(used){ toolCharges--; toolUses++; syncToolUI(); }
+  if(used){ toolCharges--; toolUses++;
+    // dry belt, loaded sheath — the backup comes up on its own
+    if(toolCharges<=0 && backupTool){
+      const b=toolById(backupTool);
+      runTool=backupTool; toolCharges=backupCharges; toolMark=null;
+      backupTool=null; backupCharges=0;
+      S.zip(); toast(`${b.nm} comes up from the second sheath — ×${toolCharges}.`,2000);
+    }
+    syncToolUI(); }
 }
 function syncToolUI(){
   const id=runTool||meta.equippedTool, t=id&&(runTool||ownsTool(id))?toolById(id):null;
   const hud=document.getElementById('toolHud');
   if(hud){ hud.style.display=t?'block':'none';
-    if(t) hud.innerHTML=`⛭ ${t.nm} <b>×${toolCharges}</b>${toolMark?' · marker set':''}${isTouch?'':' — SPACE'}`; }
+    if(t) hud.innerHTML=`⛭ ${t.nm} <b>×${toolCharges}</b>${toolMark?' · marker set':''}${isTouch?'':' — SPACE'}`
+      + (backupTool?`<br><span style="opacity:.7;font-size:11px">then ${toolById(backupTool).nm} ×${backupCharges}</span>`:''); }
   const btn=document.getElementById('toolBtn');
   if(btn){ btn.style.display=(t&&isTouch&&state==='playing')?'flex':'none';
     if(t) btn.innerHTML=`${t.short}<br>×${toolCharges}`;
@@ -4544,9 +4598,9 @@ function endRun(escaped, cause){
   const ascScore = escaped ? haulVal : 0;
   ascNewBest = escaped && ascScore > bestForAsc(ascensionLevel);
   if(ascNewBest){ meta.bestByAsc[ascensionLevel] = ascScore; }
-  if(escaped && ascensionLevel>=1 && ascensionLevel===ascUnlocked() && ascensionLevel<ASC_MAX){ meta.ascUnlocked=ascensionLevel+1; }
+  if(escaped && ascensionLevel>=1 && ascensionLevel===ascUnlocked() && ascensionLevel<ascCeiling()){ meta.ascUnlocked=ascensionLevel+1; }
   if(escaped && denHeatSink() && meta.curseDebt>0){ meta.curseDebt=clamp(meta.curseDebt-1,0,10); }  // The Den perk: clean escapes cool the world
-  // Reputation: the street remembers how this one went (escapes only)
+  // Reputation: word travels about how this one went (escapes only)
   let repEarned=null;
   if(escaped){ const ep=epithet(true);
     if(REP_INFO[ep]){ meta.rep[ep]=(meta.rep[ep]|0)+1; repEarned=ep; } }
@@ -4637,7 +4691,7 @@ function endRun(escaped, cause){
     + (escaped&&peakHeat>0?`<div>Danger pays · peaked T${peakHeat}<b style="color:var(--heat)">+${Math.round((pendingDangerMult-1)*100)}%</b></div>`:'')
     + (perfect?`<div>Clean bonus<b style="color:var(--ok)">+40%</b></div>`:'')
     + (pendingMasteryNew?`<div>Mastered · ${pendingMasteryNew.name}<b style="color:var(--ok)">${masteryCount()}/${TWISTS.length} · +${Math.round((masteryMult()-1)*100)}% sales</b></div>`:'')
-    + (repEarned?`<div>The street remembers<b style="color:var(--gold)">${repEarned} ×${meta.rep[repEarned]}</b></div>`:'')
+    + (repEarned?`<div>Word travels<b style="color:var(--gold)">${repEarned} ×${meta.rep[repEarned]}</b></div>`:'')
     + contractLine
     + (ascensionLevel>0?`<div>Ascension ${ascensionLevel}<b style="color:var(--purple,#a98bff)">${ascNewBest?'NEW BEST':'★'.repeat(Math.min(ascensionLevel,5))}</b></div>`:'')
     + (wasDaily?`<div>Daily score<b style="color:var(--gold)">${(escaped?dailyScore():0).toLocaleString()}</b></div><div>Streak<b>${meta.daily.streak} day${meta.daily.streak===1?'':'s'}</b></div><div>Share code<b style="letter-spacing:.12em">GR-${dayKey()}-${seedToCode(daySeed(dayKey()))}</b></div>`:'')
@@ -4786,7 +4840,7 @@ function renderFence(){
     if(prev!==total) animateMoney(el, prev, total, 450); else el.textContent='$'+total.toLocaleString(); }
   // the working bonuses as labeled chips, not a run-on sentence
   const noto = curseD>0?`The Syndicate\u2019s coin will raise your notoriety.`
-    : curseD<0?`Returning goods cools the streets.`
+    : curseD<0?`Returning goods quiets the talk.`
     : `Different buyers want different goods.`;
   const bon=[];
   const chip=(col,label,amt)=>`<span class="lg"><i style="background:${col}"></i><b>${label}</b>&nbsp;${amt}</span>`;
@@ -4823,6 +4877,11 @@ const TROPHY_GEM={idol:['#f5c542','rgba(245,197,66,.6)'], relic:['#a98bff','rgba
   jewel:['#8fe39a','rgba(143,227,154,.6)'], relicart:['#ff9a4a','rgba(255,154,74,.55)'], heart:['#e0503f','rgba(224,80,63,.55)']};
 function renderCollection(){
   $('collGold').textContent='$'+meta.gold.toLocaleString();
+  // the museum set: a collection pays more than its pieces do
+  { const el=$('collSetLine'), s=collSet(), nx=collSetNext();
+    if(el) el.innerHTML = (s?`<b style="color:var(--gold)">${s.nm}</b> <span style="color:var(--muted)">— ${s.ds} · <b style="color:var(--ok)">+${Math.round(s.pay*100)}% on all gold</b></span>`
+                            :`<span style="color:var(--muted)">Keep a second trophy and the collection starts paying on its own.</span>`)
+      + (nx?`<br><span style="font-size:11px;color:var(--muted)">Next: <b style="color:var(--bone)">${nx.nm}</b> at ${nx.n} pieces — +${Math.round(nx.pay*100)}% on all gold</span>`:''); }
   const g=$('trophyGrid'); g.innerHTML='';
   for(const t of TROPHIES){
     const lvl=collLevel(t.id), owned=lvl>0, maxed=lvl>=t.max, cost=restoreCost(t);
@@ -4856,7 +4915,7 @@ function renderCollection(){
   renderLedger();
 }
 // The Thief's Ledger \u2014 the trophy room is Jo's own room, and this is the page
-// that says who he's become: career numbers, every name the street gave him,
+// that says who he's become: career numbers, every name the trade has given him,
 // the feud with the named Hunter, and how the nights that went wrong ended.
 function renderLedger(){
   const lg=$('ledgerPanel'); if(!lg) return;
@@ -4899,7 +4958,7 @@ function renderLedger(){
       <div class="led-cell"><span>Best haul</span><b>$${(meta.bestHaul|0).toLocaleString()}</b></div>
     </div>
     <div class="led-eps">${eps}</div>
-    ${(meta.hunterKills|0)>0?`<div class="led-nem">\u2620 ${hunterName()} the Bounty Hunter has ended you \u00d7${meta.hunterKills} \u2014 the street watches this feud.</div>`:''}
+    ${(meta.hunterKills|0)>0?`<div class="led-nem">\u2620 ${hunterName()} the Bounty Hunter has ended you \u00d7${meta.hunterKills} \u2014 the whole trade watches this feud.</div>`:''}
     ${dl?`<div class="led-deaths">How the bad nights ended: ${dl}</div>`:'<div class="led-deaths">No bad nights yet. The vault is patient.</div>'}`;
 }
 
@@ -5078,6 +5137,29 @@ function renderHideoutScene(){
   const nCr=clamp(Math.floor((meta.runs|0)/3),0,3);
   let crates=''; const cpos=[[100,75],[132,77],[116,51]];
   for(let i=0;i<nCr;i++) crates+=crateSVG(cpos[i][0],cpos[i][1]);
+  // Jo's room earns its furniture: every feat hangs something on the wall.
+  // (No shop, no currency — you can only own these by having DONE the thing.)
+  let feats='';
+  if(finalesDone()>0){                                  // a finale taken: the map wall
+    feats+=`<g transform="translate(40,20)"><rect width="46" height="34" rx="2" fill="#241a0d" stroke="#6a5230"/>
+      ${Array.from({length:finalesDone()},(_,i)=>`<circle cx="${8+i*11}" cy="26" r="2.6" fill="#f5c542"/>`).join('')}
+      <path d="M4 8 L18 4 L30 11 L42 6" stroke="#8a6b3a" stroke-width="1.4" fill="none"/>
+      <path d="M4 16 L16 12 L30 18 L42 13" stroke="#8a6b3a" stroke-width="1.2" fill="none" opacity=".7"/></g>`;
+  }
+  if((meta.hunterKills|0)>0){                           // the feud: his notice, nailed up
+    feats+=`<g transform="translate(462,16)"><rect width="34" height="42" rx="1.5" fill="#d8cba8" opacity=".82" transform="rotate(-4)"/>
+      <text x="4" y="14" font-size="7" fill="#3a2c18" transform="rotate(-4)">WANTED</text>
+      <circle cx="17" cy="26" r="7" fill="#3a2c18" opacity=".6" transform="rotate(-4)"/></g>`;
+  }
+  { const eps=Object.values(meta.rep||{}).reduce((a,v)=>a+v,0);   // names earned: banners
+    for(let i=0;i<Math.min(3,Math.floor(eps/4));i++)
+      feats+=`<g transform="translate(${196+i*76},2)"><path d="M0 0 h26 v26 l-13 -7 l-13 7 z" fill="#7a2f2f" stroke="#5a4526" stroke-width="1"/>
+        <circle cx="13" cy="10" r="3.4" fill="#f5c542" opacity=".85"/></g>`; }
+  if(collOwned()>=5) feats+=`<g transform="translate(258,60)"><rect width="44" height="7" rx="2" fill="#4a3620" stroke="#6a5230"/>
+      <text x="22" y="-2" font-size="6.5" fill="#c9b37a" text-anchor="middle">THE WHOLE STORY</text></g>`;
+  if((meta.ascUnlocked|0)>=ASC_MAX) feats+=`<g transform="translate(506,74)">
+      <path d="M0 14 L7 0 L14 14 z" fill="#2a1a3a" stroke="#a98bff" stroke-width="1.2"/>
+      <circle cx="7" cy="9" r="2.2" fill="#a98bff"/></g>`;
   const ring=2*Math.PI*26;
   const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 116" role="img" aria-label="Your hideout">
     <defs>
@@ -5116,7 +5198,7 @@ function renderHideoutScene(){
       <line x1="0" y1="0" x2="0" y2="11" stroke="#3a2e1b" stroke-width="2"/>
       <rect x="-6" y="11" width="12" height="14" rx="2" fill="#2a1d10" stroke="#3a2e1b"/>
       <rect x="-3.5" y="14" width="7" height="8" rx="1.5" fill="#ffcf3f" opacity=".9"/></g>
-    ${crates}${gold}
+    ${feats}${crates}${gold}
   </svg>`;
   host.innerHTML=svg;
   // Inside the flex overlay an SVG with height:auto collapses; give the box a
@@ -5206,7 +5288,7 @@ function renderShop(){
         gn.innerHTML=`Notoriety <b>${meta.curseDebt}/10</b>`+(seed>0?` · jobs start at Heat T${seed}`:'')
           +` · the Hunter enters at T${hunterAt} — <span style="color:var(--ok)">“Return it” at the fence cools it</span>`;
       } else { gn.style.color='var(--muted)';
-        gn.innerHTML=`Notoriety <b>0</b> — the streets are quiet. Syndicate sales raise it; returning goods cools it.`; } } }
+        gn.innerHTML=`Notoriety <b>0</b> — the talk is quiet. Syndicate sales raise it; returning goods cools it.`; } } }
   const ln=$('logN'); if(ln) ln.textContent=runLog.length;
   { const el=$('bankAmt'), prev=parseInt((el.textContent||'').replace(/\D/g,''))||0;
     if(prev!==meta.gold) animateMoney(el, prev, meta.gold, 700);
@@ -5219,13 +5301,13 @@ function renderShop(){
     nl.innerHTML=`Notoriety ${meta.curseDebt}`+(seed>0?` \u00b7 jobs start at Heat T${seed}`:'')
       +` \u00b7 Hunter enters at Heat T${hunterAt} \u2014 return goods to cool it`;
   } else { nl.innerHTML=''; }
-  // Reputation standing — the street's name for you, and what it buys
+  // Reputation standing — the name the trade uses for you, and what it buys
   const rl=$('repLine'), dom=repDominant();
   if(rl){
     if(dom){
       const counts=Object.entries(meta.rep||{}).filter(([k])=>REP_INFO[k]).sort((a,b)=>b[1]-a[1])
         .map(([k,v])=>`${k} ×${v}`).join(' · ');
-      rl.innerHTML=`<span style="color:var(--muted)">The street calls you</span> <b style="color:var(--gold)">${dom}</b>`
+      rl.innerHTML=`<span style="color:var(--muted)">They call you</span> <b style="color:var(--gold)">${dom}</b>`
         +`<span style="color:var(--muted)"> — ${REP_INFO[dom].tag}</span>`
         +`<br><span style="font-size:11px;color:var(--muted)">${counts}</span>`;
     } else rl.innerHTML='';
@@ -5338,11 +5420,11 @@ function renderAscension(){
   const mk=(t,fn)=>{ const b=document.createElement('button'); b.textContent=t;
     b.style.cssText='min-width:34px;padding:4px 8px;background:#1c1730;color:var(--purple,#a98bff);border:1px solid #4a3a6a;border-radius:6px;cursor:pointer'; b.onclick=fn; return b; };
   const desc=document.createElement('span'); desc.style.flex='1'; desc.style.textAlign='center';
-  const tw=ASC_TWISTS[selectedAscension-1];
+  const tw=ASC_TWISTS[Math.min(selectedAscension,ASC_MAX)-1];
   const twAll=ASC_TWISTS.slice(0,selectedAscension).map(t=>t.nm).join(' \u00b7 ');
   desc.innerHTML = selectedAscension===0
     ? `<b>Ascension 0</b> \u00b7 standard run \u00b7 highest unlocked A${ascUnlocked()}`
-    : `<b>Ascension ${selectedAscension}</b> \u00b7 <b style="color:var(--gold)">${tw.nm}</b> \u2014 ${tw.ds}`
+    : `<b>Ascension ${selectedAscension}</b> \u00b7 <b style="color:var(--gold)">${selectedAscension>ASC_MAX?'The Long Night':tw.nm}</b> \u2014 ${selectedAscension>ASC_MAX?'every twist at once, and it never stops climbing':tw.ds}`
       + ` \u00b7 payout \u00d7${m.pay.toFixed(2)} \u00b7 best $${bestForAsc(selectedAscension).toLocaleString()}`
       + `<br><span style="font-size:11px;opacity:.8">guards +${Math.round((m.gs-1)*100)}% spd \u00b7 +${Math.round((m.det-1)*100)}% detect \u00b7 Heat +${m.heat}`
       + (selectedAscension>1?` \u00b7 carries: ${twAll}`:'')+`</span>`;
@@ -5548,6 +5630,9 @@ window.__greed = {
   get assessor(){ return assessor; }, get assessorHeat(){ return assessorHeat; },
   updateAssessor, updateRotation, updateGate,
   get gate(){ return gate; }, get FINALES(){ return FINALES; }, finalesDone,
+  // long-tail surface
+  collGoldMult, collSet, collOwned, ascCeiling,
+  get backupTool(){ return backupTool; }, get backupCharges(){ return backupCharges; },
   // slice 3: floods / tunnels / locks
   get trapdoor(){ return trapdoor; }, get lockedDoors(){ return lockedDoors; },
   get brassKey(){ return brassKey; }, get hasKey(){ return hasKey; },

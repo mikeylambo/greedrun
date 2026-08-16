@@ -142,6 +142,32 @@ const res = await page.evaluate(async () => {
   if ((G.meta.rep['GENTLEMAN THIEF'] | 0) !== 1) out.fails.push('escape did not record the epithet (rep=' + JSON.stringify(G.meta.rep) + ')');
   else out.log.push('reputation: escape recorded GENTLEMAN THIEF ×1');
 
+  // ---- The second sheath: a found tool waits, then takes over on its own ----
+  {
+    G.meta.runs = 30; G.meta.tools.smoke = 1; G.meta.equippedTool = 'smoke';
+    // the reputation test above ended a run, so we're on the results screen —
+    // useTool() only fires while state === 'playing'
+    G.activeContract = null; G.startRun();
+    let cSeed = null;
+    for (const s of [1, 2, 7, 42, 1337, 90210, 5, 88, 3, 9, 17, 55]) { G.build(s); if (G.toolCache) { cSeed = s; break; } }
+    if (cSeed === null) out.fails.push('no tool crate found for the sheath test');
+    else {
+      const tc = G.toolCache;
+      G.player.x = tc.x; G.player.y = tc.y; G.player.plat = -1;
+      for (let i = 0; i < 20 && !tc.taken; i++) G.updateSecrets(0.05);
+      if (!G.backupTool) out.fails.push('a found tool did not go to the second sheath while the belt was live');
+      else {
+        const sheathed = G.backupTool, n = G.backupCharges;
+        // burn the belt dry — bounded, because some tools decline to fire when
+        // there's nothing in reach and would spin an unbounded loop forever
+        for (let i = 0; i < 12 && G.backupTool; i++) G.useTool();
+        if (G.runTool !== sheathed) out.fails.push('the backup did not come up when the belt ran dry');
+        else if (G.toolCharges !== n) out.fails.push('the promoted tool lost its charges');
+        else if (G.backupTool) out.fails.push('the sheath did not empty on promotion');
+        else out.log.push(`second sheath: ${sheathed} waited, then took over with x${n} — no new buttons`);
+      }
+    }
+  }
   return out;
 });
 

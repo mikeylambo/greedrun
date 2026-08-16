@@ -100,6 +100,25 @@ const core = await page.evaluate(() => {
   Object.keys(U).forEach(k => U[k] = 0);
   G.meta.tools = { smoke: 0, decoy: 0, grapple: 0, lockpick: 0, portal: 0 }; G.meta.equippedTool = '';
   if (!out.fails.length) out.log.push('capstones: Cold Trail, Bottomless Bags, Long Game, Appraiser’s Eye, Sleight of Hand');
+  // ---- The long tail: museum sets, the second sheath, The Long Night ----
+  {
+    const savedColl = JSON.stringify(G.meta.collection);
+    G.meta.collection = { idol: 0, relic: 0, jewel: 0, relicart: 0, heart: 0 };
+    const bare = G.collGoldMult();
+    G.meta.collection = { idol: 1, relic: 1, jewel: 0, relicart: 0, heart: 0 };
+    const two = G.collGoldMult();
+    G.meta.collection = { idol: 1, relic: 1, jewel: 1, relicart: 1, heart: 1 };
+    const all = G.collGoldMult();
+    if (!(two > bare && all > two)) out.fails.push(`museum sets do not compound (${bare} -> ${two} -> ${all})`);
+    else out.log.push(`museum sets: 0 pieces x${bare.toFixed(2)}, 2 x${two.toFixed(2)}, all five x${all.toFixed(2)}`);
+    G.meta.collection = JSON.parse(savedColl);
+
+    // The Long Night: past A10 the ladder keeps climbing
+    const at10 = G.ascMods(10), past = G.ascMods(14);
+    if (!(past.pay > at10.pay && past.gs > at10.gs && past.fromStart))
+      out.fails.push('ascension does not continue past A10');
+    else out.log.push(`the long night: A10 pay x${at10.pay.toFixed(2)} -> A14 x${past.pay.toFixed(2)}, hunter from the first second`);
+  }
   return out;
 });
 core.fails.forEach(f => fails.push(f)); core.log.forEach(l => log.push(l));
