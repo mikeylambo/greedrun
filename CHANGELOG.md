@@ -1,5 +1,20 @@
 # Changelog
 
+## Web build — duplicate trophies count, deeper collection ladder (build 2026-08-15.22)
+
+- **FIXED: a second trophy of the same kind vanished.** The "Keep it"
+  option was offered whenever you owned none of that trophy — decided
+  when the fence screen built — so two Bound Relics in one haul both
+  showed it, the first claimed Fortune's Cache, and the second silently
+  did nothing (playtest: "picked up 2 Fortune's Cache and the hideout
+  only reflected one"). Duplicates now **restore the trophy a level for
+  free**, and the chip says so ("restores it to Lv2 — +8% on all gold,
+  free").
+- **Trophies go to Lv8 instead of Lv5.** Restores cost x1.8 per level, so
+  the last few run $10k-$35k each — roughly a quarter-million of new
+  sink across the collection, for a player who had nothing left to buy
+  by run 24.
+
 ## Web build — the long tail + identity polish · CONTENT COMPLETE (build 2026-08-15.21)
 
 The last two content drops, together. Everything the roadmap scoped is in.

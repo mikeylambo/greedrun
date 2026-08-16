@@ -760,7 +760,7 @@
 "use strict";
 // Build stamp — bump on every deploy. Shown on the title + hideout so a stale
 // Safari cache is instantly visible ("no report button" == old build).
-const BUILD = '2026-08-15.21';
+const BUILD = '2026-08-15.22';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 // Phones fill the screen in whichever way they're held — PORTRAIT (tall) or
@@ -1100,12 +1100,15 @@ function copyText(t){ try{ navigator.clipboard && navigator.clipboard.writeText(
 // ---------- The Collection (museum of greed) ----------
 // Keep a trophy at the fence (forgo the sale) to unlock its passive; then pour gold
 // into restoring it for a stronger passive. A permanent sink that never caps.
+// TUNE — max levels raised 5 -> 8 (playtest: everything bought by run 24, nothing
+// left to spend on). Restores cost x1.8/level, so the last three levels of a
+// trophy run ~$10k-$35k each: a real sink for a player banking five figures.
 const TROPHIES = [
-  { id:'idol',    kind:'loud',    nm:'Golden Idol',  passive:'Merchant\u2019s Eye', base:900,  max:5, eff:l=>`+${3*l}% from every buyer` },
-  { id:'relic',   kind:'cursed',  nm:'Marked Relic', passive:'Iron Nerve',        base:1000, max:5, eff:l=>`guards spot you ${6*l}% later` },
-  { id:'jewel',   kind:'living',  nm:'Skitterjewel', passive:'Quick Hands',       base:800,  max:5, eff:l=>`+${6*l} reach on loot` },
-  { id:'relicart',kind:'artifact',nm:'Bound Relic',  passive:'Fortune\u2019s Cache',base:1100, max:5, eff:l=>`+${4*l}% on all gold` },
-  { id:'heart',   kind:'mythic',  nm:'Vault Heart',  passive:'Vault-Sense',       base:1500, max:5, eff:l=>`+${5*l}% danger bonus` },
+  { id:'idol',    kind:'loud',    nm:'Golden Idol',  passive:'Merchant\u2019s Eye', base:900,  max:8, eff:l=>`+${3*l}% from every buyer` },
+  { id:'relic',   kind:'cursed',  nm:'Marked Relic', passive:'Iron Nerve',        base:1000, max:8, eff:l=>`guards spot you ${6*l}% later` },
+  { id:'jewel',   kind:'living',  nm:'Skitterjewel', passive:'Quick Hands',       base:800,  max:8, eff:l=>`+${6*l} reach on loot` },
+  { id:'relicart',kind:'artifact',nm:'Bound Relic',  passive:'Fortune\u2019s Cache',base:1100, max:8, eff:l=>`+${4*l}% on all gold` },
+  { id:'heart',   kind:'mythic',  nm:'Vault Heart',  passive:'Vault-Sense',       base:1500, max:8, eff:l=>`+${5*l}% danger bonus` },
 ];
 const KIND_TROPHY = { loud:'idol', cursed:'relic', living:'jewel', artifact:'relicart', mythic:'heart' };
 function collLevel(id){ return (meta.collection && meta.collection[id]) | 0; }
@@ -4742,9 +4745,12 @@ function buyersFor(kind,value){
     for(const x of out){ if(x.id===fav && x.payout>0){ x.payout=Math.round(x.payout*1.1); x.note='knows your name · +10%'; } } }
   // Keep it: forgo the sale for a PERMANENT passive — say exactly what it does
   const tid=KIND_TROPHY[kind];
-  if(tid && collLevel(tid)===0){ const t=trophyById(tid);
+  // A DUPLICATE is worth keeping too — the second one restores a level instead
+  // of vanishing (playtest: kept two Bound Relics, the hideout showed one).
+  if(tid && collLevel(tid)<trophyById(tid).max){ const t=trophyById(tid), lv=collLevel(tid);
     out.push({id:'keep', nm:'Keep it', fx:'keep', cls:'keep', payout:0, passive:t.passive,
-      note:t.eff(1)+', forever — restore it later for more'}); }
+      note: lv===0 ? t.eff(1)+', forever — restore it later for more'
+                   : `restores it to Lv${lv+1} — ${t.eff(lv+1)}, free`}); }
   // tag the highest cash offer so the greedy read is instant
   let best=null; for(const x of out) if(x.payout>0 && (!best||x.payout>best.payout)) best=x;
   if(best) best.top=true;
@@ -4858,8 +4864,12 @@ function bankHaul(){
   let total=Math.round(pendingBulk.val*sellMult()), curseD=0;
   for(const it of pendingHaul){ const b=it.buyers[it.saleIdx]; total+=b.payout;
     if(b.fx==='curse+')curseD++; else if(b.fx==='curse-')curseD--;
-    if(b.fx==='keep'){ const tid=KIND_TROPHY[it.kind]; if(tid && collLevel(tid)===0){ meta.collection[tid]=1;
-      toast(trophyById(tid).passive+' \u2014 added to the Collection.',1600); } } }
+    // each kept piece counts \u2014 the first claims the trophy, every duplicate
+    // restores it a level for free (they used to disappear)
+    if(b.fx==='keep'){ const tid=KIND_TROPHY[it.kind], t=tid&&trophyById(tid);
+      if(t && collLevel(tid)<t.max){ const lv=collLevel(tid)+1; meta.collection[tid]=lv;
+        toast(lv===1 ? `${t.passive} \u2014 added to the Collection.`
+                     : `${t.passive} restored to Lv${lv} \u2014 ${t.eff(lv)}.`, 1700); } } }
   if(pendingPerfect) total=Math.round(total*1.4); total=Math.round(total*pendingDangerMult*collGoldMult()*denBonus()*ascMods(ascensionLevel).pay);
   meta.gold+=total; meta.curseDebt=clamp(meta.curseDebt+curseD,0,10);
   logBank(total);
