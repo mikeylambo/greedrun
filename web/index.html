@@ -585,6 +585,7 @@
       <div class="ht-row"><div class="ht-key">Grab</div><div class="ht-txt">Walk over loot to pocket it. Everything you carry is <em>Greed Load</em> — it makes you richer, but slower, louder, more marked, and more hunted.</div></div>
       <div class="ht-row"><div class="ht-key">Drop</div><div class="ht-txt">Overloaded? Press <em>Q</em> (or tap DROP) to shed your heaviest piece — it cools your greed, quiets your bag, and can talk a sealed shutter back open.</div></div>
       <div class="ht-row"><div class="ht-key">Watch</div><div class="ht-txt">Guards chase what they see and give up when they lose you. Swiveling <em>sentries</em> can't see through walls — use cover, read the sweep.</div></div>
+      <div class="ht-row"><div class="ht-key">The Assessor</div><div class="ht-txt">A lamp-lit clerk walks the vault with a ledger. He never touches you &mdash; he finds the plinths you emptied and <em>writes them down</em>, and every entry raises the Heat. Take what you like; just beat him to the door.</div></div>
       <div class="ht-row"><div class="ht-key">Climb</div><div class="ht-txt">Walk up a <em>staircase</em> to reach high ground &mdash; guards can&rsquo;t follow you up. Step off a <em>ledge</em> to drop fast, but a loaded landing is loud and can cost a heart.</div></div>
       <div class="ht-row"><div class="ht-key">Escape</div><div class="ht-txt">The glowing exit is where you started. Hold it to leave and <em>bank</em> your haul. Get caught and the vault keeps everything.</div></div>
     </div>
@@ -757,7 +758,7 @@
 "use strict";
 // Build stamp — bump on every deploy. Shown on the title + hideout so a stale
 // Safari cache is instantly visible ("no report button" == old build).
-const BUILD = '2026-08-15.17';
+const BUILD = '2026-08-15.18';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 // Phones fill the screen in whichever way they're held — PORTRAIT (tall) or
@@ -1165,6 +1166,29 @@ function masteryMult(){ return 1 + 0.03*masteryCount(); }
 let state = 'menu';   // menu | shop | playing | onemore | decision | result
 let walls = [], loot = [], guards = [], sentries = [], particles = [], floaters = [];
 let rivals = [], rivalHaul = 0;   // a rival thief races you for the loot
+// THE ASSESSOR — the vault's own bookkeeper. He never chases you and never
+// throws a punch; he walks his rounds, finds the plinths you emptied, and
+// writes them down. Every entry tightens the whole vault. Greed's own alarm.
+let assessor = null, assessorHeat = 0;
+// Timed Raids don't just run a clock — the watch changes posts while you work,
+// so a route you scouted on the way in is not the route on the way out.
+let rotateT = 0, rotations = 0, pendingPerfectSilent = false;
+function updateRotation(dt){
+  if(!(activeContract && activeContract.type==='timed')) return;
+  rotateT-=dt; if(rotateT>0) return;
+  rotateT=26;
+  if(rotations++===0) return;                  // the first cycle just primes the clock
+  let moved=0;
+  for(const g of guards){
+    if(g.hunter || g.state==='chase') continue;  // nobody abandons a live chase
+    const reg = vgraph ? Math.floor(Math.random()*(vgraph.cols*vgraph.rows)) : -1;
+    const wps=[];
+    for(let k=0;k<3;k++){ const b = vgraph ? openSpotInRegion(reg,null) : openSpot(14,60,null); if(b) wps.push({x:b.x,y:b.y}); }
+    if(wps.length){ g.wps=wps; g.wi=0; g.state='patrol'; g.lkp=null; moved++; }
+  }
+  if(moved){ S.rotate(); toast('The watch changes posts — the floor you scouted is gone.',1700);
+    tip('rotate','Timed Raids rotate the watch. Plan the way out twice.'); }
+}
 let platforms = [];               // raised terrain (mesas): {x,y,w,h,stair}
 const ELEV = 12;                  // visual height cue for platforms
 let vertHintShown = false;
@@ -1605,6 +1629,90 @@ function updateRivals(dt){
     }
   }
 }
+// ===== THE ASSESSOR: the vault's bookkeeper =====
+// He walks to the places you've already robbed and logs them. Each entry adds
+// a Heat tier (capped at 3), so the greedier the night, the tighter the vault
+// gets — and it's the ONLY threat that never lays a hand on you. Counterplay is
+// pure routing: he's slow, he glows, and his next stop is readable.
+const ASSESSOR_MAX_MARKS=3;
+function updateAssessor(dt){
+  const a=assessor; if(!a) return;
+  a.lamp+=dt;
+  if(a.wake>0){ a.wake-=dt; return; }          // he arrives on his rounds, not at the bell
+  const taken=s=>s.l.got||s.l.stolen||s.l.stashed;
+  if(a.site && (a.site.done || !taken(a.site))) { a.site=null; a.inspect=0; }
+  if(!a.site && a.marks<ASSESSOR_MAX_MARKS){    // nearest emptied plinth he hasn't logged
+    let best=null,bd=1e18;
+    for(const s of a.sites){ if(s.done||!taken(s)) continue;
+      const d=dist2(a.x,a.y,s.x,s.y); if(d<bd){ bd=d; best=s; } }
+    if(best){ a.site=best; a.idle=null; }
+  }
+  // with nothing to log he keeps walking the inventory — alive, and a warning
+  let tx,ty;
+  if(a.site){ tx=a.site.x; ty=a.site.y; }
+  else {
+    if(!a.idle || dist2(a.x,a.y,a.idle.x,a.idle.y)<40*40){
+      const rest=a.sites.filter(s=>!s.done && !taken(s));
+      a.idle = rest.length ? rest[Math.floor(Math.random()*rest.length)] : {x:portal.x,y:portal.y};
+    }
+    tx=a.idle.x; ty=a.idle.y;
+  }
+  const near = dist2(a.x,a.y,tx,ty) < 26*26;
+  if(!near){
+    const nav=navTarget(vgraph,a.x,a.y,tx,ty);
+    let dx=nav.x-a.x, dy=nav.y-a.y; const d=Math.hypot(dx,dy)||1; dx/=d; dy/=d;
+    a.face=Math.atan2(dy,dx);
+    const step=0.78*dt*60*(poolAt(a.x,a.y)?0.7:1);    // deliberately slow — you can always outpace him
+    if(isOpenGround(a.x+dx*step,a.y,a.r)) a.x+=dx*step;
+    else if(isOpenGround(a.x,a.y+(dy>0?step:-step),a.r)) a.y+=(dy>0?step:-step);
+    if(isOpenGround(a.x,a.y+dy*step,a.r)) a.y+=dy*step;
+    else if(isOpenGround(a.x+(dx>0?step:-step),a.y,a.r)) a.x+=(dx>0?step:-step);
+  } else if(a.site){
+    a.inspect+=dt;
+    if(a.inspect>=1.7){                                // the entry goes in the book
+      a.site.done=true; a.site=null; a.inspect=0; a.marks++;
+      assessorHeat=Math.min(ASSESSOR_MAX_MARKS,a.marks); recompute();
+      S.assess(); ring(a.x,a.y,'#e8b45a',{vr:210,life:0.55,lw:3});
+      floaters.push({x:a.x,y:a.y-20,txt:'logged',life:1.4,col:'#e8b45a'});
+      toast(a.marks>=ASSESSOR_MAX_MARKS
+        ? 'The Assessor closes his book. The vault knows exactly what you took.'
+        : 'The Assessor logs an empty plinth — the vault tightens.',1900);
+      tip('assessor','The Assessor tours the vault logging what you took. Every entry raises the Heat — beat him to the door.');
+    }
+  }
+}
+function drawAssessor(){
+  const a=assessor; if(!a||!onCam(a.x,a.y)) return;
+  const p=0.6+0.4*Math.sin(a.lamp*2.2);
+  ctx.save(); ctx.translate(a.x,a.y);
+  // lantern pool — how you read his position across a dark room
+  const lg=ctx.createRadialGradient(0,0,6,0,0,86);
+  lg.addColorStop(0,`rgba(232,180,90,${0.16*p})`); lg.addColorStop(1,'rgba(232,180,90,0)');
+  ctx.fillStyle=lg; ctx.beginPath(); ctx.arc(0,0,86,0,6.28); ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,.42)'; ctx.beginPath(); ctx.ellipse(0,a.r*0.72,a.r,a.r*0.4,0,0,6.28); ctx.fill();
+  // tall narrow clerk: long coat, high collar, no weapon
+  ctx.beginPath(); ctx.moveTo(-a.r*0.62,a.r*0.9); ctx.lineTo(-a.r*0.42,-a.r*0.95);
+  ctx.lineTo(a.r*0.42,-a.r*0.95); ctx.lineTo(a.r*0.62,a.r*0.9); ctx.closePath();
+  ctx.fillStyle='#1a1a22'; ctx.fill(); strokeInk(2);
+  ctx.beginPath(); ctx.moveTo(-a.r*0.46,-a.r*0.8); ctx.lineTo(0,-a.r*1.5); ctx.lineTo(a.r*0.46,-a.r*0.8); ctx.closePath();
+  ctx.fillStyle='#23232e'; ctx.fill(); strokeInk(1.6);
+  const ex=Math.cos(a.face)*a.r*0.3, ey=Math.sin(a.face)*a.r*0.3 - a.r*0.55;
+  ctx.fillStyle='#e8b45a'; ctx.beginPath(); ctx.arc(ex,ey,1.9,0,6.28); ctx.fill();
+  // the ledger, and the lantern he reads it by
+  ctx.fillStyle='#d8cba8'; ctx.fillRect(a.r*0.30,-a.r*0.12,a.r*0.66,a.r*0.5); strokeInk(1.2);
+  ctx.fillStyle=`rgba(255,206,120,${0.75+0.25*p})`;
+  ctx.beginPath(); ctx.arc(-a.r*0.72,-a.r*0.1,3.1,0,6.28); ctx.fill(); strokeInk(1.1);
+  ctx.restore();
+  if(a.inspect>0){                                     // he is writing you down
+    ctx.strokeStyle='#e8b45a'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(a.x,a.y-a.r-14,8,-1.57,-1.57+6.28*Math.min(1,a.inspect/1.7)); ctx.stroke();
+  }
+  if(a.marks>0){                                       // entries already in the book
+    ctx.fillStyle='#e8b45a'; ctx.font='900 11px "Cinzel"'; ctx.textAlign='center';
+    ctx.fillText('✦'.repeat(a.marks), a.x, a.y-a.r-26);
+  }
+}
+
 // ===== Level-design depth: strongboxes, hidden stashes, found tools =====
 function updateSecrets(dt){
   // strongboxes: stand close and Jo works the lid — the CRACK carries when it gives
@@ -1976,6 +2084,7 @@ function buildWorld(){
   joSquash=0; dustT=0; lastChargeStep=-1;
   baits=[]; toolMark=null; smokeT=0; runTool=null;
   chests=[]; stashes=[]; toolCache=null;
+  assessor=null; assessorHeat=0; rotateT=0; rotations=0; pendingPerfectSilent=false;
   breach=null; chute=null; stashedValue=0; stashPingT=0;
   doorPicks=[]; runPerk={id:null,speed:1,noise:1,pay:1,softLand:false};
   trapdoor=null; lockedDoors=[]; brassKey=null; hasKey=false;
@@ -1991,7 +2100,12 @@ function buildWorld(){
   // their own structure. BOTH draws always happen so the seeded stream is identical
   // whatever the player's unlock state — a shared code is the same vault for everyone.
   const modR1=vrng(), modR2=vrng();
-  activeMod = (activeContract==null && !dailyMode && unlocked('modifiers') && modR1>=0.30)
+  // TUNE — contracts twist too now, at about half the free-run rate. Every
+  // telemetry report came back 19/19 "clean" because contracts dominate play
+  // and never rolled a modifier; the system may as well not have existed.
+  // The Legendary Heist stays clean — its three stages are the twist.
+  const modGate = activeContract ? (activeContract.type==='heart' ? 2 : 0.65) : 0.30;
+  activeMod = (!dailyMode && unlocked('modifiers') && modR1>=modGate)
     ? MODIFIERS[1 + Math.floor(modR2*(MODIFIERS.length-1))] : MODIFIERS[0];
   runHeatSeed = clamp(Math.floor(meta.curseDebt/2) - upgLevel('cool') - denCalm(), 0, 3) + ascMods(ascensionLevel).heat + (dailyMutator.heat||0) + activeMod.heat;  // world + den standing + ascension + weekly mutator + vault modifier
   runSpotted=false; runClock=0; peakHeat=0; runDamaged=false;
@@ -2309,6 +2423,14 @@ function buildWorld(){
   }
 
   // total value/count in the vault (for the 100% payoff)
+  // The Assessor takes his rounds from the vault's own inventory: every notable
+  // piece is a plinth he'll eventually check. Positions are snapshotted so a
+  // moved/pocketed item can't drag his route around.
+  { const s=deepSpot([],0.5,0.5);
+    assessor={x:s.x,y:s.y,r:14,face:0,site:null,idle:null,marks:0,inspect:0,wake:16,sites:[],lamp:0};
+    for(const l of loot){ if(l.hidden||l.value<150||l.kind==='shrine') continue;
+      assessor.sites.push({x:l.x,y:l.y,l,done:false}); } }
+
   runLootTotal = loot.reduce((a,l)=>a+l.value,0);
   runLootCount = loot.length;
 
@@ -2456,7 +2578,7 @@ function recompute(){
   // gain loot (chests/stashes added ~$1-2k of total value) this pins decent
   // hauls at T6 again, flattening danger pay and making Vault-Remembers routine.
   // If a future pass adds loot, re-center again — watch "peak heat avg" reports.
-  heatTier = clamp(Math.floor(carriedValue/1050) + Math.floor(carriedCurse/3) + runHeatSeed, 0, 6);
+  heatTier = clamp(Math.floor(carriedValue/1050) + Math.floor(carriedCurse/3) + runHeatSeed + assessorHeat, 0, 6);
   // Legendary Heist: while the Heart is in your bag, the vault KNOWS (locked T6)
   if(activeContract && activeContract.type==='heart' && loot.some(l=>l.type==='heart'&&l.got)) heatTier=6;
   meta.bestHaul = Math.max(meta.bestHaul, carriedValue);
@@ -2603,6 +2725,10 @@ const S={
     tone(500,120,0.4,{type:'sawtooth',vol:0.1,delay:0.15});               // …the slide down…
     nburst(0.2,0.3,500,{delay:0.5}); tone(110,60,0.2,{vol:0.25,delay:0.5}); },  // …the loud landing
   keyJingle(){ [2093,1568,2093].forEach((f,i)=>tone(f,f*0.99,0.07,{type:'triangle',vol:0.08,delay:i*0.06})); },
+  // the Assessor's entry: a quill scratch, then the soft bell of a book closing
+  assess(){ nburst(0.12,0.09,2600,{hp:true}); tone(330,311,0.16,{type:'triangle',vol:0.09,delay:0.1});
+    tone(196,185,0.5,{vol:0.12,at:0.06,delay:0.16}); },
+  rotate(){ tone(262,262,0.1,{type:'square',vol:0.07}); tone(349,349,0.12,{type:'square',vol:0.07,delay:0.11}); },
   keyTurn(){ tone(392,392,0.07,{type:'square',vol:0.1}); nburst(0.06,0.2,1200,{delay:0.09});
     tone(784,1046,0.16,{type:'triangle',vol:0.12,delay:0.16}); },
 };
@@ -2993,6 +3119,8 @@ function update(dt){
   updateSever(dt);                        // greed closes the vault behind you
   updateRivals(dt);                       // a rival thief works the vault too
   updateSecrets(dt);                      // strongboxes, hidden stashes, found tools
+  updateAssessor(dt);                     // the vault's bookkeeper tallies your greed
+  updateRotation(dt);                     // Timed Raids: the watch changes posts
   if(updateHazards(dt)) return;           // water / wind / darkness / presses per location
   updateBreach();                         // Heat T4: the east wall gives way
   updateVaultRemembers(dt);               // Heat T6: the building joins the hunt
@@ -3297,6 +3425,7 @@ function draw(){
   for(const s of sentries) drawSentry(s);
   // guards
   drawSecrets();
+  drawAssessor();
   drawRivals();
   for(const g of guards) drawGuard(g);
   // player
@@ -4194,7 +4323,7 @@ let pendingArtifact=null;function openDecision(l){
     const cap=Math.max(0.34,0.66-0.07*upgLevel('pockets'));
     return clamp(Math.max(0,w-(capOn('smuggler')?8:0))*sm2,0,cap); };
   const slowPct=Math.max(1,Math.round((penFor(carriedWeight+6)-penFor(carriedWeight))*100));
-  const heatAfter=clamp(Math.floor((carriedValue+l.base)/1050)+Math.floor((carriedCurse+3)/3)+runHeatSeed,0,6);   // mirrors recompute()'s divisor
+  const heatAfter=clamp(Math.floor((carriedValue+l.base)/1050)+Math.floor((carriedCurse+3)/3)+runHeatSeed+assessorHeat,0,6);   // mirrors recompute()
   const dHeat=heatAfter-heatTier;
   const choices=[
     { cls:'greed', t:'Pocket it whole', d:'Take every ounce. It\u2019s heavy, loud, and marked \u2014 the vault will feel it.',
@@ -4320,6 +4449,15 @@ function endRun(escaped, cause){
     pendingContractInfo={title:activeContract.title, done, reward:activeContract.reward,
       client:activeContract.client, madeGood:done&&wasOwed, nowOwed:!done&&!wasOwed};
     if(done){ pendingContractReward=activeContract.reward; pendingNotoDown=activeContract.notoDown||0; }
+    // A PERFECT Silent Job — never seen, never touched, never heard — and the
+    // client parts with something off their own shelf.
+    if(done && activeContract.type==='silent' && !runDamaged && lowNoiseRun){
+      const v=Math.round(900*OPERATION[opTier()].pay);
+      pendingHaul.push({kind:'loud', name:'The Quiet Commission',
+        flavor:'off the client’s own shelf — payment for a night that never happened',
+        value:v, saleIdx:0, buyers:buyersFor('loud',v)});
+      pendingPerfectSilent=true;
+    }
   }
 
   // telemetry: one compact record per run (bank amount fills in after the fence)
@@ -4354,6 +4492,7 @@ function endRun(escaped, cause){
     contractLine = pendingContractInfo.done
       ? `<div>${pendingContractInfo.title}<b style="color:var(--ok)">\u2713 +$${pendingContractInfo.reward.toLocaleString()}</b></div>`
         + (pendingContractInfo.madeGood?`<div>Made good with ${pendingContractInfo.client}<b style="color:var(--ok)">full pay restored</b></div>`:'')
+        + (pendingPerfectSilent?`<div>Never seen, never touched, never heard<b style="color:var(--gold)">The Quiet Commission</b></div>`:'')
       : `<div>${pendingContractInfo.title}<b style="color:var(--heat)">unfinished</b></div>`
         + (pendingContractInfo.nowOwed?`<div>${pendingContractInfo.client} remembers<b style="color:var(--heat)">their work pays \u221220% until you make one good</b></div>`:'');
   }
@@ -5146,6 +5285,7 @@ function renderStats(){
   ];
   if(stashedValue>0) run.push(['Down the chute', `$${Math.round(stashedValue).toLocaleString()} banked \u2014 yours no matter what`]);
   if(runPerk.id) run.push(['Altar gift', runPerk.nm]);
+  if(assessor && assessor.marks>0) run.push(['The Assessor', `${assessor.marks} of ${ASSESSOR_MAX_MARKS} entries logged — +${assessorHeat} Heat`]);
   if(hasKey) run.push(['Brass key', 'find the locked shutter']);
   if(trapdoor && !trapdoor.used) run.push(['Old tunnel', 'a one-use drop back to the door']);
   if(breach) run.push(['The east wall', breach.open?'BREACHED \u2014 a second way out':`cracks at Heat T4 (now T${heatTier})`]);
@@ -5217,7 +5357,8 @@ loadMeta();   // pull saved gold / upgrades / notoriety if present
 // Read-only headless-test surface (harmless in normal play). Used by
 // tests/web_region_test.mjs to drive generation and inspect the vault graph.
 window.__greed = {
-  build(seed){ runSeed = seed; activeContract = null; buildWorld(); },
+  // keepContract: build the vault as if this job were taken (contract-only paths)
+  build(seed, keepContract){ runSeed = seed; if(!keepContract) activeContract = null; buildWorld(); },
   get vgraph(){ return vgraph; }, get walls(){ return walls; }, get loot(){ return loot; },
   get guards(){ return guards; }, get player(){ return player; }, get portal(){ return portal; },
   get WORLD(){ return WORLD; }, isOpen, platAt, navTarget,
@@ -5265,6 +5406,9 @@ window.__greed = {
   // the Operation surface
   get OPERATION(){ return OPERATION; }, opTier, opTierForVault, opNext, forfeitOn,
   mkContract, get TYPE_MAKER(){ return TYPE_MAKER; },
+  // the Assessor / mission identities
+  get assessor(){ return assessor; }, get assessorHeat(){ return assessorHeat; },
+  updateAssessor, updateRotation,
   // slice 3: floods / tunnels / locks
   get trapdoor(){ return trapdoor; }, get lockedDoors(){ return lockedDoors; },
   get brassKey(){ return brassKey; }, get hasKey(){ return hasKey; },

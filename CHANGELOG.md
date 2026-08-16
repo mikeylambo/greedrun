@@ -1,5 +1,31 @@
 # Changelog
 
+## Web build — THE ASSESSOR + mission identities + modifiers that finally fire (build 2026-08-15.18)
+
+- **The Assessor.** The vault's own bookkeeper walks his rounds by
+  lamplight with a ledger. He never chases you and never lays a hand on
+  you — he walks to the plinths you emptied, inspects them, and **writes
+  them down**. Each entry adds a Heat tier (max 3), so a greedy night
+  tightens the whole building around you. He arrives 16s into the run,
+  moves deliberately (you can always outpace him), and his lantern pool
+  makes his next stop readable across a dark room. Pure routing
+  counterplay, zero cheap losses — and the first threat that punishes
+  greed *structurally* rather than by chasing it.
+- **Timed Raids rotate the watch.** Every 26 seconds the guards abandon
+  their posts for new ones — the floor you scouted on the way in is not
+  the floor on the way out. Nobody drops a live chase to rotate.
+- **A perfect Silent Job pays a relic.** Never seen, never touched, never
+  heard, and the client parts with **The Quiet Commission** off their own
+  shelf — a fenceable piece that scales with the Operation, on top of the
+  fee.
+- **Modifiers exist again.** Every telemetry report came back 19/19
+  "clean" because contracts dominate play and never rolled a twist — the
+  system may as well not have shipped. Contracts now roll modifiers at
+  about half the free-run rate. The Legendary Heist stays clean; its
+  three stages are its twist.
+- The Assessor's tally shows on the pause screen; How to Play gains a
+  row for him.
+
 ## Web build — THE OPERATION (build 2026-08-15.17)
 
 Jo is already the Mastermind — nothing here ranks him up. What grows is

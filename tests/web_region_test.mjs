@@ -450,6 +450,45 @@ const res = await page.evaluate(() => {
     G.meta.forfeit = {};
     G.meta.career.banked = savedBank;
   }
+  // ---- The Assessor: logs what you took, raises Heat, never lands a hand ----
+  build(SEEDS[0]);
+  if (!G.assessor) out.fails.push('no Assessor in the vault');
+  else {
+    const a = G.assessor;
+    if (!a.sites.length) out.fails.push('the Assessor has no plinths to check');
+    if (G.assessorHeat !== 0) out.fails.push('the Assessor started the run with Heat already logged');
+    a.wake = 0;                                    // skip his arrival delay
+    const site = a.sites[0];
+    site.l.got = true; G.recompute();               // rob one plinth
+    const heatBefore = G.heatTier;
+    a.x = site.x; a.y = site.y;                     // stand him on it
+    for (let i = 0; i < 60 && !a.marks; i++) G.updateAssessor(0.05);   // 1.7s inspect
+    if (!a.marks) out.fails.push('the Assessor never logged an emptied plinth');
+    else if (G.assessorHeat < 1) out.fails.push('logging an entry did not raise Heat');
+    else if (G.heatTier <= heatBefore) out.fails.push(`Heat did not rise on the log (T${heatBefore} -> T${G.heatTier})`);
+    else {
+      const hp = G.player.hp;
+      for (let i = 0; i < 40; i++) G.updateAssessor(0.05);
+      if (G.player.hp !== hp) out.fails.push('the Assessor damaged the player — he never should');
+      else out.log.push(`assessor: ${a.sites.length} plinths on his rounds, logged 1 -> Heat T${heatBefore} to T${G.heatTier}, harmless by design`);
+    }
+  }
+
+  // ---- Contracts now roll modifiers (the system was dead in practice) ----
+  {
+    G.meta.runs = 30;
+    const mkJob = t => ({ type: t, themeKey: 'mint', title: 'T', client: 'c', reward: 100, check: () => true });
+    const WIDE = [...SEEDS, 3, 9, 17, 55, 101, 777, 2024, 4242];
+    const seen = new Set();
+    for (const s of WIDE) { G.activeContract = mkJob('quota'); G.build(s, true); seen.add(G.activeMod.id); }
+    if (seen.size < 2) out.fails.push('contracts still never twist: ' + [...seen].join(','));
+    else out.log.push(`contracts roll modifiers now (${[...seen].join(', ')})`);
+    // the Legendary Heist stays clean — its three stages ARE the twist
+    let heistClean = true;
+    for (const s of WIDE) { G.activeContract = mkJob('heart'); G.build(s, true); if (G.activeMod.id !== 'clean') heistClean = false; }
+    if (!heistClean) out.fails.push('a Legendary Heist rolled a modifier');
+    G.activeContract = null;
+  }
   G.meta.runs = 0;   // leave the page as we found it
   return out;
 });

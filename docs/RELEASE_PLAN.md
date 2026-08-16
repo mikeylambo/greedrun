@@ -157,16 +157,19 @@ content is in fully we can balance." Do not spend drops on tuning until
   epithet framing, Syndicate/Black Market/Noble naming — to match the
   Operation's scale. Schedule with .21 identity polish unless the user
   wants it sooner.
-### Build .18 — Location identity
-- **ONE signature enemy** (user call: one is enough for now; the user will
-  work it into the fiction, and it pairs with the .19 finales). Pick the
-  strongest concept rather than four thin ones.
-- Mission-type mechanics fold into tiers: Timed Raids rotate guard
-  posts mid-run; PERFECT Silent Jobs pay a rare relic on top; high-tier
-  quota runs raise a curse clock.
-- **Resolve the modifier problem** (recommendation: contracts roll
-  modifiers too, at ~50% of the free-run rate — 19/19 clean runs in the
-  latest report means the system currently doesn't exist in practice).
+### Build .18 — Location identity — SHIPPED
+- **The Assessor** is the signature enemy: a lamp-lit clerk who logs the
+  plinths you emptied, +1 Heat per entry (max 3), never attacks, always
+  outpaceable. He's the structural punishment for greed the design was
+  missing. **USER TO WORK HIM INTO THE FICTION** — he pairs with the .19
+  finales (a boss form of him is the obvious move).
+- Timed Raids rotate the watch every 26s; a perfect Silent Job (unseen,
+  untouched, unheard) pays The Quiet Commission, a fenceable relic.
+- Modifiers now roll on contracts at ~half the free-run rate (Legendary
+  Heist stays clean). The 19/19-clean problem is closed.
+- NOT done (deliberate): the high-tier quota "curse clock" — it would be
+  a second heat engine stacked on the Assessor. Revisit only if the
+  telemetry says quota runs feel flat.
 ### Build .19 — Finales & puzzle chambers
 - A bespoke Legendary Heist finale per location (three-stage system
   exists); beating one promotes the Operation's tier.
