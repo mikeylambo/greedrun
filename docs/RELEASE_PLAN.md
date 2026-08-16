@@ -141,22 +141,26 @@ content is in fully we can balance." Do not spend drops on tuning until
 - Mission types are flavor folded into the tier system, not a separate
   pass (sized at ~2-3h of mastery variety).
 
-### Build .17 — "The Operation" (progression spine)
-- Job tiers gate locations: Mint from the start → Undercity → Fortress →
-  Treasury, opened by the Operation's growth (career banked/escapes).
-- Contract tiers per territory: higher tier = bigger vaults (`areaScale`)
-  + richer tables + harder floors.
-- The Ledger becomes the Operation page: territory map-list, tier
-  progress, what the next tier unlocks.
-- **The greed lesson v1 (subtle):** the death screen learns one line —
-  "You passed the exit carrying $1,840. You died carrying $3,235." Let
-  the player do the moral arithmetic. And **failing a client's contract
-  now costs**: that client-type's jobs pay −20% until you complete one
-  (the street remembers failure). Track per-type in meta.
+### Build .17 — "The Operation" (progression spine) — SHIPPED
+- Five standings gated on career banked open territory (Mint → Undercity
+  → Fortress → Treasury → all) and scale vaults (+26%) and client fees
+  (+80%). Trophy Room leads with the Operation page; Den shows a live
+  standing + progress bar; growth announces like an unlock.
+- Client forfeit shipped: failing a contract costs −20% on that client's
+  work until you finish one. USER CALL: the "you passed the exit
+  carrying $X / died carrying $Y" line was **rejected** — it doesn't
+  make sense and the game keeps death language out. Forfeit + the
+  existing lost-haul-on-capture IS the greed consequence.
+- Also fixed: solid decor could plug a doorway and wall off a room.
+- **PENDING TERMINOLOGY PASS (user: "we're beyond the streets")**: sweep
+  street/notoriety-era language game-wide — "the street remembers", the
+  epithet framing, Syndicate/Black Market/Noble naming — to match the
+  Operation's scale. Schedule with .21 identity polish unless the user
+  wants it sooner.
 ### Build .18 — Location identity
-- A signature enemy per location (each place has a hazard; give each a
-  FACE): e.g. Treasury diver-warden that swims, Undercity lampsnuffer
-  that kills your light, Fortress ballista-sentry, Mint press-master.
+- **ONE signature enemy** (user call: one is enough for now; the user will
+  work it into the fiction, and it pairs with the .19 finales). Pick the
+  strongest concept rather than four thin ones.
 - Mission-type mechanics fold into tiers: Timed Raids rotate guard
   posts mid-run; PERFECT Silent Jobs pay a rare relic on top; high-tier
   quota runs raise a curse clock.

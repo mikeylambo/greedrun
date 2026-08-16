@@ -413,6 +413,43 @@ const res = await page.evaluate(() => {
       if (healed && (!tested || ok)) out.log.push('elevation: unstick self-heals, shoves never cross a ledge');
     }
   }
+  // ---- The Operation: territory, vault reach, contract fees, client forfeit ----
+  {
+    const savedBank = G.meta.career ? G.meta.career.banked : 0;
+    G.meta.career = G.meta.career || { runs: 0, esc: 0, banked: 0, deaths: {} };
+
+    G.meta.career.banked = 0;                       // tier 0 — one vault only
+    if (G.opTier() !== 0) out.fails.push('fresh operation is not at tier 0');
+    build(SEEDS[0]);
+    if (G.currentThemeKey !== 'mint') out.fails.push('tier 0 opened a location beyond the Old Mint: ' + G.currentThemeKey);
+    const w0 = G.WORLD.w, h0 = G.WORLD.h;
+
+    G.meta.career.banked = 500000;                  // full reach
+    const topTier = G.OPERATION.length - 1;
+    if (G.opTier() !== topTier) out.fails.push('max career banked did not reach the top tier');
+    build(SEEDS[0]);
+    if (G.WORLD.w <= w0 || G.WORLD.h <= h0) out.fails.push(`vaults did not grow with the Operation (${w0}x${h0} -> ${G.WORLD.w}x${G.WORLD.h})`);
+    const grew = (G.WORLD.w / w0).toFixed(2);
+
+    // shared vaults play fair: a pinned/practice seed builds at full reach even at tier 0
+    G.meta.career.banked = 0;
+    if (G.opTierForVault() !== 0) out.fails.push('opTierForVault leaked full reach into normal play');
+    out.log.push(`operation: tier 0 = Mint only, top tier vaults ${grew}x wider, fair-play hook intact`);
+
+    // contracts: fees scale with the tier, and a forfeited client pays 20% less
+    G.meta.career.banked = 0; G.meta.forfeit = {};
+    const base = G.mkContract(G.TYPE_MAKER.sweep).reward;
+    G.meta.career.banked = 500000;
+    const rich = G.mkContract(G.TYPE_MAKER.sweep).reward;
+    if (rich <= base) out.fails.push(`contract fees did not grow with the Operation (${base} -> ${rich})`);
+    G.meta.forfeit = { sweep: 1 };
+    const owed = G.mkContract(G.TYPE_MAKER.sweep);
+    if (!G.forfeitOn('sweep')) out.fails.push('forfeitOn did not read the client ledger');
+    if (!owed.makingGood || owed.reward >= rich) out.fails.push('a forfeited client still paid full price');
+    else out.log.push(`operation: contract fees $${base} -> $${rich} by tier; forfeited client pays $${owed.reward}`);
+    G.meta.forfeit = {};
+    G.meta.career.banked = savedBank;
+  }
   G.meta.runs = 0;   // leave the page as we found it
   return out;
 });

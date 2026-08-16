@@ -639,6 +639,7 @@
         <button class="btn ghost" id="logBtn" style="font-size:14px;padding:12px 20px">📋 Report (<span id="logN">0</span>)</button>
         <button class="btn ghost" id="menuBtn" style="font-size:14px;padding:12px 20px">⌂ Menu</button>
       </div>
+      <div id="opLine" style="font-size:12.5px;letter-spacing:.03em;margin-top:6px;line-height:1.55"></div>
       <div id="unlockTeaser" style="font-size:11px;letter-spacing:.06em;color:var(--muted);margin-top:2px"></div>
       <div style="font-size:10px;letter-spacing:.12em;color:var(--muted);opacity:.65;margin-top:2px">build <span class="buildTag"></span></div>
       <div id="notoLine"></div>
@@ -756,7 +757,7 @@
 "use strict";
 // Build stamp — bump on every deploy. Shown on the title + hideout so a stale
 // Safari cache is instantly visible ("no report button" == old build).
-const BUILD = '2026-08-15.16';
+const BUILD = '2026-08-15.17';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 // Phones fill the screen in whichever way they're held — PORTRAIT (tall) or
@@ -871,6 +872,33 @@ function unlocked(k){
 }
 // One-time contextual tips, fired at the teachable moment (persisted).
 function tip(id,msg){ if(meta.tips[id]) return; meta.tips[id]=1; saveMeta(); toast(msg,2800); }
+
+// ===== THE OPERATION =====
+// Jo is already the Mastermind — nothing here ranks him up. What grows is the
+// JOB: territory opens, clients trust bigger work, the vaults get grander.
+// Gated on career gold banked — the operation's own ledger.
+const OPERATION = [
+  { nm:'A Quiet Arrangement', at:0,      scale:1.00, pay:1.00,
+    themes:['mint'],                                    ds:'one fence, one vault, no questions asked' },
+  { nm:'The Standing Crew',   at:8000,   scale:1.06, pay:1.15,
+    themes:['mint','undercity'],                        ds:'the Undercity Vaults open — hired hands, better tips' },
+  { nm:'The Wide Net',        at:30000,  scale:1.12, pay:1.35,
+    themes:['mint','undercity','fortress'],             ds:'the Cliffside Fortress opens — clients come to you now' },
+  { nm:'The Long Reach',      at:80000,  scale:1.18, pay:1.55,
+    themes:['mint','undercity','fortress','treasury'],  ds:'the Sunken Treasury opens — nothing is out of reach' },
+  { nm:'The Grand Design',    at:200000, scale:1.26, pay:1.80,
+    themes:['mint','undercity','fortress','treasury'],  ds:'every door in the city, and the biggest jobs behind them' },
+];
+function careerBanked(){ return (meta.career && meta.career.banked)|0; }
+function opTier(){ let t=0; for(let i=0;i<OPERATION.length;i++) if(careerBanked()>=OPERATION[i].at) t=i; return t; }
+// Shared vaults play fair: dailies and shared codes always build at full reach,
+// so the same code is the same vault for everyone.
+function opTierForVault(){ return (dailyMode||pinnedSeed) ? OPERATION.length-1 : opTier(); }
+function opNext(){ return opTier()<OPERATION.length-1 ? OPERATION[opTier()+1] : null; }
+// Client forfeit: walk out on a job and that client's work pays less until you
+// make one good. The only lasting price of greed besides the haul you drop.
+function forfeitOn(type){ return !!(meta.forfeit && meta.forfeit[type]); }
+function forfeitCount(){ return Object.keys(meta.forfeit||{}).length; }
 
 // ===== The Bounty Hunter has a NAME (nemesis-lite) — Jo's recurring antagonist.
 // Rolled once per save, remembered forever; every kill deepens the feud.
@@ -1198,6 +1226,12 @@ function genDecor(areaScale){
       const x=vr(cr?420:140,WORLD.w-90), y=vr(90,WORLD.h-90);
       if(!isOpen(x,y,cr?cr+26:26)||platAt(x,y)!==-1||poolAt(x,y)) continue;
       if(dist2(x,y,portal.x,portal.y)<200*200) continue;
+      // never plug a doorway: a solid prop sitting in a door gap reads as "open
+      // space" to isOpen but walls the room off behind it
+      if(cr && vgraph){ let plugs=false;
+        for(const k in vgraph.doors){ const dr=vgraph.doors[k];
+          if(dist2(x,y,dr.x,dr.y) < (cr+56)*(cr+56)){ plugs=true; break; } }
+        if(plugs) continue; }
       const d={x,y,t:ty,r:vr(0.85,1.3),a:vr(0,6.28)};
       if(cr){ d.cr=Math.round(SOLID_CR[ty]*d.r); solidDecor.push(d); }
       decor.push(d); break;
@@ -1276,11 +1310,16 @@ const CONTRACT_MAKERS = [
 const TYPE_MAKER={quota:0,silent:1,steal:2,sweep:3,timed:4,recovery:5,heart:6,untouched:7,hot:8};
 function mkContract(i){
   const c=CONTRACT_MAKERS[i]();
-  const tk=THEME_KEYS[Math.floor(Math.random()*THEME_KEYS.length)];
+  const op=OPERATION[opTier()];
+  const pool=op.themes, tk=pool[Math.floor(Math.random()*pool.length)];   // only territory you've opened
   c.themeKey=tk; c.location=THEMES[tk].name;
   c.title=({quota:'Smuggling Run',silent:'Silent Job',steal:'Contract Theft',
     sweep:'Clean Sweep',timed:'Timed Raid',recovery:'Recovery Job',
     heart:'Legendary Heist',untouched:'Ghost Job',hot:'Bounty Run'})[c.type];
+  c.reward=Math.round(c.reward*op.pay);        // bigger operation, bigger fees
+  c.opTier=opTier();
+  // you walked out on this client once — the work is yours again, the pay isn't
+  if(forfeitOn(c.type)){ c.reward=Math.round(c.reward*0.8); c.makingGood=true; }
   return c;
 }
 function genContracts(n){
@@ -1926,6 +1965,10 @@ function buildWorld(){
   // bigger, and a different size every job — some vaults are compact, some are sprawling estates
   WORLD.w = 2300 + Math.round(vr(0,900));
   WORLD.h = 1550 + Math.round(vr(0,650));
+  // The Operation's reach: grander vaults as the job grows (no extra RNG draws —
+  // the seeded stream stays byte-identical at every tier)
+  { const os=OPERATION[opTierForVault()].scale;
+    WORLD.w=Math.round(WORLD.w*os); WORLD.h=Math.round(WORLD.h*os); }
   if(dailyMutator.size){ WORLD.w=Math.round(WORLD.w*dailyMutator.size); WORLD.h=Math.round(WORLD.h*dailyMutator.size); }
   const areaScale = (WORLD.w*WORLD.h)/(2000*1400);
   walls=[]; loot=[]; guards=[]; sentries=[]; particles=[]; floaters=[]; rings=[]; rivals=[]; rivalHaul=0;
@@ -1954,7 +1997,10 @@ function buildWorld(){
   runSpotted=false; runClock=0; peakHeat=0; runDamaged=false;
   runTimeLimit = activeContract && activeContract.type==='timed' ? activeContract.timeLimit : (activeMod.time||0);
   if(!runTimeLimit && ascTwistOn('curfew')) runTimeLimit=150;   // A4: The Curfew Bell
-  currentThemeKey = (activeContract && activeContract.themeKey) || forcedTheme || THEME_KEYS[Math.floor(vrng()*THEME_KEYS.length)];
+  // territory the Operation has opened — ONE draw either way, so the seeded
+  // stream never shifts between tiers
+  { const pool=OPERATION[opTierForVault()].themes, roll=Math.floor(vrng()*pool.length);
+    currentThemeKey = (activeContract && activeContract.themeKey) || forcedTheme || pool[roll]; }
   currentTheme = THEMES[currentThemeKey];
 
   const T=44; // wall thickness
@@ -4265,7 +4311,14 @@ function endRun(escaped, cause){
   pendingContractReward=0; pendingNotoDown=0; pendingContractInfo=null;
   if(activeContract){
     let done=false; if(escaped){ try{ done=activeContract.check(); }catch(e){} }
-    pendingContractInfo={title:activeContract.title, done, reward:activeContract.reward};
+    // The client's ledger: fail one and their work pays 20% less until you make
+    // one good. Greed's lasting price — you keep the job, not the trust.
+    meta.forfeit=meta.forfeit||{};
+    const wasOwed=forfeitOn(activeContract.type);
+    if(done) delete meta.forfeit[activeContract.type];
+    else meta.forfeit[activeContract.type]=1;
+    pendingContractInfo={title:activeContract.title, done, reward:activeContract.reward,
+      client:activeContract.client, madeGood:done&&wasOwed, nowOwed:!done&&!wasOwed};
     if(done){ pendingContractReward=activeContract.reward; pendingNotoDown=activeContract.notoDown||0; }
   }
 
@@ -4300,7 +4353,9 @@ function endRun(escaped, cause){
   if(pendingContractInfo){
     contractLine = pendingContractInfo.done
       ? `<div>${pendingContractInfo.title}<b style="color:var(--ok)">\u2713 +$${pendingContractInfo.reward.toLocaleString()}</b></div>`
-      : `<div>${pendingContractInfo.title}<b style="color:var(--heat)">failed</b></div>`;
+        + (pendingContractInfo.madeGood?`<div>Made good with ${pendingContractInfo.client}<b style="color:var(--ok)">full pay restored</b></div>`:'')
+      : `<div>${pendingContractInfo.title}<b style="color:var(--heat)">unfinished</b></div>`
+        + (pendingContractInfo.nowOwed?`<div>${pendingContractInfo.client} remembers<b style="color:var(--heat)">their work pays \u221220% until you make one good</b></div>`:'');
   }
   $('resStats').innerHTML =
     (escaped?`<div>Haul<b>$${haulVal.toLocaleString()}</b></div>`
@@ -4539,7 +4594,27 @@ function renderLedger(){
     'hard landing':'hard landings','coin press':'coin presses',collapse:'the collapse',caught:'the vault'};
   const dl=Object.entries(car.deaths||{}).sort((a,b)=>b[1]-a[1])
     .map(([k,v])=>`${CAUSE_SHORT[k]||k} \u00d7${v}`).join(' \u00b7 ');
-  lg.innerHTML=`<div class="led-title">The Thief\u2019s Ledger</div>
+  // The Operation's own page: territory opened, what's still shut, who you owe
+  const t=opTier();
+  const terr=OPERATION.map((o,i)=>{
+    const on=i<=t;
+    const opened=o.themes.filter(k=>!(i>0&&OPERATION[i-1].themes.includes(k))).map(k=>THEMES[k].name).join(', ');
+    return `<div class="led-ep ${on?'on':''}"><b>${o.nm}${on?'':` \u00b7 $${o.at.toLocaleString()}`}</b>
+      <span>${i===0?'the Old Mint':opened||'the biggest jobs in the city'}${on?'':' \u2014 still shut'}</span></div>`;
+  }).join('');
+  const owed=Object.keys(meta.forfeit||{});
+  const CLIENT_OF={quota:'the Merchant Guild',silent:'a Nervous Client',steal:'a Noble Collector',
+    sweep:'a Rival Thief',timed:'the Tollhouse Keeper',recovery:'an Old Fence',
+    heart:'a Legend-Chaser',untouched:'a Perfectionist',hot:'a Thrill-Seeker'};
+  lg.innerHTML=`<div class="led-title">The Operation</div>
+    <div class="led-row">
+      <div class="led-cell"><span>Standing</span><b style="font-size:15px">${OPERATION[t].nm}</b></div>
+      <div class="led-cell"><span>Vault reach</span><b>+${Math.round((OPERATION[t].scale-1)*100)}%</b></div>
+      <div class="led-cell"><span>Client fees</span><b>+${Math.round((OPERATION[t].pay-1)*100)}%</b></div>
+    </div>
+    <div class="led-eps">${terr}</div>
+    ${owed.length?`<div class="led-nem">Unfinished business: ${owed.map(k=>CLIENT_OF[k]||k).join(' \u00b7 ')} \u2014 their work pays \u221220% until you finish one.</div>`:''}
+    <div class="led-title" style="margin-top:14px">The Thief\u2019s Ledger</div>
     <div class="led-row">
       <div class="led-cell"><span>Jobs</span><b>${car.runs}</b></div>
       <div class="led-cell"><span>Escapes</span><b>${car.runs?Math.round(car.esc/car.runs*100):0}%</b></div>
@@ -4558,7 +4633,7 @@ function renderContracts(){
   offeredContracts.forEach((c,i)=>{
     const el=document.createElement('div'); el.className='job';
     if(c.repJob) el.style.borderLeftColor='var(--gold)';
-    el.innerHTML=`<div class="jt">${c.title}</div><div class="jc">${c.client}${c.repJob?` · <span style="color:var(--gold)">★ asks for you — pay +25%</span>`:''}</div>
+    el.innerHTML=`<div class="jt">${c.title}</div><div class="jc">${c.client}${c.repJob?` · <span style="color:var(--gold)">★ asks for you — pay +25%</span>`:''}${c.makingGood?` · <span style="color:var(--heat)">you left them hanging — pay −20% until you finish one</span>`:''}</div>
       <div class="jd">${c.desc}</div>
       <div class="jr">Reward +$${c.reward.toLocaleString()}${c.notoDown?` \u00b7 \u2212${c.notoDown} notoriety`:''}
         <span class="loc">${c.location}</span></div>`;
@@ -4644,6 +4719,7 @@ async function loadMeta(){
           for(const r of runLog) if(r.out==='caught'&&r.cause) meta.career.deaths[r.cause]=(meta.career.deaths[r.cause]|0)+1;
         }
         meta.hunterName=d.hunterName||''; meta.hunterKills=d.hunterKills|0;
+        meta.forfeit=d.forfeit||{}; meta.seenOp=d.seenOp|0;
       }
       refreshAscUnlock();  // already-maxed saves unlock Ascension 1
     }
@@ -4656,7 +4732,8 @@ async function saveMeta(){
     tools:meta.tools, equippedTool:meta.equippedTool, rep:meta.rep,
     tips:meta.tips, seenUnlocks:meta.seenUnlocks,
     ascUnlocked:meta.ascUnlocked, bestByAsc:meta.bestByAsc, modsCleared:meta.modsCleared, daily:meta.daily,
-    career:meta.career, hunterName:meta.hunterName, hunterKills:meta.hunterKills })); }
+    career:meta.career, hunterName:meta.hunterName, hunterKills:meta.hunterKills,
+    forfeit:meta.forfeit, seenOp:meta.seenOp })); }
   catch(e){}
 }
 async function wipeMeta(){
@@ -4666,6 +4743,7 @@ async function wipeMeta(){
   meta.collection={idol:0,relic:0,jewel:0,relicart:0,heart:0};
   meta.tools={smoke:0,decoy:0,grapple:0,lockpick:0,portal:0}; meta.equippedTool=''; meta.rep={};
   meta.career={runs:0,esc:0,banked:0,deaths:{}}; meta.hunterName=''; meta.hunterKills=0;
+  meta.forfeit={}; meta.seenOp=0;
   meta.tips={}; meta.seenUnlocks={};
   meta.ascUnlocked=0; meta.bestByAsc={}; meta.modsCleared={}; selectedAscension=0; ascensionLevel=0;
   meta.daily={ playedDay:'', playedScore:0, playedEscaped:false, streak:0, bestStreak:0, best:0, history:[] };
@@ -4808,6 +4886,25 @@ function renderShop(){
       ub.innerHTML=fresh.map(f=>`NEW — <b>${f[0]}</b>: ${f[1]}`).join(' &nbsp;·&nbsp; ');
       S.boon(); saveMeta();
     } else { ub.style.display='none'; if(fresh.length) saveMeta(); }   // migration: many at once → silent
+  }
+  // ---- The Operation: where the job stands, and what opens next ----
+  { const t=opTier(), op=OPERATION[t], nx=opNext(), ol=$('opLine');
+    if(ol){
+      const bar=(()=>{ if(!nx) return '';
+        const from=op.at, span=nx.at-from, have=clamp((careerBanked()-from)/span,0,1);
+        return `<div style="width:min(420px,86%);height:5px;margin:5px auto 0;background:#241d13;border-radius:3px;overflow:hidden">
+          <i style="display:block;height:100%;width:${(have*100).toFixed(1)}%;background:linear-gradient(90deg,var(--gold-deep),var(--gold))"></i></div>`; })();
+      ol.innerHTML=`<span style="color:var(--muted)">The Operation</span> <b style="color:var(--gold)">${op.nm}</b>`
+        + `<span style="color:var(--muted)"> — ${op.ds}</span>`
+        + (nx?`<br><span style="font-size:11px;color:var(--muted)">Next: <b style="color:var(--bone)">${nx.nm}</b> — ${nx.ds} · $${Math.max(0,nx.at-careerBanked()).toLocaleString()} more banked</span>${bar}`
+             :`<br><span style="font-size:11px;color:var(--gold-deep)">The whole city is open. Nothing left to buy your way into.</span>`);
+    }
+    // territory opening is an event
+    if(t>(meta.seenOp|0)){
+      meta.seenOp=t; saveMeta(); S.boon();
+      const ub=$('unlockBanner');
+      if(ub){ ub.style.display='block'; ub.innerHTML=`THE OPERATION GROWS — <b>${op.nm}</b>: ${op.ds}`; }
+    }
   }
   { const next=Object.keys(UNLOCKS).find(k=>!unlocked(k));
     const t=$('unlockTeaser');
@@ -5165,6 +5262,9 @@ window.__greed = {
   get stashedValue(){ return stashedValue; }, get doorPicks(){ return doorPicks; },
   get runPerk(){ return runPerk; }, updateBreach, hunterName, renderLedger,
   get DOOR_PERKS(){ return DOOR_PERKS; },
+  // the Operation surface
+  get OPERATION(){ return OPERATION; }, opTier, opTierForVault, opNext, forfeitOn,
+  mkContract, get TYPE_MAKER(){ return TYPE_MAKER; },
   // slice 3: floods / tunnels / locks
   get trapdoor(){ return trapdoor; }, get lockedDoors(){ return lockedDoors; },
   get brassKey(){ return brassKey; }, get hasKey(){ return hasKey; },

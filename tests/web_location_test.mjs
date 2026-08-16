@@ -23,11 +23,23 @@ const res = await page.evaluate(() => {
   const out = { fails: [], log: [] };
   const step = dt => G.updateHazards(dt);
 
-  // ---- free runs still mix locations (no forcing) ----
+  // ---- territory: a fresh operation works one vault; an established one mixes ----
+  G.meta.career = G.meta.career || { runs: 0, esc: 0, banked: 0, deaths: {} };
+  const savedBank = G.meta.career.banked;
+  const SEEDS = [1, 2, 7, 42, 1337, 90210, 5, 88, 314159, 271828, 11, 23];
+
+  G.meta.career.banked = 0;                     // tier 0 — the Old Mint only
+  const early = new Set();
+  for (const s of SEEDS) { G.build(s); early.add(G.currentThemeKey); }
+  if (early.size !== 1 || !early.has('mint'))
+    out.fails.push('a fresh operation reached beyond the Old Mint: ' + [...early].join(','));
+
+  G.meta.career.banked = 500000;                // full reach — every door open
   const seen = new Set();
-  for (const s of [1, 2, 7, 42, 1337, 90210, 5, 88, 314159, 271828, 11, 23]) { G.build(s); seen.add(G.currentThemeKey); }
+  for (const s of SEEDS) { G.build(s); seen.add(G.currentThemeKey); }
   if (seen.size < 3) out.fails.push('theme variety too low across seeds: ' + [...seen].join(','));
-  else out.log.push('themes: free runs mix locations (' + [...seen].join(', ') + ')');
+  else out.log.push('themes: fresh operation = Mint only; full reach mixes (' + [...seen].join(', ') + ')');
+  G.meta.career.banked = savedBank;
 
   // ---- Sunken Treasury: pools slow + muffle, with splash feedback ----
   G.forcedTheme = 'treasury'; G.build(11);

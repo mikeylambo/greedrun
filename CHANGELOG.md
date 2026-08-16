@@ -1,5 +1,39 @@
 # Changelog
 
+## Web build — THE OPERATION (build 2026-08-15.17)
+
+Jo is already the Mastermind — nothing here ranks him up. What grows is
+the **job**. Gated on career gold banked, the operation's own ledger:
+
+- **Territory opens as the Operation grows.** Five standings, each opening
+  a location and widening the vaults:
+  *A Quiet Arrangement* (the Old Mint alone) → *The Standing Crew*
+  ($8k — the Undercity Vaults) → *The Wide Net* ($30k — the Cliffside
+  Fortress) → *The Long Reach* ($80k — the Sunken Treasury) → *The Grand
+  Design* ($200k — every door, the biggest jobs). Vaults grow up to 26%
+  wider and client fees up to +80% along the way. Growth is announced in
+  the hideout like an unlock.
+- **The Trophy Room leads with The Operation**: current standing, vault
+  reach, client fees, the full territory list (locked entries show their
+  price), and any unfinished business — with the Thief's Ledger below it.
+  The Den carries a live standing line with a progress bar to the next.
+- **Walking out on a client costs you.** Fail a contract and that client's
+  work pays **−20% until you finish one of theirs**. The jobs board marks
+  it ("you left them hanging"), the results screen names it, and making
+  good is called out when you do. This is greed's lasting price alongside
+  the haul you drop — no lecture, just a ledger.
+- Contract failure now reads "unfinished" rather than "failed", in
+  keeping with the game's language.
+- **Fixed a latent generation bug**: a solid prop (crate/barrel/urn/pillar
+  base) could be placed inside a doorway gap — `isOpen` sees open space,
+  not a passage — walling off a room behind it. Solids now keep clear of
+  every doorway. The Operation's territory gating surfaced it by pinning
+  test seeds to one location.
+
+Fair play holds: dailies and shared vault codes always build at full
+reach, so the same code is the same vault for everyone, and the seeded
+RNG stream is byte-identical at every tier.
+
 ## Web build — the ghost-loot fix + the 19-session notes round (build 2026-08-15.16)
 
 - **FIXED: "everything I picked up dropped and respawned on the path."**
