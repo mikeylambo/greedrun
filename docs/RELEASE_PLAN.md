@@ -24,8 +24,8 @@ canvas renderer). No build step. Design bible: `docs/PORT_HANDOFF.md`
 2. Bump the `const BUILD = 'YYYY-MM-DD.N'` stamp (search `BUILD = `) — it
    shows on the title screen and hideout so the user can confirm they're on
    the new build.
-3. `npm test` — six Playwright suites chained (region, juice, location,
-   tools, endgame, onboarding). Chromium is at
+3. `npm test` — seven Playwright suites chained (region, juice, location,
+   tools, endgame, onboarding, mastermind). Chromium is at
    `/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell`.
    `npm run audit:econ` prints an economy report (informational, not
    pass/fail).
