@@ -1,6 +1,6 @@
 # Changelog
 
-## Web build — GLANCEABLE: icon tiles, one-tap decisions, a Den that stops narrating (build 2026-08-17.26)
+## Web build — GLANCEABLE: icon tiles, one-tap decisions, a Den that stops narrating (build 2026-08-17.27)
 
 Survivor.io's selection screens carry almost no text: the icon **is** the noun
 and the pips **are** the level. This build steals that information design and
@@ -42,6 +42,29 @@ things in a fraction of the reading.
   the numerals are the game's signature.
 - The suite now asserts every upgrade tile carries an icon, so a later edit
   can't quietly regress to name-only cards.
+## Web build — the iPhone HUD fix (build 2026-08-17.26)
+
+Reproduced the reported screens at iPhone 16e size (393x852 portrait,
+852x393 landscape) and measured every HUD box instead of eyeballing it.
+Three genuine layout bugs, not crowding:
+
+- **The meters sat underneath the tool button.** In portrait the greed and
+  noise readouts occupied x13-218 while the TOOL button occupied x192-243
+  at the same height — "LIGHT" was literally printed behind SHADOW. The
+  bottom band of a portrait screen now belongs to the thumb: controls own
+  it, and the readouts stack above them (Heat, then meters, then buttons).
+- **The pause button could be pushed off the right edge.** The briefing
+  column and the readout column were both flexible, so a long job title
+  shoved the mute/pause cluster past the screen. The left column now
+  flexes and the buttons are fixed.
+- **The job briefing swallowed the vault.** A Bounty Run description
+  wrapped to six lines and covered the top-left quarter of the screen. It
+  is a reminder, not the screen: the title keeps one line, the objective
+  gets two (one in landscape), and the pause screen still carries the
+  full text. Toasts drop below the briefing instead of landing on it.
+
+Verified clean across three viewport sizes x three job types — no
+overlaps, nothing clipped, briefing under 17% of screen height.
 
 ## Web build — ONE THUMB AGAIN: the decompression pass (build 2026-08-17.25)
 
