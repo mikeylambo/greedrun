@@ -301,8 +301,6 @@
     #howto h1.title{font-size:32px !important;}
     #howto .eyebrow{margin-bottom:4px;}
     .howto-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 32px;width:min(1000px,94%);margin:10px 0 12px;}
-    /* the three verbs are a sequence, not a reference table — keep them stacked */
-    #ht1.howto-grid{display:flex;flex-direction:column;gap:10px;width:min(620px,94%);}
     .ht-key{flex-basis:78px;font-size:13px;}
     .ht-txt{font-size:13px;line-height:1.42;}
   }
@@ -363,6 +361,7 @@
   .led-ep.on{opacity:1;box-shadow:0 0 0 1px var(--gold-deep) inset;}
   .led-ep b{color:var(--gold);letter-spacing:.08em;font-size:11px;display:block;}
   .led-ep span{color:var(--muted);}
+  .led-ep span i{display:block;font-style:normal;opacity:.7;margin-top:3px;line-height:1.35;}
   .led-nem{margin:4px 0 6px;font-size:12.5px;color:var(--heat);letter-spacing:.03em;text-align:center;}
   .led-deaths{font-size:11px;color:var(--muted);text-align:center;letter-spacing:.04em;}
 
@@ -481,10 +480,8 @@
   .job:hover{transform:translateY(-2px);box-shadow:0 0 0 1px var(--gold) inset;}
   .job .jt{font-family:"Cinzel",serif;font-weight:700;font-size:16px;color:var(--scarf);line-height:1.25;}
   .job .jc{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:5px;}
-  .job .jloc{font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:3px 0 2px;}
-  .job .jsub{font-size:11.5px;color:var(--muted);opacity:.75;line-height:1.4;margin-bottom:7px;}
+  .job .jloc{font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:3px 0 0;}
   .job .jd{font-size:13px;color:var(--bone);line-height:1.45;}
-  .job .jf{margin-top:7px;font-size:12px;color:var(--muted);font-style:italic;}
   .job .jchip{display:inline-block;margin-left:8px;padding:2px 9px;border-radius:12px;vertical-align:middle;
     font-family:"Barlow Semi Condensed";font-weight:600;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;}
   .job .jchip.on{color:var(--gold);box-shadow:0 0 0 1px var(--gold-deep) inset;}
@@ -568,15 +565,16 @@
     #tact .tk{font-size:2.6cqmin;margin-bottom:1cqmin;}
     #tact .tl{font-size:3.7cqmin;}
   }
-  .tact-log{width:min(620px,94%);display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));
-    gap:7px;text-align:left;margin-bottom:6px;}
-  .tact-log .te{background:var(--panel);border-radius:8px;padding:7px 11px;
-    box-shadow:0 0 0 1px var(--panel-line) inset;}
-  .tact-log .te span{display:block;font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-deep);}
-  .tact-log .te b{font-family:"Cinzel",serif;font-weight:700;font-size:12.5px;color:var(--bone);line-height:1.35;}
-  .tact-log .none{grid-column:1/-1;font-size:12.5px;color:var(--muted);font-style:italic;text-align:center;padding:4px 0;}
-  #howto{overflow-y:auto;justify-content:flex-start;padding-top:26px;}
 
+  /* The tutorial is never a cage: one tap out, always there, never loud. It
+     rides inside the HUD's own top-left column so it cannot collide with the
+     haul readout on a narrow phone. */
+  #skipTut{display:none;width:fit-content;margin:7px 0 3px;pointer-events:auto;cursor:pointer;
+    padding:5px 13px;border-radius:20px;font-size:11px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);background:rgba(20,16,9,.72);
+    box-shadow:0 0 0 1px var(--panel-line) inset;}
+  #skipTut:hover{color:var(--bone);}
+  @media (pointer:coarse){ #skipTut{font-size:2.9cqmin;padding:1.4cqmin 3.4cqmin;margin:1.6cqmin 0 .8cqmin;} }
   .credit{position:absolute;left:16px;bottom:14px;font-size:11px;color:var(--muted);letter-spacing:.2em;opacity:.6;}
   #hud.on ~ .credit{display:none;}   /* the meters + key hints own that corner in-run */
 </style>
@@ -590,6 +588,7 @@
     <div class="hud-top">
       <div>
         <div class="hearts" id="hearts"></div>
+        <div id="skipTut">Skip tutorial</div>
         <div id="objective"></div>
         <div id="timer"></div>
         <div id="toolHud" style="display:none;margin-top:7px;font-size:12px;letter-spacing:.05em;color:var(--muted);text-shadow:0 1px 3px rgba(0,0,0,.7)"></div>
@@ -637,7 +636,7 @@
       <button class="btn" id="startBtn">Play</button>
     </div>
     <div class="btn-row" style="margin-top:2px">
-      <button class="btn ghost" id="howtoBtn" style="font-size:13px;padding:8px 18px">Tact</button>
+      <button class="btn ghost" id="howtoBtn" style="font-size:13px;padding:8px 18px">How to Play</button>
       <button class="btn ghost" id="sfxBtn" style="font-size:13px;padding:8px 18px">Sound FX: On</button>
       <button class="btn ghost" id="musBtn" style="font-size:13px;padding:8px 18px">Music: On</button>
     </div>
@@ -646,18 +645,36 @@
     </div>
   </div>
 
-  <!-- Tact — §5: three verbs, then everything Jo has actually noted this save.
-       No manual. The codex is optional and lives behind this button. -->
+  <!-- How to Play — a VOLUNTARY reference, never in the path to playing.
+       One sentence a row: it answers a question, it doesn't deliver a lesson.
+       The game itself teaches through the first vault and through Tact. -->
   <div class="overlay" id="howto">
-    <div class="eyebrow">Jo&rsquo;s read on the work</div>
-    <h1 class="title" style="font-size:clamp(30px,7vw,54px)">Tact</h1>
+    <div class="eyebrow">The Job</div>
+    <h1 class="title" style="font-size:clamp(30px,7vw,54px)">How to Play</h1>
+    <div class="btn-row" style="margin-bottom:4px">
+      <button class="btn ghost" id="htTab1" style="font-size:14px;padding:9px 20px">The Basics</button>
+      <button class="btn ghost" id="htTab2" style="font-size:14px;padding:9px 20px">The Deep End</button>
+    </div>
     <div class="howto-grid" id="ht1">
       <div class="ht-row"><div class="ht-key">Move</div><div class="ht-txt"><em>Drag anywhere</em> to move Jo. (Keyboard: WASD or arrows.)</div></div>
-      <div class="ht-row"><div class="ht-key">Take</div><div class="ht-txt">Touch valuables to take them.</div></div>
-      <div class="ht-row"><div class="ht-key">Leave</div><div class="ht-txt">Return to the exit with what you want to keep.</div></div>
+      <div class="ht-row"><div class="ht-key">Take</div><div class="ht-txt">Walk over valuables to take them.</div></div>
+      <div class="ht-row"><div class="ht-key">Carry</div><div class="ht-txt">Everything you carry is <em>Greed Load</em> &mdash; richer, but slower and louder.</div></div>
+      <div class="ht-row"><div class="ht-key">Drop</div><div class="ht-txt"><em>Q</em> (or DROP) sheds your heaviest piece &mdash; it quiets you, and can reopen a shut door.</div></div>
+      <div class="ht-row"><div class="ht-key">Guards</div><div class="ht-txt">They chase what they see and give up when they lose you. <em>Sentries</em> can&rsquo;t see through walls.</div></div>
+      <div class="ht-row"><div class="ht-key">Climb</div><div class="ht-txt">Stairs reach high ground and guards can&rsquo;t follow; stepping off a ledge is fast but loud.</div></div>
+      <div class="ht-row"><div class="ht-key">Leave</div><div class="ht-txt">The exit is where you came in. Hold it to bank your haul.</div></div>
     </div>
-    <div class="stat-head" style="width:min(620px,94%);margin-top:14px">Noted this operation</div>
-    <div id="tactLog" class="tact-log"></div>
+    <div class="howto-grid" id="ht2" style="display:none">
+      <div class="ht-row"><div class="ht-key">Heat</div><div class="ht-txt">More haul, more Heat &mdash; and at T4 a <em>Bounty Hunter</em> comes. Danger pays more at the fence.</div></div>
+      <div class="ht-row"><div class="ht-key">Assessor</div><div class="ht-txt">He logs the plinths you emptied, and every entry raises the Heat. Beat him to the door.</div></div>
+      <div class="ht-row"><div class="ht-key">Places</div><div class="ht-txt">Water slows and silences, wind shoves, the dark hides you, the Mint&rsquo;s presses crush.</div></div>
+      <div class="ht-row"><div class="ht-key">Toolkit</div><div class="ht-txt">One <em>Mirage Toolkit</em> piece rides per job &mdash; tap TOOL (or Space).</div></div>
+      <div class="ht-row"><div class="ht-key">Secrets</div><div class="ht-txt">Strongboxes crack open if you stand close; a shimmer in the floor marks a hidden stash.</div></div>
+      <div class="ht-row"><div class="ht-key">The Gate</div><div class="ht-txt">A barred cache with a plate outside wants weight &mdash; drop something heavy on it.</div></div>
+      <div class="ht-row"><div class="ht-key">Ways out</div><div class="ht-txt">Heat T4 breaches the east wall; the <em>chute</em> banks at 70&cent;; trapdoors drop you by the door.</div></div>
+      <div class="ht-row"><div class="ht-key">Notoriety</div><div class="ht-txt">Syndicate sales raise it and jobs start hotter; returning goods cools it back down.</div></div>
+      <div class="ht-row"><div class="ht-key">One more</div><div class="ht-txt">Reach the exit rich and something deeper lights up. How much can you take?</div></div>
+    </div>
     <div class="btn-row"><button class="btn" id="howtoBack">Got it</button></div>
   </div>
 
@@ -668,7 +685,7 @@
     <div id="statPanel"></div>
     <div class="btn-row" style="margin-top:22px">
       <button class="btn" id="resumeBtn">Resume</button>
-      <button class="btn ghost" id="pauseHowto">Tact</button>
+      <button class="btn ghost" id="pauseHowto">How to Play</button>
       <button class="btn ghost" id="abandonBtn">Abandon Run</button>
     </div>
     <div class="controls-hint">Abandoning leaves the vault empty-handed — you keep nothing you were carrying.</div>
@@ -713,7 +730,7 @@
       <div class="stat-head" id="wbHead" style="width:min(560px,94%);text-align:center;margin-top:4px">The Mirage Toolkit &middot; one piece rides per job (Space / TOOL)</div>
       <div class="fence-grid" id="toolGrid" style="margin-top:10px"></div>
     </div>
-    <div class="controls-hint">Banked gold deepens Jo&rsquo;s disciplines and fills the Mirage Toolkit. Everything bought here rides into the next job.
+    <div class="controls-hint">Everything you buy here rides into the next job.
       &nbsp;·&nbsp; <span id="resetBtn" style="pointer-events:auto;cursor:pointer;color:var(--muted);text-decoration:underline;text-underline-offset:2px">Reset progress</span></div>
   </div>
 
@@ -737,7 +754,7 @@
       <button class="btn ghost" id="freeRunBtn">Work unsourced — no client</button>
       <button class="btn ghost" id="jobsBack">← Back to the Hideout</button>
     </div>
-    <div class="controls-hint">A commission names the client, the piece, the address and the fee. Taking one starts the job — go back first to change what rides on your belt.</div>
+    <div class="controls-hint">Taking a job starts it. Go back first to change your Toolkit piece.</div>
   </div>
 
   <!-- The Rehearsal: practice any shared vault (unlocks with the Daily) -->
@@ -819,7 +836,7 @@
 "use strict";
 // Build stamp — bump on every deploy. Shown on the title + hideout so a stale
 // Safari cache is instantly visible ("no report button" == old build).
-const BUILD = '2026-08-16.24';
+const BUILD = '2026-08-17.25';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 // Phones fill the screen in whichever way they're held — PORTRAIT (tall) or
@@ -914,11 +931,11 @@ function upgCost(u){ return Math.round(u.base * Math.pow(2.15, upgLevel(u.id)));
 const UNLOCKS = { upgrades:1, contracts:2, modifiers:4, collection:6, tools:8,
   chests:10, chute:12, daily:14, altar:16, breach:18, stash:20, tunnel:22, keys:24 };
 const UNLOCK_INFO = {
-  upgrades:  ['The disciplines open',   'put banked gold into Jo’s own methods'],
-  contracts: ['Commissions are open',  'clients bring you named work, and better fees'],
+  upgrades:  ['The disciplines open',   'spend gold on Jo’s methods'],
+  contracts: ['Commissions are open',  'clients, named work, better fees'],
   modifiers: ['Vault Modifiers',        'free runs now roll a risk/reward twist'],
   collection:['The Trophy Room',        'keep treasures for permanent passives'],
-  tools:     ['The Mirage Toolkit',     'Shadow Step is in the kit — one piece rides per job'],
+  tools:     ['The Mirage Toolkit',     'Shadow Step is yours — one piece rides per job'],
   chests:    ['Strongboxes',            'banded chests wait in the vaults — stand close to crack them'],
   chute:     ['The Drop Chute',         'bank mid-run at 70¢ on the dollar — yours even if you fall'],
   daily:     ['The Daily Run',          'one seeded vault, one ranked attempt, streaks'],
@@ -937,39 +954,36 @@ function unlocked(k){
   if(k==='collection' && Object.values(meta.collection||{}).some(v=>v>0)) return true;   // a kept trophy opens the room early
   return (meta.runs|0) >= UNLOCKS[k];
 }
-// ===== TACT (§5) — Jo's contextual assessment, in place of a manual =====
-// Jo is a Mastermind; he does not need a wall of instructions explaining
-// infiltration to him. The first run teaches MOVE / TAKE / LEAVE and nothing
-// else. Everything after that arrives as a Tact: a short read, in Jo's voice,
-// the first time a situation actually occurs. Never a narrator, never a lore
-// dump — an operator naming the leverage in front of him.
-// Keys are the OLD tip ids on purpose: a save that already saw a teaching
-// moment does not see it again after the rename.
+// ===== TACT — Jo's read on the moment =====
+// A Tact is a MOMENT, not a codex entry: it appears the first time a situation
+// actually occurs, says the one thing worth knowing, and goes away. It is never
+// collected, reviewed or archived — the player has to remember the mechanic,
+// not the quote. Hard budget: seven words. Personality per word, not per line.
+// Keys are the original tip ids, so a save that already saw a teaching moment
+// never sees it again.
 const TACT = {
-  move:      ['THE JOB',       'Take what’s worth taking. The way out is the way I came in.'],
-  load:      ['LOAD',          'Heavy haul. Loud feet. Drop what isn’t worth carrying.'],
-  heat:      ['HEAT',          'They’re adjusting to me. Expect a tighter watch.'],
-  seen:      ['SEEN',          'Break the line. They lose what they can’t see.'],
-  shake:     ['PURSUIT',       'They tire. I don’t have to.'],
-  assessor:  ['ASSESSOR',      'He’s not chasing me. He’s counting.'],
-  gate:      ['WEIGHTED GATE', 'It wants weight. Fine.'],
-  shutter:   ['SHUTTER',       'Security has a mechanism. Mechanisms can be subverted.'],
-  water:     ['WATER',         'Slower. Quieter. Useful.'],
-  wind:      ['WIND',          'Don’t fight it. Route with it.'],
-  dark:      ['DARK',          'They’re blind out here too. I’m the one who brought a lamp.'],
-  press:     ['PRESSES',       'It keeps time. So can I.'],
-  rotate:    ['THE WATCH',     'They just changed posts. The floor I walked in on is gone.'],
-  chest:     ['STRONGBOX',     'Banded, not sealed. It opens loud — so pick the moment.'],
-  stash:     ['STASH',         'The floor is lying about something.'],
-  chute:     ['CHUTE',         'Paid now, at a discount, whatever happens to me after.'],
-  tunnel:    ['TUNNEL',        'One drop, straight back to the door. Everyone hears it.'],
-  altar:     ['OFFERING',      'One gift at the threshold. Take the one tonight’s route needs.'],
-  breach:    ['BREACH',        'Pressure opened a second door. Danger has its uses.'],
-  sheath:    ['SECOND SHEATH', 'Can’t use it yet. It rides until the first one runs dry.'],
-  sense:     ['CALCULATE',     'The Heart reads from here. I know where tonight ends.'],
-  toolready: ['TOOLKIT',       'The kit is on my belt. This is what it’s for.'],
-  collar:    ['RIVAL',         'The watch wants him too. Point them at each other.'],
-  profile:   ['THE SETUP',     'Every house is built around something. Find what this one protects.'],
+  load:      ['LOAD',        'Too heavy. Drop something.'],
+  heat:      ['HEAT',        'They’re tightening the watch.'],
+  seen:      ['SEEN',        'Break sight.'],
+  shake:     ['PURSUIT',     'They tire. I don’t have to.'],
+  assessor:  ['ASSESSOR',    'He’s counting what I take.'],
+  gate:      ['GATE',        'It wants weight. Fine.'],
+  shutter:   ['SHUTTER',     'Drop weight, it opens.'],
+  water:     ['WATER',       'Slower. Quieter. Useful.'],
+  wind:      ['WIND',        'Don’t fight it. Route with it.'],
+  dark:      ['DARK',        'Dark works both ways.'],
+  press:     ['PRESSES',     'It keeps time. So can I.'],
+  rotate:    ['THE WATCH',   'They changed posts. Scout again.'],
+  chest:     ['STRONGBOX',   'Opens loud. Pick the moment.'],
+  stash:     ['STASH',       'The floor is lying about something.'],
+  chute:     ['CHUTE',       'Pays less. Pays now.'],
+  tunnel:    ['TUNNEL',      'Straight to the door. Loud.'],
+  altar:     ['OFFERING',    'One gift. Choose for tonight.'],
+  breach:    ['BREACH',      'Heat cracked a second way out.'],
+  sheath:    ['SECOND KIT',  'It waits until this one’s dry.'],
+  sense:     ['THE HEART',   'I know where it sits.'],
+  toolready: ['TOOLKIT',     'This is what it’s for.'],
+  collar:    ['RIVAL',       'They want him too.'],
 };
 let tactT=0;
 // Fire a Tact once, ever. Silent if this save has already read it.
@@ -982,22 +996,6 @@ function showTact(key,line,ms=3400){
   $('tactKey').textContent=key; $('tactLine').textContent=line;
   el.classList.add('on'); S.ui();
   clearTimeout(tactT); tactT=setTimeout(()=>el.classList.remove('on'),ms);
-}
-// The Tact log: everything Jo has actually noted, reviewable from pause/title.
-// Optional by design — nothing in the main flow forces a codex screen.
-function renderTactLog(){
-  const el=$('tactLog'); if(!el) return;
-  const seen=Object.keys(TACT).filter(k=>meta.tips[k]);
-  el.innerHTML = seen.length
-    ? seen.map(k=>`<div class="te"><span>${TACT[k][0]}</span><b>${TACT[k][1]}</b></div>`).join('')
-    : `<div class="none">Nothing noted yet. Jo reads a situation the first time it happens.</div>`;
-}
-// The whole first-run curriculum. Three verbs, in Jo's voice, then silence.
-function firstRunPrimer(){
-  const p=[['MOVE', isTouch?'Drag anywhere. I follow your thumb.':'WASD or the arrows. I follow.'],
-           ['TAKE', 'Touch what’s worth taking.'],
-           ['LEAVE','The exit is where I came in. Go back with what I mean to keep.']];
-  p.forEach((c,i)=>setTimeout(()=>{ if(state==='playing') showTact(c[0],c[1], i===2?4200:2500); }, i*2700));
 }
 // Legacy shim: kept so any teaching moment added later can still use a toast.
 function tip(id,msg){ if(meta.tips[id]) return; meta.tips[id]=1; saveMeta(); toast(msg,2800); }
@@ -1074,19 +1072,20 @@ function applyDoorPerk(p){
 // Tricks, misdirection, traversal aids, infiltration tools and found technology.
 // Buy once at the hideout; ONE rides per job with limited charges, fired by the
 // optional TOOL button / Space — never required to finish a run (north star).
-// SFL term on top, plain mechanical line underneath: the name never has to
-// carry the explanation. Ids are unchanged, so every existing save keeps its kit.
+// Jo's name on top, one plain mechanical phrase underneath: the name never has
+// to carry the explanation, and the phrase never has to carry the flavour.
+// Ids are unchanged, so every existing save keeps its kit.
 const TOOLS = [
   { id:'smoke',   nm:'Shadow Step',    disc:'cloak',      short:'SHADOW',  cost:1400, uses:2,
-    ds:'Break pursuit and vanish from sight. Nearby guards lose you, and your haul goes silent for 3s.' },
+    ds:'Vanish from pursuit. Your haul goes quiet.' },
   { id:'decoy',   nm:'Illusion',       disc:'mindgames',  short:'MIRAGE',  cost:1200, uses:2,
-    ds:'Throw a glittering double ahead of you. Guards who aren’t already on you go and look.' },
+    ds:'A double they go and look at.' },
   { id:'grapple', nm:'Strider’s Line', disc:'strider',    short:'LINE',    cost:1600, uses:3,
-    ds:'Reel the nearest loose valuable to your hand — off a ledge, out of the water, Skitterjewel included.' },
+    ds:'Pull the nearest valuable to your hand.' },
   { id:'lockpick',nm:'Subversion Kit', disc:'subversion', short:'SUBVERT', cost:1300, uses:1,
-    ds:'Turn a sealed shutter back open without shedding a coin of what you carry.' },
+    ds:'Open a sealed route.' },
   { id:'portal',  nm:'Mirage Gate',    disc:'subterfuge', short:'GATE',    cost:4200, uses:1,
-    ds:'Plant a marker anywhere. Use it again, from anywhere, to return to it instantly.' },
+    ds:'Mark a spot. Return to it.' },
 ];
 // The two disciplines that live entirely in the kit (§3/§4): no upgrade grid,
 // no new systems — the tool IS the expression.
@@ -1363,40 +1362,6 @@ const MODIFIERS = [
 let activeMod = MODIFIERS[0], pendingMasteryNew = null;
 const TWISTS = MODIFIERS.filter(m=>m.id!=='clean');
 
-// ===== §11 HEIST PROFILES — procgen that rolls SITUATIONS, not only rooms =====
-// A thin authored layer over systems Greedrun already has: no new modes, no new
-// entities, just a seeded weighting of the Assessor, the locks, the water, the
-// rival, the Heat seed, the strongboxes and the loot spread. It gives Calculate
-// and Tact something real to read, and makes different seeds demand different
-// Mastermind thinking. The roll is the FIRST draw of the vault stream and
-// depends on nothing but the seed, so a shared code is the same job for
-// everybody, at any Operation standing, with anything unlocked.
-const PROFILES=[
-  { id:'plain',     w:24, nm:'Working House',      p:{}, tell:'nothing weighted either way',
-    read:'Ordinary security, ordinary contents. Take what the job asks for.' },
-  { id:'accounted', w:11, nm:'Accounted House',    p:{ assessorEarly:8, assessorFast:1.5, plinth:1 }, tell:'the Assessor starts early and writes fast',
-    read:'Everything here is on a list — and he is the list.' },
-  { id:'locked',    w:11, nm:'Locked House',       p:{ lock:1, sever:1.4 }, tell:'a shutter is locked from the start, and they close faster',
-    read:'Keys, shutters, one door that matters. Mechanisms can be subverted.' },
-  { id:'flooded',   w:10, nm:'Flooded Route',      p:{ flood:1 }, tell:'standing water: slower to cross, and it swallows your noise',
-    read:'Water through the floor. Slower, quieter, and it hides me.' },
-  { id:'rival',     w:10, nm:'Rival Claim',        p:{ rival:1 }, tell:'another operator is inside, taking what you don’t',
-    read:'Somebody is already working it. Two of us, one house.' },
-  { id:'hot',       w:10, nm:'Hot Vault',          p:{ heat:2 }, tell:'two Heat tiers before you touch anything — and danger pays',
-    read:'Awake before I arrive. That is exactly why it pays.' },
-  { id:'deep',      w:12, nm:'Deep Storage',       p:{ surface:0.55, chest:1, stash:1, gate:1 }, tell:'thin floors, extra strongboxes, a stash and a gated cache',
-    read:'Little on the surface. What matters is boxed, gated and far in.' },
-  { id:'clean',     w:12, nm:'Clean Commission',   p:{ surface:0.7, standout:1 }, tell:'one standout piece, and less around it worth the weight',
-    read:'One piece here is mine. The rest is temptation with a price on it.' },
-];
-let runProfile = PROFILES[0];
-function rollProfile(r){
-  const tot=PROFILES.reduce((a,p)=>a+p.w,0); let x=r*tot;
-  for(const p of PROFILES){ x-=p.w; if(x<0) return p; }
-  return PROFILES[0];
-}
-// read one of the active profile's weights, with the no-profile default
-function prof(k,d){ const v=runProfile&&runProfile.p[k]; return v===undefined?d:v; }
 // Modifier Mastery: bank a haul under a twist to master it — permanent, and each
 // mastered twist pays +3% on every future sale (a steady long-game pull).
 function masteryCount(){ return TWISTS.filter(m=>meta.modsCleared && meta.modsCleared[m.id]).length; }
@@ -1541,10 +1506,12 @@ function recentHaulAvg(){
   const esc=runLog.filter(r=>r.out==='escape').slice(-10);
   return esc.length>=3 ? esc.reduce((a,r)=>a+(r.haul||0),0)/esc.length : 1100;
 }
-// §6/§7 — COMMISSIONS. The mechanics are unchanged; the fiction around them is
-// not. Jo is who you call when obtaining something is the problem. Each card
-// carries five facts — CLIENT, TARGET, LOCATION, CONDITION, FEE — plus one line
-// in the client's own voice. No paragraphs before the player has even chosen.
+// COMMISSIONS. Jo is who you call when obtaining something is the problem.
+// A card is read in about two seconds: CLIENT, what to do, where (and the one
+// condition that isn't already obvious from the objective), and the fee.
+// No lore, no client speeches, no sentence restating the objective.
+// `obj` is the imperative; `tag` only exists when it adds something new.
+// `desc` is the in-run objective line — it can be a shade longer.
 // %ASSET% resolves against the location once mkContract picks the address.
 const ASSETS={
   mint:     ['the Last Die','the Sovereign Plate','the Assay Ledger','the Proof Set','the Reserve Seal'],
@@ -1555,64 +1522,48 @@ const ASSETS={
 const CONTRACT_MAKERS = [
   ()=>{ // TUNE — target ~40-60% success at any skill level.
     const t=clamp(Math.round(recentHaulAvg()*rand(0.9,1.25)/50)*50, 900, 4000);
-    return {type:'quota', client:'A Power Broker', target:t,
-      acquire:`$${t.toLocaleString()} in transferable assets`,
-      condition:'Form is yours to choose. The figure is not.',
-      flavor:'“Bring me weight, not stories.”',
+    return {type:'quota', client:'Power Broker', target:t,
+      obj:`Take $${t.toLocaleString()}`,
       desc:`Carry out at least $${t.toLocaleString()}.`,
       reward:Math.round(t*0.35), check:()=>carriedValue>=t }; },
   ()=>{ // playtest: "some missions feel like freebies — grab one coin and leave."
     // Every constraint job now also demands a real haul.
     const m=clamp(Math.round(recentHaulAvg()*0.35/50)*50, 300, 1500);
-    return {type:'silent', client:'A Political Operator', minHaul:m,
-      acquire:`$${m.toLocaleString()}, unrecorded`,
-      condition:'Unseen. No alarm, no pursuit, no witness.',
-      flavor:'“If anyone can say it happened, it didn’t.”',
+    return {type:'silent', client:'Political Operator', minHaul:m,
+      obj:`Take $${m.toLocaleString()} unseen`,
       desc:`Leave unseen carrying at least $${m.toLocaleString()}.`,
       reward:750, check:()=>!runSpotted && carriedValue>=m }; },
   ()=>{ const opts=[['idol','%ASSET%'],['mask','%ASSET%'],['living','the Skitterjewel']];
     const [k,nm]=opts[Math.floor(Math.random()*opts.length)];
-    return {type:'steal', client:'A Collector of Unusual Importance', targetKind:k,
-      acquire:nm, condition:'Intact. No substitute will be accepted.',
-      flavor:'“There is one. I want that one.”',
+    return {type:'steal', client:'Collector', targetKind:k,
+      obj:`Take ${nm}`, tag:'intact',
       desc:'Take the named piece and get it out intact.', reward:700,
       check:()=>loot.some(l=>l.kind===k && l.got) }; },
-  ()=>({type:'sweep', client:'A Rival Operator',
-    acquire:'the entire floor', condition:'Nothing left behind. He will be checking.',
-    flavor:'“Prove the room can be emptied.”',
+  ()=>({type:'sweep', client:'Rival Operator',
+    obj:'Clear the floor',
     desc:'Clear the whole floor, then leave.',
     reward:1100, check:()=>vaultCleared }),
   ()=>{ const tl=Math.round(rand(85,120));
     const m=clamp(Math.round(recentHaulAvg()*0.45/50)*50, 400, 2000);
-    return {type:'timed', client:'The Custodians', minHaul:m,
-      acquire:`$${m.toLocaleString()} before the seals drop`,
-      condition:`The building closes in ${tl}s. It does not reopen.`,
-      flavor:'“We can hold the door that long. Not longer.”',
+    return {type:'timed', client:'Custodians', minHaul:m,
+      obj:`Take $${m.toLocaleString()} before lockdown`, tag:`${tl} sec`,
       desc:`Out inside ${tl}s with at least $${m.toLocaleString()}.`,
       reward:850, timeLimit:tl, check:()=>carriedValue>=m }; },
-  ()=>({type:'recovery', client:'An Institution', notoDown:2,
-    acquire:'marked goods, returned to their register',
-    condition:'Choose “Return it” at the fence. The talk quiets accordingly.',
-    flavor:'“Discretion is the whole of the fee.”',
+  ()=>({type:'recovery', client:'Institution', notoDown:2,
+    obj:'Return a marked item', tag:'at the fence',
     desc:'Return marked goods instead of fencing them.',
     reward:400, check:()=>true }),
-  ()=>({type:'heart', client:'A Party That Does Not Give Its Name',
-    acquire:'%ASSET% — the Vault Heart itself',
-    condition:'Three stages. The building will fight you for every one.',
-    flavor:'“Nobody has done this. That is the point.”',
+  ()=>({type:'heart', client:'No Name Given',
+    obj:'Take %ASSET%', tag:'three stages',
     desc:'Case the chamber, take the Heart, break the seal-latches.',
     reward:2400, check:()=>loot.some(l=>l.type==='heart'&&l.got) }),
   ()=>{ const m=clamp(Math.round(recentHaulAvg()*0.35/50)*50, 300, 1500);
-    return {type:'untouched', client:'A Private House', minHaul:m,
-      acquire:`$${m.toLocaleString()}, and not one mark on you`,
-      condition:'Take no hits. Do not come back light.',
-      flavor:'“The house does not employ people who bleed on it.”',
+    return {type:'untouched', client:'Private House', minHaul:m,
+      obj:`Take $${m.toLocaleString()} untouched`,
       desc:`Take no hits, carrying at least $${m.toLocaleString()}.`,
       reward:950, check:()=>!runDamaged && carriedValue>=m }; },
-  ()=>({type:'hot', client:'A Speculator',
-    acquire:'whatever survives the response',
-    condition:'Push the building to Heat T4 or past it, then leave.',
-    flavor:'“I’m buying the risk. You’re carrying it.”',
+  ()=>({type:'hot', client:'Speculator',
+    obj:'Escape at Heat 4+',
     desc:'Push the watch to Heat T4 or higher, then leave.',
     reward:1050, check:()=>peakHeat>=4 }),
 ];
@@ -1624,7 +1575,7 @@ function mkContract(i){
   c.themeKey=tk; c.location=THEMES[tk].name;
   // the target only gets its name once the address is known
   { const pool=ASSETS[tk]||ASSETS.mint, nm=pool[Math.floor(Math.random()*pool.length)];
-    if(c.acquire) c.acquire=c.acquire.replace('%ASSET%',nm);
+    if(c.obj) c.obj=c.obj.replace('%ASSET%',nm);
     if(c.type==='steal'||c.type==='heart') c.assetName=nm; }
   c.title=({quota:'Transfer',silent:'Quiet Acquisition',steal:'Named Piece',
     sweep:'Full Clearance',timed:'Sealed Window',recovery:'Restitution',
@@ -1841,7 +1792,7 @@ function triggerSever(){
   const cands=severCandidates();
   if(!cands.length) return;                          // no fair target → sever nothing
   severTele={door:cands[Math.floor(vrng()*cands.length)], t:SEVER_TELEGRAPH};
-  severTele.door.state='warn'; severCooldown=SEVER_COOLDOWN/prof('sever',1);
+  severTele.door.state='warn'; severCooldown=SEVER_COOLDOWN;
   S.severWarn();
   toast('A shutter groans somewhere behind you…',1200);
 }
@@ -2024,7 +1975,7 @@ function updateAssessor(dt){
       }
     } else { a.stuck=0; }
   } else if(a.site){
-    a.inspect+=dt*(a.chief?1.9:1)*prof('assessorFast',1);   // the Chief writes fast; an Accounted House writes faster
+    a.inspect+=dt*(a.chief?1.9:1);                     // the Chief writes fast
     if(a.inspect>=1.7){                                // the entry goes in the book
       a.site.done=true; a.site=null; a.inspect=0; a.marks++;
       assessorHeat=Math.min(ASSESSOR_MAX_MARKS,a.marks); recompute();
@@ -2430,12 +2381,73 @@ function genLayout(){
   return b.filter(r=>clear(r[0],r[1],r[2],r[3]));
 }
 
+// ===== THE FIRST JOB — an authored vault, once, and skippable =====
+// Run one is not procedural. It is a small hand-placed floor that teaches by
+// LAYOUT, not by text: three free coins in the entry hall so TAKE lands with no
+// risk attached, a gem past the doorway, and one heavy idol in the guard's half
+// so the player FEELS the load before anything explains it. Every prompt fires
+// on what the player just did, never on a timer. Skip is always one tap away.
+let tutorial=false, tutStep=0;
+function tutorialOn(){ return !meta.tips.move && !dailyMode && !pinnedSeed && !activeContract; }
+function buildTutorial(){
+  // Build a normal vault first, so every field the sim touches is initialised
+  // exactly the way the game expects — then replace the world with ours.
+  buildWorld();
+  tutorial=true; tutStep=0;
+  currentThemeKey='mint'; currentTheme=THEMES.mint;   // the first territory
+  activeMod=MODIFIERS[0]; runHeatSeed=0; runTimeLimit=0;
+  // Sized so the camera never letterboxes: a portrait phone's view can run to
+  // ~1410 world units on its long edge, so both dimensions must clear that.
+  WORLD.w=1700; WORLD.h=1500;
+  vgraph=null; currentLayout='tutorial';
+  platforms=[]; pools=[]; presses=[]; dark=false; inWater=false;
+  decor=[]; solidDecor=[]; landmark=null;
+  sentries=[]; rivals=[]; rivalHaul=0; chests=[]; stashes=[]; toolCache=null;
+  breach=null; chute=null; trapdoor=null; lockedDoors=[]; brassKey=null; gate=null;
+  doorPicks=[]; assessor=null; assessorHeat=0;   // nothing else is in the building tonight
+  const T=44;
+  walls=[{x:0,y:0,w:WORLD.w,h:T},{x:0,y:WORLD.h-T,w:WORLD.w,h:T},
+         {x:0,y:0,w:T,h:WORLD.h},{x:WORLD.w-T,y:0,w:T,h:WORLD.h},
+         // one partition with a wide doorway: an entry hall, and a watched half
+         {x:820,y:T,w:36,h:620-T},{x:820,y:880,w:36,h:WORLD.h-880-T}];
+  portal={x:200,y:750,r:46,spin:0};
+  player.x=portal.x; player.y=portal.y; player.vx=player.vy=0; player.plat=-1;
+  loot=[];
+  const put=(type,x,y)=>loot.push(Object.assign({x,y,type,glow:0,got:false,plat:-1}, LOOT_TYPES[type]));
+  put('coin',430,620); put('coin',560,900); put('coin',690,520);   // free, on the way in
+  put('gem', 1010,560); put('gem', 1040,980);                      // past the doorway
+  put('idol',1450,750);                                            // heavy, and he walks past it
+  runLootTotal=loot.reduce((a,l)=>a+l.value,0); runLootCount=loot.length;
+  // one guard, one readable loop, kept to the far side so the doorway is safe
+  guards=[{x:1290,y:490,r:14,wps:[{x:1290,y:490},{x:1520,y:750},{x:1290,y:1020}],
+           wi:0,state:'patrol',alert:0,face:0,hitCd:0,lkp:null,searchT:0}];
+  cam.x=clamp(player.x-VIEW.w/2,0,WORLD.w-VIEW.w);
+  cam.y=clamp(player.y-VIEW.h/2,0,WORLD.h-VIEW.h);
+  recompute();
+}
+// Teaching beats, each triggered by the thing it teaches.
+function tutorialTick(){
+  if(!tutorial) return;
+  const got=loot.filter(l=>l.got).length;
+  if(tutStep===0 && got>=1){ tutStep=1; showTact('TAKE','That’s what I came for.',2400); return; }
+  if(tutStep===1){
+    const g=guards[0];
+    if(g && dist2(g.x,g.y,player.x,player.y)<430*430 && losClear(g.x,g.y,player.x,player.y)){
+      tutStep=2; showTact('WATCH','He sees what’s in front of him.',2600); return; }
+  }
+  if(tutStep<3 && carriedWeight>=6){ tutStep=3; tact('load'); return; }
+  if(tutStep<4 && (got>=4 || carriedWeight>=8)){
+    tutStep=4; showTact('LEAVE','Back the way I came in.',3000); }
+}
+function skipTutorial(){
+  meta.tips.move=1; saveMeta();
+  tutorial=false; $('skipTut').style.display='none';
+  startRun();
+}
 let runSeed=0;  // 0 = fresh random each run; set to a fixed value (e.g. a daily hash) to reproduce a vault
 function buildWorld(){
   // One seeded stream drives the whole vault, so a seed reproduces it (daily runs).
   seedVault(runSeed || ((Math.random()*4294967296)>>>0));
-  // §11 — the house's operational setup, rolled FIRST and from the seed alone.
-  runProfile = rollProfile(vrng());
   // bigger, and a different size every job — some vaults are compact, some are sprawling estates
   WORLD.w = 2300 + Math.round(vr(0,900));
   WORLD.h = 1550 + Math.round(vr(0,650));
@@ -2473,7 +2485,7 @@ function buildWorld(){
   const modGate = activeContract ? (activeContract.type==='heart' ? 2 : 0.65) : 0.30;
   activeMod = (!dailyMode && unlocked('modifiers') && modR1>=modGate)
     ? MODIFIERS[1 + Math.floor(modR2*(MODIFIERS.length-1))] : MODIFIERS[0];
-  runHeatSeed = clamp(Math.floor(meta.curseDebt/2) - upgLevel('cool') - denCalm(), 0, 3) + ascMods(ascensionLevel).heat + (dailyMutator.heat||0) + activeMod.heat + prof('heat',0);  // world + den standing + ascension + weekly mutator + vault modifier + heist profile
+  runHeatSeed = clamp(Math.floor(meta.curseDebt/2) - upgLevel('cool') - denCalm(), 0, 3) + ascMods(ascensionLevel).heat + (dailyMutator.heat||0) + activeMod.heat;  // world + den standing + ascension + weekly mutator + vault modifier
   runSpotted=false; runClock=0; peakHeat=0; runDamaged=false;
   runTimeLimit = activeContract && activeContract.type==='timed' ? activeContract.timeLimit : (activeMod.time||0);
   if(!runTimeLimit && ascTwistOn('curfew')) runTimeLimit=150;   // A4: The Curfew Bell
@@ -2552,8 +2564,6 @@ function buildWorld(){
     for(let i=0;i<pn;i++){ const s=openSpot(40,260,spots); spots.push(s);
       presses.push({x:s.x,y:s.y,r:38, t:-vr(0.5,3.5), phase:'idle'}); }
   } else if(currentThemeKey==='undercity'){ dark=true; }   // you carry the only lantern
-  // §11 FLOODED ROUTE: the water is this job's shape, whatever the address
-  if(prof('flood',0) && currentThemeKey!=='treasury') spawnPools(clamp(Math.round(3*areaScale),3,4));
 
   // portal = the entrance, on the left. The good loot is deep right.
   // Spawn inside the middle-left room, off any partition line (an even-row grid
@@ -2567,8 +2577,8 @@ function buildWorld(){
   // Fully flooded rooms: in room-grid Treasury/Undercity vaults, one or two
   // whole rooms sit under water — slow to cross but your clinking drowns.
   // A different route calculus, not just puddles.
-  if(vgraph && (currentThemeKey==='treasury'||currentThemeKey==='undercity'||prof('flood',0))){
-    const fn=(prof('flood',0)?2:1)+(vrng()<0.4?1:0);
+  if(vgraph && (currentThemeKey==='treasury'||currentThemeKey==='undercity')){
+    const fn=1+(vrng()<0.4?1:0);
     const cands=[]; for(let i=0;i<vgraph.cols*vgraph.rows;i++){
       const gd=vgraph.gradient(i); if(i!==vgraph.exit && gd>=0.2 && gd<=0.85) cands.push(i); }
     for(let k=0;k<fn && cands.length;k++){
@@ -2581,7 +2591,7 @@ function buildWorld(){
   // Locked shutter + brass key: one loop door in room vaults starts LOCKED —
   // a shortcut the brass key (or a lockpick charge) opens. Loop-only, so
   // nothing is ever walled off; guards path around it like any severed door.
-  if(vgraph && vgraph.loopDoors.length && vrng()<(prof('lock',0)?1:0.7)){
+  if(vgraph && vgraph.loopDoors.length && vrng()<0.7){
     const deep=vgraph.loopDoors.filter(d=>(vgraph.gradient(d.a)+vgraph.gradient(d.b))/2>=0.35);
     const pick=deep.length?deep:vgraph.loopDoors;
     const d=pick[Math.floor(vrng()*pick.length)];
@@ -2608,13 +2618,9 @@ function buildWorld(){
   const placed=[{x:portal.x,y:portal.y}];
   const add=(type,x,y)=>{ loot.push(Object.assign({x,y,type,glow:vrng()*6.28,got:false,plat:-1}, LOOT_TYPES[type])); placed.push({x,y}); };
 
-  // §11 — the profile decides how much of the value lies loose on the floor.
-  // Deep Storage and a Clean Commission thin the surface; an Accounted House
-  // concentrates it onto plinths worth writing down.
-  const surf=prof('surface',1);
-  for(let i=0;i<Math.round(7*areaScale*surf);i++){ const s=openSpot(14,140,placed); add('coin',s.x,s.y); }
-  for(let i=0;i<Math.round(5*areaScale*surf);i++){ const s=openSpot(14,150,placed); add('gem', s.x,s.y); }
-  for(let i=0;i<2+prof('plinth',0);i++){ const s=deepSpot(placed,0.5,0.5); add('idol',s.x,s.y); }
+  for(let i=0;i<Math.round(7*areaScale);i++){ const s=openSpot(14,140,placed); add('coin',s.x,s.y); }
+  for(let i=0;i<Math.round(5*areaScale);i++){ const s=openSpot(14,150,placed); add('gem', s.x,s.y); }
+  for(let i=0;i<2;i++){ const s=deepSpot(placed,0.5,0.5); add('idol',s.x,s.y); }
   { const s=deepSpot(placed,0.6,0.55); add('mask',s.x,s.y); }
 
   // elevated loot — the reward for climbing. One good item on each platform.
@@ -2628,9 +2634,8 @@ function buildWorld(){
   // Living Loot: a Skitterjewel that flees — corner it against a wall to bag it
   { let s; do{ s=openSpot(14,170,placed);}while(s.x<WORLD.w*0.28||s.x>WORLD.w*0.82); add('living',s.x,s.y); }
 
-  // Royal Loot: worth a fortune, but touching it turns out the elite guard.
-  // A Clean Commission always has one — it IS the commission.
-  if(vrng()<(prof('standout',0)?1:0.7)){ const s=deepSpot(placed,0.55,0.5); add('royal',s.x,s.y); }
+  // Royal Loot: worth a fortune, but touching it turns out the elite guard
+  if(vrng()<0.7){ const s=deepSpot(placed,0.55,0.5); add('royal',s.x,s.y); }
   // Fragile Loot: valuable, but it shatters if a guard lands a hit on you
   if(vrng()<0.7){ const s=deepSpot(placed,0.35,0.35); add('fragile',s.x,s.y); }
   // Fake Loot: glitters like the real thing; the fence knows better
@@ -2674,7 +2679,7 @@ function buildWorld(){
   // as hidden loot until the lid gives, so they count toward Clean Sweep —
   // a real sweep cracks every box.
   { const chestsOn=vaultFeatureOn('chests');   // draws always run; placement is earned
-    const chestN = 1 + (vrng()<0.5?1:0) + prof('chest',0);
+    const chestN = 1 + (vrng()<0.5?1:0);
     for(let i=0;i<chestN;i++){
       // chests belong in the deep rooms and tucked corners, not out on the open
       // floor (playtest: "better placement of treasure chests"). Take the
@@ -2703,7 +2708,7 @@ function buildWorld(){
   // Hidden stash: some vaults keep a secret — invisible until you're close,
   // then a shimmer in the cracks. Walk it to pry it out, silently.
   { const sr=vrng(), s=deepSpot(placed,0.3,0.3), g1=vrng()*6.28, g2=vrng()*6.28;
-    if(sr<(prof('stash',0)?1:0.6) && vaultFeatureOn('stash')){ placed.push(s);
+    if(sr<0.6 && vaultFeatureOn('stash')){ placed.push(s);
       const st={x:s.x,y:s.y,found:false,taken:false,items:[]};
       let gi=0;
       for(const kind of ['gem','idol']){
@@ -2812,7 +2817,7 @@ function buildWorld(){
   // (its own four walls), so it never touches the room graph or connectivity.
   // Opens once the Operation is past its first standing — bigger jobs, better locks.
   { const gr=vrng(), gy=vr(180,WORLD.h-180), gx=vr(WORLD.w*0.42,WORLD.w-260);
-    if(gr<(prof('gate',0)?1:0.65) && opTierForVault()>=1 && isOpen(gx,gy,120) && platAt(gx,gy)===-1 && !poolAt(gx,gy)){
+    if(gr<0.65 && opTierForVault()>=1 && isOpen(gx,gy,120) && platAt(gx,gy)===-1 && !poolAt(gx,gy)){
       const W=118, H=96, T=16;
       const bx=gx-W/2, by=gy-H/2;
       const barWall={x:bx+W-T, y:by, w:T, h:H};            // the gate itself (east face)
@@ -2833,8 +2838,7 @@ function buildWorld(){
   // piece is a plinth he'll eventually check. Positions are snapshotted so a
   // moved/pocketed item can't drag his route around.
   { const s=deepSpot([],0.5,0.5);
-    assessor={x:s.x,y:s.y,r:14,face:0,site:null,idle:null,marks:0,inspect:0,
-              wake:prof('assessorEarly',16),sites:[],lamp:0};
+    assessor={x:s.x,y:s.y,r:14,face:0,site:null,idle:null,marks:0,inspect:0,wake:16,sites:[],lamp:0};
     for(const l of loot){ if(l.hidden||l.caged||l.value<150||l.kind==='shrine') continue;
       assessor.sites.push({x:l.x,y:l.y,l,done:false}); } }   // caged goods sit behind bars he won't cross
 
@@ -2866,7 +2870,7 @@ function buildWorld(){
   // absence makes his nights an event) — every night at Ascension 3+. The draw is
   // ALWAYS consumed so dailies and shared vault codes reproduce identically.
   { const s=deepSpot([],0.4,0.45), roll=vrng();
-    if(roll<0.55 || ascTwistOn('rival') || prof('rival',0)) rivals.push({x:s.x,y:s.y,r:13,target:null,face:0}); }
+    if(roll<0.55 || ascTwistOn('rival')) rivals.push({x:s.x,y:s.y,r:13,target:null,face:0}); }
 
   // NEW: stationary sentries with swiveling vision cones (guard the deep loot)
   const senCount=2+Math.floor(vrng()*2); // 2-3
@@ -3633,7 +3637,9 @@ function update(dt){
   }
 
   // one-more-thing trigger
-  if(!seenOneMore && carriedValue>=200 && dist2(player.x,player.y,portal.x,portal.y) < (portal.r+34)**2){
+  // ONE MORE THING is a signature moment and it needs a real vault behind it —
+  // the authored first job has no Vault Heart to offer, so it never asks.
+  if(!seenOneMore && !tutorial && carriedValue>=200 && dist2(player.x,player.y,portal.x,portal.y) < (portal.r+34)**2){
     seenOneMore=true; openOneMore();
     return;
   }
@@ -3833,6 +3839,7 @@ function update(dt){
   floaters=floaters.filter(f=>f.life>0);
   portal.spin+=dt*1.6;
 
+  tutorialTick();
   tickHud(dt);
   syncHud();
 }
@@ -4697,7 +4704,9 @@ function syncHud(){
   } else if(activeMod.id!=='clean'){
     html=`<b>${activeMod.name}</b><br>${activeMod.good}<span style="color:var(--muted)"> — ${activeMod.bad}</span>`
       +`<br><span style="color:var(--muted)">${currentTheme.name}</span>`;
-  } else html=`<b>${currentTheme.name}</b><br><span style="color:var(--muted)">${runProfile.nm}</span>`;
+  } else if(tutorial){
+    html=`<b>The first job</b><br><span style="color:var(--muted)">Take what you can carry.</span>`;
+  } else html=`<b>${currentTheme.name}</b><br><span style="color:var(--muted)">${currentTheme.hint}</span>`;
   // the objective line shows on arrival and whenever the job's state CHANGES —
   // then it stands down. Live progress lives on the pause screen, on request.
   if(html!==objSig){ objSig=html; objHold=6; objEl.innerHTML=html; }
@@ -4744,7 +4753,8 @@ function startRun(){
   // Dailies use their ladder level directly (up to the cap); normal runs clamp to what you've unlocked.
   ascensionLevel = dailyMode ? clamp(selectedAscension, 0, ASC_MAX) : clamp(selectedAscension, 0, ascUnlocked());
   if(!dailyMode) dailyMutator = {};
-  buildWorld(); recompute();
+  tutorial=false;
+  if(tutorialOn()) buildTutorial(); else { buildWorld(); recompute(); }
   if(ascMods(ascensionLevel).fromStart && !hunterSpawned) spawnHunter();  // A10: hunter from the opening second
   // Legendary Heist: intel came with the job — the Heart is known from the start
   if(activeContract && activeContract.type==='heart'){
@@ -4761,27 +4771,16 @@ function startRun(){
   $('keyHints').style.display = (isTouch || (meta.runs|0)>3) ? 'none' : 'block';   // §13 — hints retire once they're learned
   $('prompt').innerHTML = isTouch ? 'Hold the <b>gold button</b> — escape with your haul'
                                   : 'Hold <b>E</b> — Escape with your haul';
-  // §5 — the ENTIRE first-run curriculum is three verbs. Everything else in the
-  // game teaches itself through Tact, at the moment it becomes relevant.
-  const firstEver=!meta.tips.move;
-  if(firstEver){ meta.tips.move=1; saveMeta(); firstRunPrimer(); }
+  $('skipTut').style.display = tutorial ? 'block' : 'none';
+  if(tutorial){
+    meta.tips.move=1; saveMeta();
+    setTimeout(()=>{ if(state==='playing' && tutorial)
+      showTact('MOVE', isTouch?'Drag anywhere. I follow.':'WASD or the arrows. I follow.', 2600); }, 600);
+  }
   else if(activeMod.id!=='clean') toast(`${activeMod.name}: ${activeMod.good} ${activeMod.bad}`.trim(), 2600);
   else if(rivals.length) toast('Another operator is working this house tonight — beat him to it.',2000);
-  // §11 — the pre-run read. Calculate finally has something to say about the
-  // house itself, and it never steps on the first-run primer.
-  let intelAt = firstEver ? 8800 : 900;
-  if(runProfile && runProfile.id!=='plain'){
-    if(!meta.tips.profile){ meta.tips.profile=1; saveMeta();
-      const at=intelAt; intelAt+=3000;
-      setTimeout(()=>{ if(state==='playing') showTact(TACT.profile[0],TACT.profile[1],2700); }, at); }
-    // Calculate (Treasure Sense) turns the read into the stated mechanical fact
-    const line = upgLevel('scanner')>0 && runProfile.tell
-      ? `${runProfile.read} \u2014 ${runProfile.tell}.` : runProfile.read;
-    const at=intelAt; intelAt+=3900;
-    setTimeout(()=>{ if(state==='playing') showTact('INTEL \u00b7 '+runProfile.nm, line, 3900); }, at);
-  }
   // the dark is a standing condition, not an event — read it once, on arrival
-  if(dark) setTimeout(()=>{ if(state==='playing') tact('dark'); }, intelAt);
+  if(dark) setTimeout(()=>{ if(state==='playing') tact('dark'); }, 1800);
   pinnedSeed=false;   // the pin serves exactly one build
 }
 function openOneMore(){
@@ -4874,6 +4873,7 @@ function epithet(escaped){
 }
 function endRun(escaped, cause){
   const wasDaily=dailyMode;
+  tutorial=false; { const sk=$('skipTut'); if(sk) sk.style.display='none'; }
   runOutcome=escaped; state='result';
   if(escaped) S.escape(); else S.caught();
   $('hud').classList.remove('on'); document.getElementById('prompt').classList.remove('on');
@@ -4960,7 +4960,6 @@ function endRun(escaped, cause){
 
   // telemetry: one compact record per run (bank amount fills in after the fence)
   logRun({ t:Date.now(), seed:vaultSeed, thm:currentThemeKey, lay:currentLayout, mod:activeMod.id,
-    prf:runProfile.id,
     con:activeContract?activeContract.type:(wasDaily?'daily':'free'),
     conOk:pendingContractInfo?pendingContractInfo.done:null, asc:ascensionLevel,
     out:escaped?'escape':'caught', cause:escaped?null:(cause||'caught'), dur:Math.round(runClock),
@@ -4990,11 +4989,11 @@ function endRun(escaped, cause){
   if(pendingContractInfo){
     contractLine = pendingContractInfo.done
       ? `<div>${pendingContractInfo.title}<b style="color:var(--ok)">\u2713 +$${pendingContractInfo.reward.toLocaleString()}</b></div>`
-        + (pendingContractInfo.madeGood?`<div>Made good with ${pendingContractInfo.client}<b style="color:var(--ok)">full pay restored</b></div>`:'')
+        + (pendingContractInfo.madeGood?`<div>Made good with the ${pendingContractInfo.client}<b style="color:var(--ok)">full pay restored</b></div>`:'')
         + (pendingPerfectSilent?`<div>Never seen, never touched, never heard<b style="color:var(--gold)">The Quiet Commission</b></div>`:'')
         + (pendingFinale?`<div>${pendingFinale} — taken<b style="color:var(--gold)">the Operation grows on this alone</b></div>`:'')
       : `<div>${pendingContractInfo.title}<b style="color:var(--heat)">unfinished</b></div>`
-        + (pendingContractInfo.nowOwed?`<div>${pendingContractInfo.client} remembers<b style="color:var(--heat)">their work pays \u221220% until you make one good</b></div>`:'');
+        + (pendingContractInfo.nowOwed?`<div>The ${pendingContractInfo.client} remembers<b style="color:var(--heat)">their work pays \u221220% until you make one good</b></div>`:'');
   }
   $('resStats').innerHTML =
     (escaped?`<div>Haul<b>$${haulVal.toLocaleString()}</b></div>`
@@ -5086,8 +5085,7 @@ function buyersFor(kind,value){
     const reach=Math.round(value*2), owed=forfeitCount();
     out.push({id:'gift', nm:'Generous Gift', fx:'gift', cls:'gift', payout:0, reach,
       passive:`+$${reach.toLocaleString()} reach`,
-      note: owed ? `Operation reach · \u22121 notoriety · makes good with ${owed} client${owed===1?'':'s'}`
-                 : 'Operation reach · \u22121 notoriety'});
+      note: owed ? `\u22121 notoriety \u00b7 clears ${owed} debt${owed===1?'':'s'}` : '\u22121 notoriety'});
   }
   // tag the highest cash offer so the greedy read is instant
   let best=null; for(const x of out) if(x.payout>0 && (!best||x.payout>best.payout)) best=x;
@@ -5193,7 +5191,7 @@ function renderFence(){
   { const el=$('fenceTotal'), prev=parseInt((el.textContent||'').replace(/\D/g,''))||0;
     if(prev!==total) animateMoney(el, prev, total, 450); else el.textContent='$'+total.toLocaleString(); }
   // the working bonuses as labeled chips, not a run-on sentence
-  const noto = giftReach>0?`Given away, it buys reach instead of gold \u2014 +$${giftReach.toLocaleString()} to the Operation.`
+  const noto = giftReach>0?`Given away: +$${giftReach.toLocaleString()} of Operation reach instead of gold.`
     : curseD>0?`The Syndicate\u2019s coin will raise your notoriety.`
     : curseD<0?`Returning goods quiets the talk.`
     : `Different buyers want different goods.`;
@@ -5302,14 +5300,18 @@ function renderLedger(){
   const t=opTier();
   const terr=OPERATION.map((o,i)=>{
     const on=i<=t;
-    const opened=o.themes.filter(k=>!(i>0&&OPERATION[i-1].themes.includes(k))).map(k=>THEMES[k].name).join(', ');
+    const newKeys=o.themes.filter(k=>!(i>0&&OPERATION[i-1].themes.includes(k)));
+    const opened=newKeys.map(k=>THEMES[k].name).join(', ');
+    // the one place the addresses get to explain themselves — a screen nobody
+    // has to open, on a card nobody has to read to play
+    const why=on&&newKeys.length===1&&THEMES[newKeys[0]].sub ? `<i>${THEMES[newKeys[0]].sub}</i>` : '';
     return `<div class="led-ep ${on?'on':''}"><b>${o.nm}${on?'':` \u00b7 $${o.at.toLocaleString()}`}</b>
-      <span>${i===0?'the Old Mint':opened||'the biggest jobs in the city'}${on?'':' \u2014 still shut'}</span></div>`;
+      <span>${i===0?'the Old Mint':opened||'the biggest jobs in the city'}${on?'':' \u2014 still shut'}${why}</span></div>`;
   }).join('');
   const owed=Object.keys(meta.forfeit||{});
-  const CLIENT_OF={quota:'a Power Broker',silent:'a Political Operator',steal:'a Collector',
-    sweep:'a Rival Operator',timed:'the Custodians',recovery:'an Institution',
-    heart:'a Party with no name',untouched:'a Private House',hot:'a Speculator'};
+  const CLIENT_OF={quota:'the Power Broker',silent:'the Political Operator',steal:'the Collector',
+    sweep:'the Rival Operator',timed:'the Custodians',recovery:'the Institution',
+    heart:'the client with no name',untouched:'the Private House',hot:'the Speculator'};
   lg.innerHTML=`<div class="led-title">The Operation</div>
     <div class="led-row">
       <div class="led-cell"><span>Standing</span><b style="font-size:15px">${OPERATION[t].nm}</b></div>
@@ -5338,8 +5340,7 @@ function renderLedger(){
 
 // ---------- contracts board ----------
 function openContracts(){ state='contracts'; offeredContracts=genContracts(3); renderContracts(); show('contracts'); }
-// §7 — the commission card. Five facts and a voice, in that order. Everything
-// else (standing, forfeits) rides as a chip, not a paragraph.
+// The commission card: client, objective, where, fee. Four lines, two seconds.
 function renderContracts(){
   const g=$('jobGrid'); g.innerHTML='';
   offeredContracts.forEach((c,i)=>{
@@ -5348,12 +5349,9 @@ function renderContracts(){
     const chips=(c.repJob?`<span class="jchip on">★ asked for by name · +25%</span>`:'')
       +(c.makingGood?`<span class="jchip bad">making good · −20%</span>`:'');
     el.innerHTML=`<div class="jc">${c.client}</div>
-      <div class="jt">Acquire: ${c.acquire||c.desc}</div>
-      <div class="jloc">${c.location}</div>
-      ${THEMES[c.themeKey]&&THEMES[c.themeKey].sub?`<div class="jsub">${THEMES[c.themeKey].sub}</div>`:''}
-      <div class="jd">${c.condition||c.desc}</div>
-      <div class="jr">Fee: $${c.reward.toLocaleString()}${c.notoDown?` \u00b7 \u2212${c.notoDown} notoriety`:''}${chips}</div>
-      ${c.flavor?`<div class="jf">${c.flavor}</div>`:''}`;
+      <div class="jt">${c.obj||c.desc}</div>
+      <div class="jloc">${c.location}${c.tag?` \u00b7 ${c.tag}`:''}</div>
+      <div class="jr">$${c.reward.toLocaleString()}${c.notoDown?` \u00b7 \u2212${c.notoDown} notoriety`:''}${chips}</div>`;
     el.onclick=()=>{ activeContract=c; startRun(); };
     g.appendChild(el);
   });
@@ -5387,7 +5385,6 @@ function buildReport(){
     +' · hunter seen '+pct(L.filter(r=>r.hunter).length,L.length)+'\n';
   out+='locations: '+tally(L,r=>r.thm)+'\n';
   out+='modifiers: '+tally(L,r=>r.mod)+'\n';
-  out+='heist profiles: '+tally(L,r=>r.prf)+'\n';
   out+='jobs: '+tally(L,r=>r.con)+' · contract success '+(withCon.length?pct(withCon.filter(r=>r.conOk).length,withCon.length):'—')+'\n';
   out+='tools: '+tally(L.filter(r=>r.tool),r=>r.tool)+' · avg uses/run (equipped) '+avg(L.filter(r=>r.tool),r=>r.tuse)+'\n';
   { const ch=L.filter(r=>r.chute>0);
@@ -5397,7 +5394,7 @@ function buildReport(){
   for(const r of L.slice(-15)){
     out+=(r.out==='escape'?'✔':r.out==='abandon'?'∅':'✘')+' '
       +(r.out==='escape'?('$'+(r.haul||0).toLocaleString()+(r.bank!=null?'→$'+r.bank.toLocaleString():'')):(r.cause||r.out))
-      +' · '+r.thm+'/'+(r.mod||'clean')+'/'+(r.prf||'?')+' · '+r.con+(r.conOk===true?'✓':r.conOk===false?'✗':'')
+      +' · '+r.thm+'/'+(r.mod||'clean')+' · '+r.con+(r.conOk===true?'✓':r.conOk===false?'✗':'')
       +(r.asc?' · A'+r.asc:'')
       +' · T'+r.pk+(r.awake?' (awake '+r.awake+'s)':'')+' · '+r.sec+'/'+r.tot
       +(r.tool?' · '+r.tool+'×'+r.tuse:'')+' · '+mmss(r.dur)
@@ -5880,13 +5877,15 @@ function renderStats(){
   const HEAT_MEANS=['the vault sleeps','eyes opening','guards a step quicker','sharper eyes, faster feet',
     'the Hunter is out','every eye hunts you','the vault remembers you'];
   const slowPct=player?Math.max(0,Math.round((1-speedNow()/(player.baseSpeed*(inWater?0.75:1)))*100)):0;
+  // Jo's vocabulary names things you CHOOSE between; plain language describes
+  // what they DO. Once you are looking at a number, the number just says it.
   const rows=[
-    ['Strider \u00b7 pace', `+${Math.round(11*upgLevel('feet'))}%`],
-    ['Strider \u00b7 load', `\u2212${Math.round(14*upgLevel('straps'))}% drag per piece`],
-    ['Strider \u00b7 landings', upgLevel('landing')>0?'silent, never hurt':'risky when loaded'],
-    ['Mirage Cloak', `${Math.round(18*upgLevel('boots'))}% quieter`],
-    ['Calculate', `+${8*upgLevel('contacts')}% from buyers`],
-    ['Subterfuge', `${player?player.maxHp:3} hearts`],
+    ['Move speed', `+${Math.round(11*upgLevel('feet'))}%`],
+    ['Weight drag', `\u2212${Math.round(14*upgLevel('straps'))}% per piece`],
+    ['Footsteps', `${Math.round(18*upgLevel('boots'))}% quieter`],
+    ['At the fence', `+${8*upgLevel('contacts')}% from buyers`],
+    ['Hearts', `${player?player.maxHp:3}`],
+    ['Landings', upgLevel('landing')>0?'silent, never hurt':'risky when loaded'],
   ];
   const run=[
     ['In the bag', `$${carriedValue.toLocaleString()}`],
@@ -5897,8 +5896,6 @@ function renderStats(){
   if(stashedValue>0) run.push(['Down the chute', `$${Math.round(stashedValue).toLocaleString()} banked \u2014 yours no matter what`]);
   if(runPerk.id) run.push(['Threshold gift', runPerk.nm]);
   run.push(['The address', `${currentTheme.name} \u2014 ${currentTheme.hint}`]);
-  if(runProfile && runProfile.id!=='plain')
-    run.push(['The setup', upgLevel('scanner')>0 ? `${runProfile.nm} \u2014 ${runProfile.tell}` : runProfile.nm]);
   if(assessor && assessor.marks>0) run.push(['The Assessor', `${assessor.marks} of ${ASSESSOR_MAX_MARKS} entries logged — +${assessorHeat} Heat`]);
   if(hasKey) run.push(['Brass key', 'find the locked shutter']);
   if(trapdoor && !trapdoor.used) run.push(['Old tunnel', 'a one-use drop back to the door']);
@@ -5917,7 +5914,6 @@ function abandonRun(){ touchWrap.style.display='none'; $('hud').classList.remove
   if(chuteCash>0){ meta.gold+=chuteCash;
     meta.career=meta.career||{runs:0,esc:0,banked:0,deaths:{}}; meta.career.banked+=chuteCash; saveMeta(); }
   logRun({ t:Date.now(), seed:vaultSeed, thm:currentThemeKey, lay:currentLayout, mod:activeMod.id,
-    prf:runProfile.id,
     con:activeContract?activeContract.type:'free', conOk:null, asc:ascensionLevel,
     out:'abandon', cause:null, dur:Math.round(runClock), haul:carriedValue, bank:0,
     pk:peakHeat, awake:Math.round(awakeTime), hits:hitsTaken,
@@ -5926,7 +5922,7 @@ function abandonRun(){ touchWrap.style.display='none'; $('hud').classList.remove
     hunter:hunterSpawned, spotted:runSpotted, clear:vaultCleared, heart:false, rival:rivalHaul });
   toast(chuteCash>0?`Run abandoned \u2014 but the chute already banked $${chuteCash.toLocaleString()}.`
                    :'Run abandoned \u2014 you walk out with nothing.',1600); openShop(); }
-function openHowTo(from){ howtoFrom=from; renderTactLog(); show('howto'); }
+function openHowTo(from){ howtoFrom=from; show('howto'); }
 $('pauseBtn').onclick=pauseGame;
 $('muteBtn').onclick=toggleMute; syncMuteUI();
 $('sfxBtn').onclick=toggleSfx; $('musBtn').onclick=toggleMus; syncSoundUI();
@@ -5936,11 +5932,19 @@ if(isTouch) $('fsBtn').style.display='none';   // phones are already full-bleed
 document.addEventListener('pointerdown', e=>{
   if(e.target.closest && e.target.closest('.btn,.choice,.job,.buyer,.iconbtn,.rbtn,.hchip')) S.ui();
 });
+$('skipTut').onclick=skipTutorial;
 $('resumeBtn').onclick=resumeGame;
 $('abandonBtn').onclick=abandonRun;
 $('howtoBtn').onclick=()=>openHowTo('menu');
 $('pauseHowto').onclick=()=>openHowTo('paused');
 $('howtoBack').onclick=()=>{ show(howtoFrom); if(howtoFrom==='paused'){/* stay paused */} };
+// How-to pager: two pages so the reference fits on one screen
+function htPage(n){ $('ht1').style.display=n===1?'':'none'; $('ht2').style.display=n===2?'':'none';
+  $('htTab1').style.boxShadow=n===1?'0 0 0 1px var(--gold-deep) inset':'';
+  $('htTab2').style.boxShadow=n===2?'0 0 0 1px var(--gold-deep) inset':''; }
+$('htTab1').onclick=()=>htPage(1);
+$('htTab2').onclick=()=>htPage(2);
+htPage(1);
 // keyboard pause + mute toggles
 addEventListener('keydown', e=>{
   const k=e.key.toLowerCase();
@@ -5968,7 +5972,8 @@ window.__greed = {
   // keepContract: build the vault as if this job were taken (contract-only paths)
   build(seed, keepContract){ runSeed = seed; if(!keepContract) activeContract = null; buildWorld(); },
   get vgraph(){ return vgraph; }, get walls(){ return walls; }, get loot(){ return loot; },
-  get guards(){ return guards; }, get player(){ return player; }, get portal(){ return portal; },
+  get guards(){ return guards; }, get sentries(){ return sentries; },
+  get player(){ return player; }, get portal(){ return portal; },
   get WORLD(){ return WORLD; }, isOpen, platAt, navTarget,
   ascMods, isMetaMaxed, refreshAscUnlock, guardSpeed, detectRadius,
   get meta(){ return meta; }, get UPGRADES(){ return UPGRADES; }, get ascUnlocked(){ return ascUnlocked(); },
@@ -5984,10 +5989,11 @@ window.__greed = {
   saveMeta, loadMeta,
   updateRivals, get rivals(){ return rivals; }, get rivalHaul(){ return rivalHaul; },
   get MODIFIERS(){ return MODIFIERS; }, get TWISTS(){ return TWISTS; },
-  // §11 heist-profile surface
-  get PROFILES(){ return PROFILES; }, get runProfile(){ return runProfile; }, rollProfile, prof,
-  // §5 Tact surface
-  get TACT(){ return TACT; }, tact, showTact, renderTactLog,
+  // Tact surface
+  get TACT(){ return TACT; }, tact, showTact,
+  // the authored first job
+  get tutorial(){ return tutorial; }, get tutStep(){ return tutStep; },
+  tutorialOn, buildTutorial, tutorialTick, skipTutorial,
   // §9 fence/gift + §13 HUD surface
   get pendingHaul(){ return pendingHaul; }, setPendingHaul(v){ pendingHaul=v; pendingBulk={val:0,n:0}; },
   openFence, bankHaul, careerBanked, tickHud, syncHud,

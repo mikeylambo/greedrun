@@ -1,5 +1,65 @@
 # Changelog
 
+## Web build — ONE THUMB AGAIN: the decompression pass (build 2026-08-17.25)
+
+.24 found Jo's identity and then showed the player too much of the design
+document. This build hides the machinery again. **Greedrun is deeper than it
+looks, not deeper-looking than it plays** — that is now a hard rule in
+`docs/RELEASE_PLAN.md`, along with the rest of the doctrine below.
+
+- **Heist Profiles are gone, root and branch.** The names, the pre-run INTEL
+  card, the Tact, the pause row, the telemetry field, the generation weightings
+  and the RNG draw. A vault is now simply what it contains, and you read it with
+  your eyes instead of a briefing. The economy audit comes back **byte-identical
+  to the pre-.24 baseline**, which is the proof the removal is clean.
+- **The Tact codex is gone.** A Tact is a *moment*: it appears the first time a
+  thing happens, says the one thing worth knowing, and leaves. No archive, no
+  review screen, no collectible quotes — an archive creates pressure to write
+  archive-worthy lines, which is exactly how prose crept back in.
+- **Every Tact rewritten to a seven-word budget**, and the budget is now
+  enforced by the test suite rather than remembered:
+  *"They're adjusting to me. Expect a tighter watch."* → **"They're tightening
+  the watch."** · *"Break the line. They lose what they can't see."* →
+  **"Break sight."** · *"Banded, not sealed. It opens loud — so pick the
+  moment."* → **"Opens loud. Pick the moment."** The ones that were already
+  right stayed: *"They tire. I don't have to."*, *"It wants weight. Fine."*
+- **THE FIRST JOB — an authored, skippable tutorial.** Run one is no longer
+  procedural. It is a hand-placed floor that teaches by *layout*: three free
+  coins in the entry hall so TAKE lands with no risk attached, a doorway, two
+  gems past it, and one heavy idol in the guard's half so you FEEL the load
+  before anything explains it. Four beats — TAKE, WATCH, LOAD, LEAVE — each
+  fired by what the player just did, never by a timer. One guard, one readable
+  loop, no hazards, no modifier, no Assessor, no rival, no Vault Heart (so One
+  More Thing never fires with nothing to reveal). **Skip is one tap**, always
+  visible, and drops you straight into a real vault. Sized so it never
+  letterboxes on a portrait phone.
+- **How to Play is back** — as a *voluntary reference*, on the title and pause
+  screens, never in the path to playing. Two pages, one sentence a row, and the
+  vocabulary is current (it no longer describes "the Workbench" selling "smoke,
+  decoy, grapple").
+- **Commission cards are four lines**: client, objective, location (plus the one
+  condition that isn't already obvious), fee. Gone: the location lore paragraph,
+  the client's quotation, and the sentence restating the objective. A card now
+  reads in about two seconds — *"SPECULATOR / Escape at Heat 4+ / The Sunken
+  Treasury / $2,174"* where .24 spent six layers of copy on the same choice.
+  Objectives are imperatives (`Take $1,300`, `Clear the floor`, `Return a marked
+  item`), and clients dropped their articles (POWER BROKER, CUSTODIANS).
+- **The vocabulary is rationed.** Five branded terms carry the game — GREED,
+  HEAT, TACT, MIRAGE TOOLKIT, OPERATION. Jo's names go on things you *choose
+  between*; plain language describes what things *do*. The pause screen is back
+  to "Move speed" and "Footsteps" instead of "Strider · pace" and "Mirage
+  Cloak" — once you're looking at a number, the number just says what it is.
+- **Toolkit subcopy to one phrase each**: *Vanish from pursuit. Your haul goes
+  quiet.* · *A double they go and look at.* · *Pull the nearest valuable to your
+  hand.* · *Open a sealed route.* · *Mark a spot. Return to it.*
+- The four locations' fiction moved off the commission card and into the Trophy
+  Room's territory list, where lore is voluntary.
+- `tests/web_mastermind_test.mjs` rewritten: profile coverage removed, and it
+  now **fails the build if any Tact, Toolkit line or commission objective goes
+  over seven words**, if the codex returns, if a commission card grows a fifth
+  line, if discipline names creep back onto the pause screen, or if the authored
+  first job stops being authored, skippable or phone-sized.
+
 ## Web build — JO IS THE MASTERMIND: Tact, the Mirage Toolkit, disciplines, commissions & Heist Profiles (build 2026-08-16.24)
 
 An identity pass, not a systems pass. Greedrun was already content-complete and
