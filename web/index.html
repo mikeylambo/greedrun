@@ -258,11 +258,14 @@
     stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 6px rgba(245,197,66,.25));}
   .tile.locked .ic{stroke:var(--muted);filter:none;opacity:.55;}
   .tile.max .ic{stroke:var(--ok);filter:drop-shadow(0 0 6px rgba(127,201,138,.3));}
-  .tile .tn{font-family:"Cinzel",serif;font-weight:700;font-size:12.5px;line-height:1.15;
+  .tile .tn{font-weight:700;font-size:12.5px;letter-spacing:.02em;line-height:1.15;
     color:var(--bone);max-width:100%;display:-webkit-box;-webkit-line-clamp:2;
     -webkit-box-orient:vertical;overflow:hidden;min-height:2.3em;}
   .tile.locked .tn{color:var(--muted);}
-  .pips-row{display:flex;gap:3px;justify-content:center;min-height:6px;}
+  .pips-row{display:inline-flex;gap:3px;justify-content:center;min-height:6px;vertical-align:middle;}
+  .noto-row{display:inline-flex;align-items:center;gap:7px;}
+  .noto-row .pips-row i.on{background:var(--curse-glow);box-shadow:0 0 5px rgba(169,139,255,.5);}
+  .noto-row b{color:var(--curse-glow);font-weight:700;}
   .pips-row i{width:11px;height:5px;border-radius:2px;background:#2e2517;}
   .pips-row i.on{background:var(--gold);box-shadow:0 0 5px rgba(245,197,66,.5);}
   .tile.max .pips-row i.on{background:var(--ok);box-shadow:0 0 5px rgba(127,201,138,.45);}
@@ -616,6 +619,34 @@
     box-shadow:0 0 0 1px var(--panel-line) inset;}
   #skipTut:hover{color:var(--bone);}
   @media (pointer:coarse){ #skipTut{font-size:2.9cqmin;padding:1.4cqmin 3.4cqmin;margin:1.6cqmin 0 .8cqmin;} }
+  /* One More Thing: two tiles, one tap. The numbers do the talking. */
+  .omt-pair{display:flex;gap:14px;margin:26px 0 8px;width:min(460px,92%);}
+  .omt-side{pointer-events:auto;cursor:pointer;flex:1 1 0;background:var(--panel);border-radius:14px;
+    padding:18px 12px 14px;box-shadow:0 0 0 1px var(--panel-line) inset;
+    display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:6px;
+    transition:transform .12s, box-shadow .12s;}
+  .omt-side:hover{transform:translateY(-3px);box-shadow:0 0 0 2px var(--gold) inset;}
+  .omt-side.deep:hover{box-shadow:0 0 0 2px var(--curse-glow) inset;}
+  .omt-side .ic{width:44px;height:44px;stroke:var(--gold);stroke-width:1.6;fill:none;
+    stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 8px rgba(245,197,66,.3));}
+  .omt-side.deep .ic{stroke:var(--curse-glow);filter:drop-shadow(0 0 10px rgba(169,139,255,.45));}
+  .os-val{font-family:"Cinzel",serif;font-weight:900;font-size:30px;color:var(--gold);line-height:1;
+    text-shadow:0 0 18px rgba(245,197,66,.35);}
+  .os-val.heart{font-size:20px;color:var(--curse-glow);text-shadow:0 0 18px rgba(169,139,255,.4);}
+  .os-cap{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+    white-space:nowrap;}
+  .os-go{margin-top:auto;font-family:"Cinzel",serif;font-weight:700;font-size:15px;letter-spacing:.06em;
+    color:var(--vault);background:linear-gradient(180deg,var(--scarf),var(--gold-deep));
+    border-radius:22px;padding:7px 22px;}
+  .omt-side.deep .os-go{color:#fff;background:linear-gradient(180deg,#e0503f,#8f2f24);}
+  @media (pointer:coarse){
+    .omt-pair{gap:3cqmin;margin:6cqmin 0 2cqmin;width:92%;}
+    .omt-side{padding:4cqmin 2.4cqmin 3cqmin;border-radius:3.4cqmin;gap:1.4cqmin;}
+    .omt-side .ic{width:11cqmin;height:11cqmin;}
+    .os-val{font-size:7.4cqmin;} .os-val.heart{font-size:5cqmin;}
+    .os-cap{font-size:2.8cqmin;}
+    .os-go{font-size:3.8cqmin;padding:1.8cqmin 5cqmin;}
+  }
   .credit{position:absolute;left:16px;bottom:14px;font-size:11px;color:var(--muted);letter-spacing:.2em;opacity:.6;}
   #hud.on ~ .credit{display:none;}   /* the meters + key hints own that corner in-run */
 </style>
@@ -828,15 +859,24 @@
     <div class="controls-hint" id="fenceNote">Different buyers want different goods.</div>
   </div>
 
-  <!-- One more thing -->
+  <!-- One more thing — the game's biggest decision, read in two seconds.
+       Both sides of the trade are visible at once: what is certain on the left,
+       what is deeper in on the right. -->
   <div class="overlay" id="onemore">
     <div class="omt">ONE MORE THING?</div>
-    <p class="omt-sub">You're standing on the exit. You could walk out rich right now.
-      But your <em>Greed Sense</em> just lit up something deeper in — a <b style="color:var(--curse-glow)">Vault Heart</b>.</p>
-    <div class="carrying" id="omtCarry">Carrying $0 · guaranteed if you leave now</div>
-    <div class="btn-row">
-      <button class="btn ghost" id="escapeNow">Escape — bank it</button>
-      <button class="btn danger" id="stayGreedy">Stay greedy →</button>
+    <div class="omt-pair">
+      <div class="omt-side" id="escapeNow">
+        <div class="os-ic" id="omtCoinIc"></div>
+        <div class="os-val" id="omtCarry">$0</div>
+        <div class="os-cap">certain</div>
+        <div class="os-go">Leave</div>
+      </div>
+      <div class="omt-side deep" id="stayGreedy">
+        <div class="os-ic" id="omtHeartIc"></div>
+        <div class="os-val heart">Vault Heart</div>
+        <div class="os-cap">deeper in</div>
+        <div class="os-go">Go deeper</div>
+      </div>
     </div>
   </div>
 
@@ -979,6 +1019,9 @@ const ICON = {
   revive:    'M12 21V7M7 12l5-5 5 5M5 4h14',
   landing:   'M12 3v10M8 9l4 4 4-4M4 19h16M7 16l-2 3M17 16l2 3',
   scanner:   'M12 5a7 7 0 100 14 7 7 0 000-14zM12 9a3 3 0 100 6 3 3 0 000-6M12 2v2M12 20v2M2 12h2M20 12h2',
+  // the One More Thing choice
+  coins:     'M12 5c4 0 7 1.3 7 3s-3 3-7 3-7-1.3-7-3 3-3 7-3zM5 8v4c0 1.7 3 3 7 3s7-1.3 7-3V8M5 12v4c0 1.7 3 3 7 3s7-1.3 7-3v-4',
+  heart:     'M12 21l-7-7a4.5 4.5 0 017-5.6A4.5 4.5 0 0119 14zM12 8.4V21',
   // toolkit
   smoke:     'M6 15a3 3 0 010-6 4 4 0 017-2 4 4 0 015 4 3 3 0 01-1 5H7M5 19h5M13 19h6',
   decoy:     'M9 4l4 6-4 6-4-6zM17 9l3 4-3 4-3-4z',
@@ -4869,7 +4912,8 @@ function startRun(){
 }
 function openOneMore(){
   state='onemore'; $('hud').classList.remove('on'); S.omen();
-  $('omtCarry').textContent='Carrying $'+carriedValue.toLocaleString()+' \u00b7 yours for certain if you leave now';
+  $('omtCarry').textContent='$'+carriedValue.toLocaleString();
+  $('omtCoinIc').innerHTML=icon('coins'); $('omtHeartIc').innerHTML=icon('heart');
   show('onemore');
 }
 function resumeGreedy(){
@@ -5572,9 +5616,9 @@ function denHeatSink(){ return denTier()>=2; }              // The Den: a clean 
 function denCalm(){ return denTier()>=3 ? 1 : 0; }          // Underground: jobs start one Heat tier calmer
 // Perk ladder shown in the hideout — [tier, label, live-state fn]
 const DEN_PERKS=[
-  [1,'Fence network',   ()=>`payouts +${Math.round((denBonus()-1)*100)}%`],
-  [2,'Heat sink',       ()=>'clean escapes cool notoriety −1'],
-  [3,'Calmer starts',   ()=>'jobs begin one Heat tier lower'],
+  [1,'Fence network',   ()=>`+${Math.round((denBonus()-1)*100)}%`],
+  [2,'Heat sink',       ()=>'\u22121 notoriety'],
+  [3,'Calmer starts',   ()=>'\u22121 start Heat'],
 ];
 function goldStackSVG(x,n){ let g=`<g transform="translate(${x},0)">`;
   for(let i=0;i<n;i++){ const y=98-i*7.5;
@@ -5678,14 +5722,14 @@ function renderHideoutScene(){
   const bar=$('denBarFill'); if(bar) bar.style.width=(prog*100).toFixed(0)+'%';
   const pk=$('denPerks'); if(pk){ pk.innerHTML = DEN_PERKS.map(p=>{
     const on=ti>=p[0];
-    return `<span class="denperk${on?' on':''}">${on?'✔':'→ '+DEN_TIERS[p[0]][1]} `
-      +`<b>${p[1]}</b><em>${on?p[2]():'locked'}</em></span>`;
+    return on ? `<span class="denperk on">\u2714 <b>${p[1]}</b><em>${p[2]()}</em></span>`
+              : `<span class="denperk"><b>${p[1]}</b><em>${DEN_TIERS[p[0]][1]}</em></span>`;
   }).join('');
     // Modifier Mastery — a long-game track: beat a run under each vault twist.
     if(unlocked('modifiers')){
       const mn=masteryCount(), full=mn===TWISTS.length;
       pk.innerHTML += `<span class="denperk${full?' on':''}">${full?'✔':'→'} `
-        +`<b>Modifier Mastery ${mn}/${TWISTS.length}</b>`
+        +`<b>Mastery ${mn}/${TWISTS.length}</b>`
         +`<em>${mn>0?'+'+Math.round((masteryMult()-1)*100)+'% on all sales':'beat a run under each vault twist'}</em></span>`;
     }
   }
@@ -5721,16 +5765,17 @@ function renderShop(){
         const from=op.at, span=nx.at-from, have=clamp((careerBanked()-from)/span,0,1);
         return `<div style="width:min(420px,86%);height:5px;margin:5px auto 0;background:#241d13;border-radius:3px;overflow:hidden">
           <i style="display:block;height:100%;width:${(have*100).toFixed(1)}%;background:linear-gradient(90deg,var(--gold-deep),var(--gold))"></i></div>`; })();
-      ol.innerHTML=`<span style="color:var(--muted)">The Operation</span> <b style="color:var(--gold)">${op.nm}</b>`
-        + `<span style="color:var(--muted)"> — ${op.ds}</span>`
-        + (nx?`<br><span style="font-size:11px;color:var(--muted)">Next: <b style="color:var(--bone)">${nx.nm}</b> — ${nx.ds} · $${Math.max(0,nx.at-careerBanked()).toLocaleString()} more banked or given</span>${bar}`
-             :`<br><span style="font-size:11px;color:var(--gold-deep)">The whole city is open. Nothing left to buy your way into.</span>`);
+      // the standing is a name and a bar; what it BUYS is the territory list
+      // in the Trophy Room, not three sentences on the home screen
+      ol.innerHTML=`<b style="color:var(--gold)">${op.nm}</b>${bar}`
+        + (nx?`<span style="font-size:11px;color:var(--muted)">$${Math.max(0,nx.at-careerBanked()).toLocaleString()} to <b style="color:var(--bone)">${nx.nm}</b></span>`
+             :`<span style="font-size:11px;color:var(--gold-deep)">Every door is open.</span>`);
     }
     // territory opening is an event
     if(t>(meta.seenOp|0)){
       meta.seenOp=t; saveMeta(); S.boon();
       const ub=$('unlockBanner');
-      if(ub){ ub.style.display='block'; ub.innerHTML=`THE OPERATION GROWS — <b>${op.nm}</b>: ${op.ds}`; }
+      if(ub){ ub.style.display='block'; ub.innerHTML=`THE OPERATION GROWS \u2014 <b>${op.nm}</b>`; }
     }
   }
   { const next=Object.keys(UNLOCKS).find(k=>!unlocked(k));
@@ -5764,10 +5809,9 @@ function renderShop(){
   const nl=$('notoLine');
   if(meta.curseDebt>0){
     const seed=clamp(Math.floor(meta.curseDebt/2)-upgLevel('cool')-denCalm(),0,3);
-    const hunterAt=Math.max(2,4-Math.floor(meta.curseDebt/3));
     nl.style.color='var(--curse-glow)';
-    nl.innerHTML=`Notoriety ${meta.curseDebt}`+(seed>0?` \u00b7 jobs start at Heat T${seed}`:'')
-      +` \u00b7 Hunter enters at Heat T${hunterAt} \u2014 return goods to cool it`;
+    nl.innerHTML=`<span class="noto-row">Notoriety ${pips(meta.curseDebt,10)}`
+      +(seed>0?` <b>start T${seed}</b>`:'')+`</span>`;
   } else { nl.innerHTML=''; }
   // Reputation standing — the name the trade uses for you, and what it buys
   const rl=$('repLine'), dom=repDominant();
@@ -5775,9 +5819,7 @@ function renderShop(){
     if(dom){
       const counts=Object.entries(meta.rep||{}).filter(([k])=>REP_INFO[k]).sort((a,b)=>b[1]-a[1])
         .map(([k,v])=>`${k} ×${v}`).join(' · ');
-      rl.innerHTML=`<span style="color:var(--muted)">They call you</span> <b style="color:var(--gold)">${dom}</b>`
-        +`<span style="color:var(--muted)"> — ${REP_INFO[dom].tag}</span>`
-        +`<br><span style="font-size:11px;color:var(--muted)">${counts}</span>`;
+      rl.innerHTML=`<span style="color:var(--muted)">They call you</span> <b style="color:var(--gold)">${dom}</b>`;
     } else rl.innerHTML='';
   }
   // §4 — the upgrade grid IS the disciplines; a mastered one lights its capstone
