@@ -83,7 +83,7 @@ await page.click('#startBtn'); await page.waitForTimeout(200);
 const vet = { tabs: await vis('shopTabs'), daily: await vis('dailyBtn'), coll: await vis('collectionBtn') };
 if (!vet.tabs || !vet.daily || !vet.coll) fails.push('veteran save missing sections: ' + JSON.stringify(vet));
 await page.click('#tabGearBtn'); await page.waitForTimeout(150);
-const gear = { discs: await page.evaluate(() => document.querySelectorAll('.disc-head').length),
+const gear = { discs: await page.evaluate(() => document.querySelectorAll('#fenceGrid .disc-head').length),
   fence: await vis('fenceGrid'), tools: await vis('toolGrid'), denHidden: !(await vis('bankAmt')) };
 if (gear.discs !== 4 || !gear.fence || !gear.tools || !gear.denHidden) fails.push('Gear tab wrong: ' + JSON.stringify(gear));
 else log.push('veteran: Den/Gear tabs split correctly (disciplines + toolkit on Gear)');

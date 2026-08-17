@@ -22,9 +22,9 @@ await page.evaluate(() => { window.__greed.meta.runs = 30; });   // veteran save
 await page.click('#startBtn');
 await page.waitForTimeout(150);
 const laneUi = await page.evaluate(() => ({
-  heads: document.querySelectorAll('.disc-head').length,
+  heads: document.querySelectorAll('#fenceGrid .disc-head').length,
   wb: document.getElementById('wbHead').textContent,
-  cards: document.getElementById('fenceGrid').querySelectorAll('.fence').length,
+  cards: document.getElementById('fenceGrid').querySelectorAll('.tile').length,
 }));
 if (laneUi.heads !== 4) fails.push('expected 4 discipline headers, got ' + laneUi.heads);
 if (!/Mirage Toolkit/.test(laneUi.wb)) fails.push('toolkit header is not the Mirage Toolkit: ' + laneUi.wb);

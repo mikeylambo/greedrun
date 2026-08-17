@@ -259,18 +259,23 @@ const BUDGET = 7;
   await page.waitForTimeout(200);
   await page.click('#tabGearBtn'); await page.waitForTimeout(150);
   const g = await page.evaluate(() => ({
-    heads: [...document.querySelectorAll('.disc-head b')].map(e => e.textContent.trim()),
+    heads: [...document.querySelectorAll('#fenceGrid .disc-head b')].map(e => e.textContent.trim()),
     caps: [...document.querySelectorAll('.disc-cap')].map(e => e.textContent.trim()).join(' | '),
-    cards: document.getElementById('fenceGrid').querySelectorAll('.fence').length,
+    cards: document.getElementById('fenceGrid').querySelectorAll('.tile').length,
+    tiles: document.getElementById('toolGrid').querySelectorAll('.tile').length,
+    icons: document.getElementById('fenceGrid').querySelectorAll('.tile svg.ic').length,
     kit: document.getElementById('wbHead').textContent,
   }));
   const wantD = ['Strider', 'Mirage Cloak', 'Subterfuge', 'Calculate'];
   if (g.heads.join(',') !== wantD.join(',')) fails.push('disciplines are ' + g.heads.join(',') + ', want ' + wantD.join(','));
   if (g.cards !== 10) fails.push('the ten upgrades did not survive the reorganization (' + g.cards + ')');
   if (!/Mirage Toolkit/.test(g.kit)) fails.push('the kit header is not the Mirage Toolkit');
+  if (g.tiles !== 5) fails.push('the toolkit lost tiles (' + g.tiles + '/5)');
+  // glanceable means icon-first: every tile carries a glyph, not just a name
+  if (g.icons !== 10) fails.push('upgrade tiles are missing icons (' + g.icons + '/10)');
   for (const c of ['The Long Walk', 'Cold Trail', 'The Grand Scheme', 'Appraiser'])
     if (!g.caps.includes(c)) fails.push('capstone missing from the discipline headers: ' + c);
-  if (!fails.length) log.push('disciplines: ' + g.heads.join(' · ') + ' — 10 upgrades, 4 capstones, kit is its own axis');
+  if (!fails.length) log.push('disciplines: ' + g.heads.join(' · ') + ' — 10 icon tiles, 4 capstones, 5 toolkit tiles');
 }
 {
   // ...but the pause screen describes what things DO, in plain words

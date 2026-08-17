@@ -236,13 +236,54 @@
   .shop-head{margin-bottom:6px;}
   .bank{font-family:"Cinzel",serif;font-weight:900;color:var(--gold);font-size:34px;line-height:1;}
   .bank .c{color:var(--muted);font-size:13px;font-family:"Barlow Semi Condensed";font-weight:600;letter-spacing:.14em;display:block;text-transform:uppercase;}
-  .fence-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;
-    width:min(560px,90%);margin:22px 0 24px;}
+  .fence-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;
+    width:min(560px,94%);margin:16px 0 20px;}
+  @media (min-width:880px) and (pointer:fine){ .fence-grid{grid-template-columns:repeat(4,minmax(0,1fr));} }
   .fence{pointer-events:auto;text-align:left;background:var(--panel);border-radius:10px;
     padding:14px 15px;box-shadow:0 0 0 1px var(--panel-line) inset;cursor:pointer;
     transition:transform .12s, box-shadow .12s;position:relative;}
   .fence:hover:not(.owned):not(.locked){transform:translateY(-2px);box-shadow:0 0 0 1px var(--gold-deep) inset;}
   .fence .nm{font-family:"Cinzel",serif;font-weight:700;font-size:16.5px;color:var(--bone);}
+  /* ===== GLANCEABLE TILES — icon first, pips for level, one number =====
+     The old card carried a name, a level fraction, a description sentence, an
+     effect sentence, a cost and an action tag: six text elements that wrapped
+     into paragraph soup on a phone. A tile carries a glyph, a short name, a pip
+     row and one number, at a fixed height, and never wraps. ===== */
+  .tile{pointer-events:auto;cursor:pointer;background:var(--panel);border-radius:12px;
+    padding:11px 9px 9px;box-shadow:0 0 0 1px var(--panel-line) inset;position:relative;
+    display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center;
+    transition:transform .12s, box-shadow .12s;}
+  .tile:hover:not(.max):not(.locked){transform:translateY(-2px);box-shadow:0 0 0 1px var(--gold-deep) inset;}
+  .tile .ic{width:38px;height:38px;stroke:var(--gold);stroke-width:1.6;fill:none;
+    stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 6px rgba(245,197,66,.25));}
+  .tile.locked .ic{stroke:var(--muted);filter:none;opacity:.55;}
+  .tile.max .ic{stroke:var(--ok);filter:drop-shadow(0 0 6px rgba(127,201,138,.3));}
+  .tile .tn{font-family:"Cinzel",serif;font-weight:700;font-size:12.5px;line-height:1.15;
+    color:var(--bone);max-width:100%;display:-webkit-box;-webkit-line-clamp:2;
+    -webkit-box-orient:vertical;overflow:hidden;min-height:2.3em;}
+  .tile.locked .tn{color:var(--muted);}
+  .pips-row{display:flex;gap:3px;justify-content:center;min-height:6px;}
+  .pips-row i{width:11px;height:5px;border-radius:2px;background:#2e2517;}
+  .pips-row i.on{background:var(--gold);box-shadow:0 0 5px rgba(245,197,66,.5);}
+  .tile.max .pips-row i.on{background:var(--ok);box-shadow:0 0 5px rgba(127,201,138,.45);}
+  .tile .delta{font-size:10.5px;letter-spacing:.02em;color:var(--gold-deep);line-height:1.25;
+    max-width:100%;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+    overflow:hidden;min-height:2.5em;}
+  .tile .price{font-family:"Cinzel",serif;font-weight:700;font-size:14px;color:var(--gold);
+    margin-top:1px;white-space:nowrap;}
+  .tile.locked .price{color:var(--muted);}
+  .tile.max .price{color:var(--ok);font-size:12.5px;letter-spacing:.1em;}
+  .tile .on-belt{position:absolute;top:6px;right:7px;font-size:8.5px;letter-spacing:.1em;
+    font-weight:700;color:var(--vault);background:var(--gold);border-radius:8px;padding:1px 6px;}
+  .tile.equipped{box-shadow:0 0 0 2px var(--gold) inset;}
+  @media (pointer:coarse){
+    .tile{padding:2.6cqmin 1.8cqmin 2.2cqmin;gap:1.2cqmin;border-radius:3cqmin;}
+    .tile .ic{width:9.5cqmin;height:9.5cqmin;}
+    .tile .tn{font-size:3.2cqmin;}
+    .tile .delta{font-size:2.7cqmin;}
+    .tile .price{font-size:3.6cqmin;}
+    .pips-row i{width:2.8cqmin;height:1.3cqmin;}
+  }
   /* structured card rows: name+level up top, divider, cost+action pinned below */
   .fence .cardTop{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:2px;}
   .fence .lv{flex:none;font-size:10px;letter-spacing:.12em;font-weight:600;color:var(--gold-deep);}
@@ -465,9 +506,9 @@
     font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-deep);
     margin:8px 2px 0;padding-bottom:3px;border-bottom:1px solid #33291a;}
   .disc-head b{color:var(--gold);font-weight:700;}
-  .disc-id{min-width:0;flex:1 1 auto;}
-  .disc-head i{display:block;font-style:normal;font-size:10px;letter-spacing:.02em;
-    text-transform:none;color:var(--muted);margin-top:2px;max-width:38ch;}
+  .disc-head .dic{width:15px;height:15px;stroke:var(--gold-deep);stroke-width:1.7;fill:none;
+    stroke-linecap:round;stroke-linejoin:round;vertical-align:-3px;margin-right:5px;}
+  .disc-id{min-width:0;flex:1 1 auto;display:flex;align-items:center;gap:2px;}
   .disc-cap{font-size:10px;letter-spacing:.03em;text-transform:none;color:var(--muted);text-align:right;}
   .disc-cap em{font-style:normal;}
   .disc-cap.on{color:var(--ok);}
@@ -727,7 +768,7 @@
       <div class="bank" style="font-size:20px;margin-bottom:2px"><span class="c">Banked gold</span><span id="gearGold">$0</span></div>
       <div id="gearNoto" style="width:min(560px,94%);text-align:center;font-size:12px;letter-spacing:.04em;margin-bottom:8px;line-height:1.5"></div>
       <div class="fence-grid" id="fenceGrid"></div>
-      <div class="stat-head" id="wbHead" style="width:min(560px,94%);text-align:center;margin-top:4px">The Mirage Toolkit &middot; one piece rides per job (Space / TOOL)</div>
+      <div class="disc-head" id="wbHead" style="width:min(560px,94%);margin-top:14px"></div>
       <div class="fence-grid" id="toolGrid" style="margin-top:10px"></div>
     </div>
     <div class="controls-hint">Everything you buy here rides into the next job.
@@ -914,6 +955,48 @@ const UPGRADES = [
   { id:'landing', nm:'Cat\u2019s Landing',base:1100, max:1, ds:'Land like a shadow \u2014 ledge drops are silent and never hurt.' },
   { id:'scanner', nm:'Treasure Sense',   base:1500, max:1, ds:'Read the room before you walk it — the Vault Heart is marked from the first second.' },
 ];
+// ===== UI ICONOGRAPHY — a glyph is read faster than a name =====
+// Survivor.io's selection screens carry almost no text: the icon IS the noun
+// and the pips ARE the level. We steal that information design and keep our own
+// skin (dark, gold, Cinzel) rather than its saturated cartoon look.
+// These are inline SVG paths on a 24x24 grid — no image assets, nothing that
+// touches the deferred art pass, and they inherit currentColor so a maxed tile
+// or a locked tile tints without a second file.
+const ICON = {
+  // disciplines
+  strider:   'M6 20l4-7 3 2 2-4M4 5h5M7 3v4',
+  cloak:     'M12 3l7 4v5c0 4-3 7-7 9-4-2-7-5-7-9V7z',
+  subterfuge:'M12 4l8 4v4c0 5-4 7-8 8-4-1-8-3-8-8V8zM9 12l2 2 4-4',
+  calculate: 'M4 6h16M4 6v13h16V6M8 10h2M12 10h2M16 10h2M8 14h2M12 14h6',
+  // upgrades
+  feet:      'M8 19c0-3 1-5 1-8S8 6 10 5s4 1 4 4 1 4 3 5M3 12h3M3 16h4',
+  straps:    'M6 4v16M18 4v16M6 9h12M6 15h12M9 9v6M15 9v6',
+  boots:     'M8 4v9c0 3-2 3-2 5h11c0-3-2-3-3-5V4zM17 8c2 1 2 3 0 4M20 6c3 2 3 6 0 8',
+  pockets:   'M5 9h14l-1 11H6zM9 9V6a3 3 0 016 0v3M12 12v5',
+  contacts:  'M5 4h13a1 1 0 011 1v15H6a1 1 0 01-1-1zM8 8h8M8 12h8M8 16h5',
+  luck:      'M12 20S4 15 4 9a4 4 0 018-1 4 4 0 018 1c0 6-8 11-8 11z',
+  cool:      'M12 3v18M5 8l14 8M19 8L5 16M12 3l-2 3M12 3l2 3',
+  revive:    'M12 21V7M7 12l5-5 5 5M5 4h14',
+  landing:   'M12 3v10M8 9l4 4 4-4M4 19h16M7 16l-2 3M17 16l2 3',
+  scanner:   'M12 5a7 7 0 100 14 7 7 0 000-14zM12 9a3 3 0 100 6 3 3 0 000-6M12 2v2M12 20v2M2 12h2M20 12h2',
+  // toolkit
+  smoke:     'M6 15a3 3 0 010-6 4 4 0 017-2 4 4 0 015 4 3 3 0 01-1 5H7M5 19h5M13 19h6',
+  decoy:     'M9 4l4 6-4 6-4-6zM17 9l3 4-3 4-3-4z',
+  grapple:   'M4 4l9 9M13 13a3 3 0 104 4M11 4h5v5',
+  lockpick:  'M15 5a4 4 0 100 8 4 4 0 000-8zM11 11L4 18v3h3l1-2h2v-2h2l1-2',
+  portal:    'M12 4c3 0 5 4 5 8s-2 8-5 8-5-4-5-8 2-8 5-8zM4 12h16',
+};
+function icon(id,cls){
+  const d=ICON[id]; if(!d) return '';
+  return `<svg class="ic ${cls||''}" viewBox="0 0 24 24" aria-hidden="true">`
+    + d.split('M').filter(Boolean).map(seg=>`<path d="M${seg}"/>`).join('') + `</svg>`;
+}
+// Level as PIPS, not "LV 3/5" — length is read, a fraction is parsed.
+function pips(cur,max){
+  let h='<span class="pips-row">';
+  for(let i=0;i<max;i++) h+=`<i class="${i<cur?'on':''}"></i>`;
+  return h+'</span>';
+}
 function upgLevel(id){ return meta.upg[id]|0; }                 // works for old boolean saves too
 // TUNE — each level costs DOUBLE (was ×1.55): telemetry showed a skilled player
 // maxing the whole tree in 1-2 hours; the doubling stretches the acquisition arc
@@ -1077,15 +1160,15 @@ function applyDoorPerk(p){
 // Ids are unchanged, so every existing save keeps its kit.
 const TOOLS = [
   { id:'smoke',   nm:'Shadow Step',    disc:'cloak',      short:'SHADOW',  cost:1400, uses:2,
-    ds:'Vanish from pursuit. Your haul goes quiet.' },
+    ds:'Vanish from pursuit.' },
   { id:'decoy',   nm:'Illusion',       disc:'mindgames',  short:'MIRAGE',  cost:1200, uses:2,
-    ds:'A double they go and look at.' },
+    ds:'A double they chase.' },
   { id:'grapple', nm:'Strider’s Line', disc:'strider',    short:'LINE',    cost:1600, uses:3,
-    ds:'Pull the nearest valuable to your hand.' },
+    ds:'Pull loot to your hand.' },
   { id:'lockpick',nm:'Subversion Kit', disc:'subversion', short:'SUBVERT', cost:1300, uses:1,
     ds:'Open a sealed route.' },
   { id:'portal',  nm:'Mirage Gate',    disc:'subterfuge', short:'GATE',    cost:4200, uses:1,
-    ds:'Mark a spot. Return to it.' },
+    ds:'Mark a spot. Return.' },
 ];
 // The two disciplines that live entirely in the kit (§3/§4): no upgrade grid,
 // no new systems — the tool IS the expression.
@@ -1294,12 +1377,13 @@ function effLabel(id,l){
     case 'feet': return `+${Math.round(11*l)}% speed`;
     case 'straps': return `${Math.round(14*l)}% less drag`;
     case 'boots': return `${Math.round(18*l)}% quieter`;
-    case 'pockets': return `floor ${Math.round((1-Math.max(0.34,0.66-0.07*l))*100)}% speed`;
-    case 'contacts': return `+${8*l}% from buyers`;
+    case 'pockets': return `floor ${Math.round((1-Math.max(0.34,0.66-0.07*l))*100)}%`;
+    case 'contacts': return `+${8*l}% buyers`;
     case 'luck': return `+${l} heart${l===1?'':'s'}`;
-    case 'cool': return `\u2212${l} starting Heat`;
-    case 'landing': return l>0?'silent, safe drops':'\u2014';
+    case 'cool': return `\u2212${l} start Heat`;
+    case 'landing': return l>0?'silent drops':'\u2014';
     case 'scanner': return l>0?'Heart revealed':'\u2014';
+    case 'revive': return l>0?'survive one hit':'\u2014';
   }
   return '';
 }
@@ -5698,17 +5782,20 @@ function renderShop(){
   }
   // §4 — the upgrade grid IS the disciplines; a mastered one lights its capstone
   const grid=$('fenceGrid'); grid.innerHTML='';
+  // A tile, not a card: glyph, short name, pips, the delta this level buys,
+  // and one number. Nothing wraps, everything is the same height, and the
+  // description sentence is gone — the icon and the delta already said it.
   const upCard=(u)=>{
     const lvl=upgLevel(u.id), maxed=lvl>=u.max, cost=upgCost(u), afford=meta.gold>=cost;
     const el=document.createElement('div');
-    el.className='fence'+(maxed?' owned':'')+(!maxed&&!afford?' locked':'');
-    let effLine='';
-    if(u.max>1){ effLine = lvl>0 ? `<div class="eff">Now ${effLabel(u.id,lvl)}${maxed?'':` \u2192 ${effLabel(u.id,lvl+1)}`}</div>`
-                                 : `<div class="eff">Next ${effLabel(u.id,1)}</div>`; }
-    el.innerHTML=`<div class="cardTop"><span class="nm">${u.nm}</span><span class="lv">${lvl>0?`LV ${lvl}/${u.max}`:''}</span></div>
-      <div class="ds">${u.ds}</div>${effLine}
-      <div class="cardFoot"><span class="cost">${maxed?'\u2713 MAX':'$'+cost.toLocaleString()}</span>
-        <span class="buyTag ${maxed||!afford?'dim':''}">${maxed?'OWNED':afford?'BUY':`NEED $${(cost-meta.gold).toLocaleString()}`}</span></div>`;
+    el.className='tile'+(maxed?' max':'')+(!maxed&&!afford?' locked':'');
+    const delta = maxed ? effLabel(u.id,lvl) || 'mastered'
+                        : (u.max>1 ? effLabel(u.id,lvl+1) : effLabel(u.id,1) || u.nm);
+    el.innerHTML = icon(u.id)
+      + `<div class="tn" title="${u.nm}">${u.nm}</div>`
+      + pips(lvl,u.max)
+      + `<div class="delta">${delta||''}</div>`
+      + `<div class="price">${maxed?'\u2713 MAX':'$'+cost.toLocaleString()}</div>`;
     if(!maxed&&afford){ el.onclick=()=>{ meta.gold-=cost; meta.upg[u.id]=lvl+1; S.cash();
       const wasLocked=ascUnlocked()<1; refreshAscUnlock(); if(wasLocked&&ascUnlocked()>=1) toast('Difficulty Ascension unlocked \u2014 every upgrade maxed.',1600);
       { const d=DISCIPLINES.find(x=>x.ups.includes(u.id));
@@ -5722,32 +5809,32 @@ function renderShop(){
   for(const l of DISCIPLINES){
     const {cur,max}=discLevels(l), done=capOn(l.id);
     const head=document.createElement('div'); head.className='disc-head';
-    head.innerHTML=`<div class="disc-id"><b>${l.nm}</b> \u00b7 ${cur}/${max}<i>${l.ds}</i></div>`
-      +`<span class="disc-cap${done?' on':''}">${done?'\u2714':'\u27f6'} ${l.cap} \u2014 <em>${l.capDs}</em></span>`;
+    head.innerHTML=`<div class="disc-id">${icon(l.id,'dic')}<b>${l.nm}</b> \u00b7 ${cur}/${max}</div>`
+      +`<span class="disc-cap${done?' on':''}">${done?'\u2714':'\u27f6'} ${l.cap}</span>`;
     grid.appendChild(head);
     for(const uid of l.ups) grid.appendChild(upCard(UPGRADES.find(u=>u.id===uid)));
   }
   // The Mirage Toolkit: buy pieces once; ONE rides per job
   const wh=$('wbHead'), tgGate=$('toolGrid');
   if(!unlocked('tools')){
-    if(wh) wh.innerHTML='⟶ The Mirage Toolkit opens after job '+UNLOCKS.tools;
+    if(wh) wh.innerHTML=`<div class="disc-id"><b>Mirage Toolkit</b></div><span class="disc-cap">\u27f6 opens after job ${UNLOCKS.tools}</span>`;
     if(tgGate){ tgGate.style.display='none'; tgGate.innerHTML=''; }
   } else if(tgGate) tgGate.style.display='';
   if(unlocked('tools') && wh){ const tOwned=TOOLS.filter(t=>ownsTool(t.id)).length, tDone=capOn('toolkit');
-    wh.innerHTML=`The Mirage Toolkit &middot; ${tOwned}/${TOOLS.length} pieces &middot; one rides per job (Space / TOOL)`
-      +` &middot; <span style="color:${tDone?'var(--ok)':'var(--muted)'};letter-spacing:.04em">${tDone?'✔':'⟶'} Sleight of Hand — +1 charge</span>`; }
+    wh.innerHTML=`<div class="disc-id">${icon('smoke','dic')}<b>Mirage Toolkit</b> \u00b7 ${tOwned}/${TOOLS.length}</div>`
+      +`<span class="disc-cap${tDone?' on':''}">${tDone?'\u2714':'\u27f6'} Sleight of Hand</span>`; }
   const tg=unlocked('tools')?$('toolGrid'):null;
   if(tg){ tg.innerHTML='';
     for(const t of TOOLS){
       const owned=ownsTool(t.id), equipped=meta.equippedTool===t.id, afford=meta.gold>=t.cost;
       const el=document.createElement('div');
-      el.className='fence'+(!owned&&!afford?' locked':'');
-      if(equipped) el.style.boxShadow='0 0 0 2px var(--gold) inset';
-      el.innerHTML=`<div class="cardTop"><span class="nm">${t.nm}</span><span class="lv">×${t.uses}/JOB</span></div>
-        <div class="eff" style="margin:-2px 0 5px">${KIT_DISC[t.disc]||''}</div>
-        <div class="ds">${t.ds}</div>
-        <div class="cardFoot"><span class="cost">${owned?(equipped?'✓ ON THE BELT':'Owned'):'$'+t.cost.toLocaleString()}</span>
-          <span class="buyTag ${owned||afford?'':'dim'}">${owned?(equipped?'UNEQUIP':'EQUIP'):afford?'BUY':`NEED $${(t.cost-meta.gold).toLocaleString()}`}</span></div>`;
+      el.className='tile'+(owned?' max':'')+(!owned&&!afford?' locked':'')+(equipped?' equipped':'');
+      el.innerHTML = icon(t.id)
+        + `<div class="tn" title="${t.nm}">${t.nm}</div>`
+        + pips(owned?t.uses:0, t.uses)
+        + `<div class="delta">${t.ds}</div>`
+        + `<div class="price">${owned?(equipped?'ON THE BELT':'EQUIP'):'$'+t.cost.toLocaleString()}</div>`
+        + (equipped?'<span class="on-belt">\u2713</span>':'');
       if(!owned&&afford) el.onclick=()=>{ meta.gold-=t.cost; meta.tools[t.id]=1;
         if(!meta.equippedTool) meta.equippedTool=t.id;
         S.cash(); toast(t.nm+' — added to the Toolkit.',1100); saveMeta(); renderShop(); };
