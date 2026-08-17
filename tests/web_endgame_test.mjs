@@ -1,5 +1,5 @@
 // Headless verification for the endgame GDD systems: THE VAULT REMEMBERS
-// (max-Heat tier), the multi-stage Legendary Heist, and skill-lane capstones.
+// (max-Heat tier), the multi-stage finale commission, and discipline capstones.
 //   node tests/web_endgame_test.mjs
 import { chromium } from 'playwright-core';
 import { fileURLToPath } from 'url';
@@ -17,19 +17,19 @@ await page.waitForTimeout(300);
 
 const fails = [], log = [];
 
-// ---- skill lanes render in the hideout ----
+// ---- the disciplines render in the hideout ----
 await page.evaluate(() => { window.__greed.meta.runs = 30; });   // veteran save: full hideout unlocked (ladder now runs to ~24 jobs)
 await page.click('#startBtn');
 await page.waitForTimeout(150);
 const laneUi = await page.evaluate(() => ({
-  heads: document.querySelectorAll('.lane-head').length,
+  heads: document.querySelectorAll('.disc-head').length,
   wb: document.getElementById('wbHead').textContent,
   cards: document.getElementById('fenceGrid').querySelectorAll('.fence').length,
 }));
-if (laneUi.heads !== 4) fails.push('expected 4 lane headers, got ' + laneUi.heads);
-if (!/Trickster/.test(laneUi.wb)) fails.push('workbench header lost its Trickster identity');
-if (laneUi.cards !== 10) fails.push('lane grouping lost upgrades (' + laneUi.cards + '/10)');
-if (!fails.length) log.push('lanes: 4 headers + Trickster workbench, all 10 upgrades present');
+if (laneUi.heads !== 4) fails.push('expected 4 discipline headers, got ' + laneUi.heads);
+if (!/Mirage Toolkit/.test(laneUi.wb)) fails.push('toolkit header is not the Mirage Toolkit: ' + laneUi.wb);
+if (laneUi.cards !== 10) fails.push('discipline grouping lost upgrades (' + laneUi.cards + '/10)');
+if (!fails.length) log.push('disciplines: 4 headers + the Mirage Toolkit, all 10 upgrades present');
 
 // ---- enter a run for the live-system tests ----
 await page.click('#nextRunBtn');
@@ -56,31 +56,40 @@ const core = await page.evaluate(() => {
   if (Math.abs(G.extractNeed() - 0.6) > 1e-9) out.fails.push('extract need did not recover');
   if (!out.fails.length) out.log.push('vault remembers: wakes at T6, pings every guard, settles when greed drops');
 
-  // ---- capstones ----
+  // ---- discipline capstones (§4: same five effects, new homes) ----
+  // Strider {feet,straps,pockets,landing} -> The Long Walk
+  // Mirage Cloak {boots,cool}             -> Cold Trail
+  // Subterfuge {luck,revive}              -> The Grand Scheme
+  // Calculate {scanner,contacts}          -> Appraiser's Eye
+  // the Mirage Toolkit (all five pieces)  -> Sleight of Hand
   const U = G.meta.upg;
   Object.keys(U).forEach(k => U[k] = 0);
-  if (G.searchMul() !== 1) out.fails.push('Cold Trail active without the lane');
-  U.feet = 5; U.boots = 5; U.landing = 1;
-  if (G.searchMul() !== 0.7) out.fails.push('Cold Trail capstone inactive when Thief lane maxed');
-  // Bottomless Bags: exactly 8 weight -> zero drag
-  U.straps = 5; U.pockets = 4;
+  if (G.searchMul() !== 1) out.fails.push('Cold Trail active without the discipline');
+  U.boots = 5; U.cool = 3;
+  if (G.searchMul() !== 0.7) out.fails.push('Cold Trail inactive when Mirage Cloak is mastered');
+  if (!G.capOn('cloak')) out.fails.push('capOn(cloak) false with boots+cool maxed');
+  // The Long Walk: exactly 8 weight -> zero drag
+  U.feet = 5; U.straps = 5; U.pockets = 4; U.landing = 1;
+  if (!G.capOn('strider')) out.fails.push('capOn(strider) false with the whole discipline maxed');
   G.build(22);
   const mark = kinds => { for (const l of G.loot) l.got = false;
     for (const k of kinds) { const it = G.loot.find(l => l.type === k && !l.got); if (it) it.got = true; } G.recompute(); };
   mark(['idol', 'gem', 'coin']);                  // 5+2+1 = 8 weight
-  if (Math.abs(G.speedNow() - G.player.baseSpeed) > 1e-9) out.fails.push('Bottomless Bags: 8 weight should carry free');
-  U.pockets = 3;                                  // break the lane
-  if (!(G.speedNow() < G.player.baseSpeed)) out.fails.push('drag should return when the Smuggler lane is broken');
+  if (Math.abs(G.speedNow() - G.player.baseSpeed) > 1e-9) out.fails.push('The Long Walk: 8 weight should carry free');
+  U.pockets = 3;                                  // break the discipline
+  if (!(G.speedNow() < G.player.baseSpeed)) out.fails.push('drag should return when Strider is broken');
   U.pockets = 4;
-  // The Long Game: contracts +15%
+  // The Grand Scheme: commissions +15%
   G.meta.rep = {};
-  U.contacts = 5; U.cool = 3; U.revive = 1;
+  U.luck = 3; U.revive = 1;
+  if (!G.capOn('subterfuge')) out.fails.push('capOn(subterfuge) false with luck+revive maxed');
   let silent = null;
   for (let i = 0; i < 40 && !silent; i++) silent = G.genContracts(3).find(c => c.type === 'silent');
-  if (!silent) out.fails.push('no silent contract rolled in 40 boards');
-  else if (silent.reward !== Math.round(750 * 1.15)) out.fails.push('Long Game reward ' + silent.reward + ' (want 863)');
+  if (!silent) out.fails.push('no silent commission rolled in 40 boards');
+  else if (silent.reward !== Math.round(750 * 1.15)) out.fails.push('Grand Scheme fee ' + silent.reward + ' (want 863)');
   // Appraiser's Eye: the fake can't inflate Heat, but the scam survives
-  U.scanner = 1; U.luck = 3;
+  U.scanner = 1; U.contacts = 5;
+  if (!G.capOn('calculate')) out.fails.push('capOn(calculate) false with scanner+contacts maxed');
   let fake = null;
   for (const s of [1, 2, 3, 4, 5, 6, 7, 8]) { G.build(s); fake = G.loot.find(l => l.kind === 'fake'); if (fake) break; }
   if (!fake) out.fails.push('no fake found for Appraiser test');
@@ -92,14 +101,15 @@ const core = await page.evaluate(() => {
     const noble = G.buyersFor('fake', fake.value).find(b => b.id === 'noble');
     if (!noble || noble.payout < 500) out.fails.push('the noble scam should survive the Appraiser’s Eye');
   }
-  // Trickster: +1 charge with every tool owned
+  // the Mirage Toolkit: +1 charge with every piece owned
   for (const t of G.TOOLS) G.meta.tools[t.id] = 1;
   G.meta.equippedTool = 'smoke';
   G.build(23);
   if (G.toolCharges !== 3) out.fails.push('Sleight of Hand charge bonus missing (charges=' + G.toolCharges + ')');
+  if (!G.capOn('toolkit')) out.fails.push('capOn(toolkit) false with all five pieces owned');
   Object.keys(U).forEach(k => U[k] = 0);
   G.meta.tools = { smoke: 0, decoy: 0, grapple: 0, lockpick: 0, portal: 0 }; G.meta.equippedTool = '';
-  if (!out.fails.length) out.log.push('capstones: Cold Trail, Bottomless Bags, Long Game, Appraiser’s Eye, Sleight of Hand');
+  if (!out.fails.length) out.log.push('capstones: The Long Walk, Cold Trail, The Grand Scheme, Appraiser’s Eye, Sleight of Hand');
   // ---- The long tail: museum sets, the second sheath, The Long Night ----
   {
     const savedColl = JSON.stringify(G.meta.collection);

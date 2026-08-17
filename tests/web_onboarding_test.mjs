@@ -2,8 +2,8 @@
 //   node tests/web_onboarding_test.mjs
 // Fresh save: minimal hideout (no tabs/daily/collection/workbench), "Begin
 // Tonight's Job" starts a clean free run directly, contextual tips fire once.
-// Veteran save: tabs appear, Gear holds the lanes + Workbench, the Jobs Board
-// opens, the Rehearsal screen works, unlock banner shows once for one unlock.
+// Veteran save: tabs appear, Gear holds the disciplines + Mirage Toolkit, the
+// commissions board opens, the Rehearsal works, unlock banner shows once.
 import { chromium } from 'playwright-core';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
@@ -41,7 +41,7 @@ if (run1.state !== 'playing' || run1.contractsOpen) fails.push('Begin did not st
 if (run1.mod !== 'clean') fails.push('first run rolled a modifier before the unlock: ' + run1.mod);
 else log.push('fresh: Begin starts a clean free run, no jobs board');
 
-// ---- tips fire once at the teachable moment (weight >= 6) ----
+// ---- Tact fires once at the teachable moment (weight >= 6) ----
 await page.evaluate(() => { const G = window.__greed; G.player.inv = 999;
   const heavy = G.loot.filter(l => !l.got && !l.hidden && l.plat === -1 && l.weight >= 2
     && !['artifact', 'shrine', 'living'].includes(l.kind)).slice(0, 4);
@@ -52,9 +52,9 @@ for (let i = 0; i < 4; i++) {
   await page.waitForTimeout(200);
 }
 const tips = await page.evaluate(() => ({ load: window.__greed.meta.tips.load | 0, move: window.__greed.meta.tips.move | 0 }));
-if (!tips.load) fails.push('weight tip never fired after heavy pickups');
-if (!tips.move) fails.push('first-run tip never fired');
-else log.push('tips: move + load fired and persisted');
+if (!tips.load) fails.push('the LOAD Tact never fired after heavy pickups');
+if (!tips.move) fails.push('the first-run primer never ran');
+else log.push('tact: the first-run primer and the LOAD read fired once and persisted');
 
 // ---- unlock banner: exactly one fresh unlock announces once ----
 await page.evaluate(() => { const G = window.__greed; G.meta.runs = 1; G.meta.seenUnlocks = {}; });
@@ -83,14 +83,14 @@ await page.click('#startBtn'); await page.waitForTimeout(200);
 const vet = { tabs: await vis('shopTabs'), daily: await vis('dailyBtn'), coll: await vis('collectionBtn') };
 if (!vet.tabs || !vet.daily || !vet.coll) fails.push('veteran save missing sections: ' + JSON.stringify(vet));
 await page.click('#tabGearBtn'); await page.waitForTimeout(150);
-const gear = { lanes: await page.evaluate(() => document.querySelectorAll('.lane-head').length),
+const gear = { discs: await page.evaluate(() => document.querySelectorAll('.disc-head').length),
   fence: await vis('fenceGrid'), tools: await vis('toolGrid'), denHidden: !(await vis('bankAmt')) };
-if (gear.lanes !== 4 || !gear.fence || !gear.tools || !gear.denHidden) fails.push('Gear tab wrong: ' + JSON.stringify(gear));
-else log.push('veteran: Den/Gear tabs split correctly (lanes + workbench on Gear)');
+if (gear.discs !== 4 || !gear.fence || !gear.tools || !gear.denHidden) fails.push('Gear tab wrong: ' + JSON.stringify(gear));
+else log.push('veteran: Den/Gear tabs split correctly (disciplines + toolkit on Gear)');
 await page.click('#tabDenBtn'); await page.waitForTimeout(100);
 await page.click('#nextRunBtn'); await page.waitForTimeout(200);
 const boardOpen = await page.evaluate(() => document.getElementById('contracts').classList.contains('on'));
-if (!boardOpen) fails.push('veteran Choose Tonight\'s Job did not open the board');
+if (!boardOpen) fails.push('veteran Choose Tonight\'s Job did not open the commissions board');
 await page.click('#jobsBack'); await page.waitForTimeout(150);
 // rehearsal: open from the daily card, case a raw seed
 const hasRehearse = await page.evaluate(() => !!document.getElementById('rehearseBtn'));
@@ -105,7 +105,7 @@ else {
   await page.waitForTimeout(200);
   const st = await page.evaluate(() => window.__greed.state);
   if (st !== 'playing') fails.push('Rehearsal seed did not start a run (state=' + st + ')');
-  else log.push('veteran: jobs board opens, Rehearsal cases seed 42');
+  else log.push('veteran: commissions board opens, Rehearsal cases seed 42');
 }
 
 // ---- the Den must fit its screen (no scrolling on home) ----

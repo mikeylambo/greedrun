@@ -24,8 +24,8 @@ canvas renderer). No build step. Design bible: `docs/PORT_HANDOFF.md`
 2. Bump the `const BUILD = 'YYYY-MM-DD.N'` stamp (search `BUILD = `) — it
    shows on the title screen and hideout so the user can confirm they're on
    the new build.
-3. `npm test` — six Playwright suites chained (region, juice, location,
-   tools, endgame, onboarding). Chromium is at
+3. `npm test` — seven Playwright suites chained (region, juice, location,
+   tools, endgame, onboarding, mastermind). Chromium is at
    `/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell`.
    `npm run audit:econ` prints an economy report (informational, not
    pass/fail).
@@ -36,6 +36,30 @@ canvas renderer). No build step. Design bible: `docs/PORT_HANDOFF.md`
    `team_9hkoGBJSASmRx09t7A0aIHti`).
 
 **Hard rules.**
+- **Greedrun is deeper than it looks, not deeper-looking than it plays.** It is
+  an arcade game for one thumb. Jo's expertise exists to make depth *intuitive*,
+  never to make it something the player has to study. A player who ignores every
+  proper noun in the game should still have a great time; a player who knows Jo
+  gets recognition on top. Recognition is the reward — comprehension is never
+  the prerequisite.
+- **THE COPY DOCTRINE — seven words.** Any string the player reads mid-decision
+  (Tact lines, Toolkit subcopy, commission objectives) has a hard seven-word
+  budget, enforced by `tests/web_mastermind_test.mjs`. Not "shorter copy":
+  *personality per word*. "Break sight." beats "Break the line. They lose what
+  they can't see." Never explain a thing the objective already said.
+- **Commission cards are four lines**: client, objective, location (+ the one
+  condition that isn't already obvious), fee. No location lore, no client
+  speeches, no sentence restating the objective. Two seconds to read.
+- **Ration the vocabulary.** Five branded terms carry the game: GREED, HEAT,
+  TACT, MIRAGE TOOLKIT, OPERATION. Strider / Mirage Cloak / Calculate /
+  Subterfuge live in the progression screen for players who go looking. Jo's
+  names go on things you *choose between*; plain language describes what things
+  *do*. Once the player is reading a number, the number just says what it is
+  ("Move speed", not "Strider · pace").
+- **Tact is a moment, not a codex.** It appears once, at the moment the thing
+  happens, and goes away. No archive, no review screen, no collection — an
+  archive creates pressure to write archive-worthy lines, which is how prose
+  crept back in at .24.
 - All world generation must consume the seeded RNG stream identically
   regardless of player state — dailies and shared vault codes must
   reproduce. (E.g. modifier rolls always draw `modR1`/`modR2` even when

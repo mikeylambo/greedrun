@@ -1,4 +1,4 @@
-// Headless verification for GDD items 1-2-3: the Workbench tool kit, Fake Loot,
+// Headless verification for GDD items 1-2-3: the Mirage Toolkit, Fake Loot,
 // and Reputation-as-system.
 //   node tests/web_tools_test.mjs
 // Drives each tool through __greed (smoke breaks chases + silences, decoy plants
@@ -29,11 +29,11 @@ await page.waitForTimeout(150);
 const res = await page.evaluate(async () => {
   const G = window.__greed;
   const out = { fails: [], log: [] };
-  // own ONLY the tool under test — owning all five lights the Trickster capstone (+1 charge)
+  // own ONLY the piece under test — owning all five lights Sleight of Hand (+1 charge)
   const equip = id => { G.meta.tools = { smoke: 0, decoy: 0, grapple: 0, lockpick: 0, portal: 0 };
     G.meta.tools[id] = 1; G.meta.equippedTool = id; };
 
-  // ---- Smoke Bomb: breaks a chase, silences the bag ----
+  // ---- Shadow Step (smoke): breaks a chase, silences the bag ----
   equip('smoke'); G.build(3);
   if (G.toolCharges !== 2) out.fails.push('smoke charges ' + G.toolCharges + ' (want 2)');
   const g0 = G.guards[0];
@@ -44,7 +44,7 @@ const res = await page.evaluate(async () => {
   if (G.toolCharges !== 1) out.fails.push('smoke did not consume a charge');
   else out.log.push('smoke: breaks chases, silences 3s, consumes a charge');
 
-  // ---- Decoy Bag: plants bait, patrols go look ----
+  // ---- Illusion (decoy): plants bait, patrols go look ----
   equip('decoy'); G.build(4);
   const g1 = G.guards[0];
   g1.x = G.player.x + 150; g1.y = G.player.y; g1.state = 'patrol';
@@ -53,7 +53,7 @@ const res = await page.evaluate(async () => {
   else if (g1.state !== 'investigate') out.fails.push('decoy did not pull the patrol (state=' + g1.state + ')');
   else out.log.push('decoy: bait planted, patrol pulled to the glitter');
 
-  // ---- Grapple Hook: reels the nearest visible loot to your feet ----
+  // ---- Strider's Line (grapple): reels the nearest visible loot to your feet ----
   equip('grapple'); G.build(5);
   const coin = G.loot.find(l => !l.got && !l.hidden && l.kind === 'common');
   coin.x = G.player.x + 120; coin.y = G.player.y; coin.plat = -1;
@@ -62,7 +62,7 @@ const res = await page.evaluate(async () => {
   if (G.toolCharges !== 2) out.fails.push('grapple charge accounting off (' + G.toolCharges + ')');
   else out.log.push('grapple: reeled a coin to Jo’s feet');
 
-  // ---- Lockpick Kit: reopens a severed shutter without shedding loot ----
+  // ---- Subversion Kit (lockpick): reopens a severed shutter without shedding loot ----
   equip('lockpick');
   let picked = false;
   for (const s of [1, 2, 7, 42, 1337, 90210, 5, 88]) {
@@ -81,7 +81,7 @@ const res = await page.evaluate(async () => {
   if (!picked) out.fails.push('lockpick never reopened a severed shutter across seeds');
   else out.log.push('lockpick: cracked a sealed shutter back open');
 
-  // ---- Portable Portal: free plant, then snap back from anywhere ----
+  // ---- Mirage Gate (portal): free plant, then snap back from anywhere ----
   equip('portal'); G.build(6);
   const px = G.player.x, py = G.player.y;
   G.useTool();                       // plant (free)
@@ -116,8 +116,8 @@ const res = await page.evaluate(async () => {
   // ---- Reputation: standing shapes the board and the prices ----
   G.meta.rep = {};
   if (G.repDominant()) out.fails.push('repDominant should be null with no history');
-  G.meta.rep = { 'GENTLEMAN THIEF': 3, 'TOMB RAIDER': 1 };
-  if (G.repDominant() !== 'GENTLEMAN THIEF') out.fails.push('dominant rep wrong: ' + G.repDominant());
+  G.meta.rep = { 'THE QUIET HAND': 3, 'NOTHING LEFT': 1 };
+  if (G.repDominant() !== 'THE QUIET HAND') out.fails.push('dominant rep wrong: ' + G.repDominant());
   let sawRepJob = false, boardOk = true;
   for (let i = 0; i < 6; i++) {
     const board = G.genContracts(3);
@@ -137,10 +137,10 @@ const res = await page.evaluate(async () => {
   // ---- Reputation is earned on escape ----
   G.build(9);
   G.meta.rep = {};
-  G.carriedValue = 900;              // quiet, modest haul -> GENTLEMAN THIEF
+  G.carriedValue = 900;              // quiet, modest haul -> THE QUIET HAND
   G.endRun(true);
-  if ((G.meta.rep['GENTLEMAN THIEF'] | 0) !== 1) out.fails.push('escape did not record the epithet (rep=' + JSON.stringify(G.meta.rep) + ')');
-  else out.log.push('reputation: escape recorded GENTLEMAN THIEF ×1');
+  if ((G.meta.rep['THE QUIET HAND'] | 0) !== 1) out.fails.push('escape did not record the epithet (rep=' + JSON.stringify(G.meta.rep) + ')');
+  else out.log.push('reputation: escape recorded THE QUIET HAND ×1');
 
   // ---- The second sheath: a found tool waits, then takes over on its own ----
   {
