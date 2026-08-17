@@ -1,5 +1,29 @@
 # Changelog
 
+## Web build — the iPhone HUD fix (build 2026-08-15.24)
+
+Reproduced the reported screens at iPhone 16e size (393x852 portrait,
+852x393 landscape) and measured every HUD box instead of eyeballing it.
+Three genuine layout bugs, not crowding:
+
+- **The meters sat underneath the tool button.** In portrait the greed and
+  noise readouts occupied x13-218 while the TOOL button occupied x192-243
+  at the same height — "LIGHT" was literally printed behind SHADOW. The
+  bottom band of a portrait screen now belongs to the thumb: controls own
+  it, and the readouts stack above them (Heat, then meters, then buttons).
+- **The pause button could be pushed off the right edge.** The briefing
+  column and the readout column were both flexible, so a long job title
+  shoved the mute/pause cluster past the screen. The left column now
+  flexes and the buttons are fixed.
+- **The job briefing swallowed the vault.** A Bounty Run description
+  wrapped to six lines and covered the top-left quarter of the screen. It
+  is a reminder, not the screen: the title keeps one line, the objective
+  gets two (one in landscape), and the pause screen still carries the
+  full text. Toasts drop below the briefing instead of landing on it.
+
+Verified clean across three viewport sizes x three job types — no
+overlaps, nothing clipped, briefing under 17% of screen height.
+
 ## Web build — THE ECONOMY PASS + phone density (build 2026-08-15.23)
 
 The 24-run report showed the real problem: hauls of $2,230-$5,170 banking
