@@ -1,5 +1,48 @@
 # Changelog
 
+## Web build — GLANCEABLE: icon tiles, one-tap decisions, a Den that stops narrating (build 2026-08-17.26)
+
+Survivor.io's selection screens carry almost no text: the icon **is** the noun
+and the pips **are** the level. This build steals that information design and
+keeps Greedrun's own skin — dark, gold, Cinzel — rather than its saturated
+cartoon look. Nothing here is a reskin; it is the same screens saying the same
+things in a fraction of the reading.
+
+- **Disciplines and the Mirage Toolkit are icon tiles.** The old gear card
+  carried six text elements — name, `LV 3/5`, a description sentence, an effect
+  sentence, a cost and a `BUY` tag — two to a row, so on a phone the name broke
+  across two lines and the description ran to three. A tile carries a glyph, a
+  short name, a pip row and one number, at fixed height, and never wraps. Three
+  to a row on a phone, four on a wide screen.
+- **20 inline SVG glyphs** for the four disciplines, the ten upgrades, the five
+  Toolkit pieces and the One More Thing choice. Drawn on a 24×24 grid in the
+  game's own palette, inheriting `currentColor` so a mastered tile goes green
+  and an unaffordable one greys out with no second asset. No image files, no
+  rendering change — UI iconography, not the deferred art pass.
+- **Level reads as pips, not a fraction.** `▪▪▪▫▫` is seen; `LV 3/5` is parsed.
+  Notoriety uses the same row, so the two "how far along am I" readouts in the
+  game finally look like each other.
+- **ONE MORE THING is two tiles and one tap.** The game's biggest decision used
+  to spend thirty words explaining itself. It now shows both sides of the trade
+  at once — a coin glyph and the certain number on the left, a Vault Heart glyph
+  on the right — and reads in about a second.
+- **The Den stops narrating.** The standing is a name, a bar and *"$110,000 to
+  The Grand Design"* in place of three sentences; what a standing *buys* lives
+  in the Trophy Room's territory list, where lore is voluntary. The growth
+  banner is an event, not an essay. The epithet line is the name it earned. Den
+  perk chips are a label and a value (*"Heat sink −1 notoriety"*) rather than a
+  sentence apiece.
+- Effect labels shortened to fit a glance (*"floor 48%"*, *"−2 start Heat"*,
+  *"silent drops"*), and Second Wind finally states its effect instead of
+  repeating its own name. Toolkit subcopy cut to three to five words each.
+- **Typography correction, no font change.** Cinzel and Barlow Semi Condensed
+  are exactly as they were — but the new tiles had put both the name *and* the
+  price into Cinzel, and Cinzel is a display serif that goes muddy at 12.5px in
+  a narrow tile. Names moved to the working face; numbers keep Cinzel, because
+  the numerals are the game's signature.
+- The suite now asserts every upgrade tile carries an icon, so a later edit
+  can't quietly regress to name-only cards.
+
 ## Web build — ONE THUMB AGAIN: the decompression pass (build 2026-08-17.25)
 
 .24 found Jo's identity and then showed the player too much of the design
