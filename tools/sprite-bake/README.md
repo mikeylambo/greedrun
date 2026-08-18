@@ -21,8 +21,21 @@ y=118 baseline. Every frame agrees by construction.
    `web/assets/jo/build_atlas.py`'s anchoring maths (cell 128, feet 118, cx 64).
 
 ## Known finding (2026-08-18)
-The pipeline works, but the model is a standard 1.8 m UE-rigged humanoid —
-about 7.5 heads tall. Greedrun's vector Jo is drawn chibi (~3 heads) and reads
-far better at the game's zoom, where the player collision radius is 14 px.
-Using this model as-is would need a proportion retarget (scale head up, shorten
-limbs) before it beats what already ships.
+The pipeline works. The blocker was PROPORTION, not fidelity: the supplied
+model is a standard 1.8 m UE-rigged humanoid (~7.5 heads) and Greedrun draws Jo
+at a 14 px collision radius, where realistic proportions stop reading.
+
+`bake_chibi.html` fixes that **in the baker**. Because the mesh is skinned,
+scaling bones deforms the art with them, so the retarget is a parameter block:
+
+```js
+const RT = { head:2.0, thigh:0.78, foot:1.28, arm:0.86, hand:1.15 };
+```
+
+Nothing in the game changes. `JO_A_CELL` / `JO_A_SCALE` appear only inside
+`drawJo()`; collision, doors, spawns and pathing all key off `player.r = 14`.
+The sprite is paint on top of that circle — world generation never learns the
+character's on-screen size.
+
+Next knobs if it needs to go further: push `head` toward 2.4, drop `thigh`
+toward 0.65, and compress the spine chain.

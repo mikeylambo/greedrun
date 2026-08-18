@@ -1,0 +1,96 @@
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}</style></head><body>
+<script src="three.min.js"></script><script src="GLTFLoader.js"></script>
+<script>
+const R=512;                                  // render at 4x the 128 cell, downsampled later
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true});
+renderer.setSize(R,R); renderer.setClearColor(0x000000,0); document.body.appendChild(renderer.domElement);
+const scene=new THREE.Scene();
+// lighting tuned to Greedrun's palette: warm key, gold rim, cool fill
+// Jo is near-black on near-black vault floors, so the sprite has to carry its
+// own separation: strong neutral key so the outfit reads as cloth not a hole,
+// a cool fill to shape the far side, and a hot gold rim to peel him off the bg.
+scene.add(new THREE.AmbientLight(0xffffff, 1.05));
+scene.add(new THREE.HemisphereLight(0xbfd0ff, 0x4a4034, 1.5));
+const key=new THREE.DirectionalLight(0xffffff, 3.1); key.position.set(2.6,5.2,3.4); scene.add(key);
+const fill=new THREE.DirectionalLight(0xbcd0ff, 1.35); fill.position.set(-3.4,1.8,2.6); scene.add(fill);
+const rim=new THREE.DirectionalLight(0xffcf3f, 3.0); rim.position.set(-2.2,3.4,-3.6); scene.add(rim);
+const rim2=new THREE.DirectionalLight(0xffcf3f, 2.2); rim2.position.set(3.0,2.6,-3.2); scene.add(rim2);
+// ORTHOGRAPHIC: every frame must share one projection or the sprite jitters
+const PITCH=38*Math.PI/180, Hw=2.15;
+const cam=new THREE.OrthographicCamera(-Hw/2,Hw/2,Hw/2,-Hw/2,0.01,50);
+cam.position.set(0,Math.sin(PITCH)*6+0.0,Math.cos(PITCH)*6); cam.lookAt(0,0.88,0);
+const clamp=(v,a,b)=>v<a?a:v>b?b:v, smoothstep=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
+function solveLocomotion(speed01, phase, tSec){
+  const act  = clamp(speed01/0.12, 0, 1);            // activity: fully walking by ~12% of top speed
+  const run  = smoothstep(0.55, 1.0, speed01);       // 0 = walk .. 1 = run
+  const amp  = (0.34 + 0.34*speed01) * act;          // leg swing grows with speed
+  const aAmp = (0.30 + 0.55*speed01) * act;          // arm swing
+  const s = Math.sin(phase), s2 = Math.sin(phase+Math.PI);
+  const kneeGain = 0.9 + 0.55*run;
+  return {
+    hip:      [ s*amp, s2*amp ],
+    knee:     [ Math.max(0,-Math.sin(phase-0.5))*kneeGain*act,
+                Math.max(0,-Math.sin(phase+Math.PI-0.5))*kneeGain*act ],
+    shoulder: [ s2*aAmp, s*aAmp ],
+    elbow:    [ -0.25 - Math.max(0, s )*0.45*act,
+                -0.25 - Math.max(0, s2)*0.45*act ],
+    bobY:     Math.abs(s)*(0.05+0.035*speed01)*act,
+    leanX:    (0.06 + 0.11*run)*speed01,
+    rollZ:    s*0.035*act,
+    headZ:    -s*0.02*act,
+    scarfLift: speed01*1.25,
+    breathe:  (1-act)*Math.sin(tSec*2.2)*0.012,
+  };
+}
+window.__st={ready:false,err:null,bones:{}};
+new THREE.GLTFLoader().load('base_basic_pbr.glb', g=>{
+  const root=g.scene;
+  root.traverse(o=>{ if(o.isMesh||o.isSkinnedMesh){
+    const L=Array.isArray(o.material)?o.material:[o.material];
+    for(const m of L){ if(!m) continue;
+      if(m.emissive) m.emissive.setRGB(0,0,0);          // the export ships emissive [1,1,1]
+      m.emissiveIntensity=0; m.emissiveMap=null; m.side=THREE.FrontSide;
+      if(m.color) m.color.multiplyScalar(1.9);        // the baked texture is very dark
+      m.roughness=Math.min(1,(m.roughness??0.7)*0.72); m.needsUpdate=true; }
+  }});
+  const box=new THREE.Box3().setFromObject(root), sz=box.getSize(new THREE.Vector3()), ctr=box.getCenter(new THREE.Vector3());
+  const s=1.80/sz.y; root.scale.setScalar(s);
+  root.position.set(-ctr.x*s, -box.min.y*s, -ctr.z*s);
+  const pivot=new THREE.Group(); pivot.add(root); scene.add(pivot); window.__pivot=pivot;
+  // UE-standard rig -> the solver's joint names
+  const find=n=>root.getObjectByName(n)||null;
+  const B={ upLegL:find('thigh_l'), upLegR:find('thigh_r'), legL:find('calf_l'), legR:find('calf_r'),
+            armL:find('upperarm_l'), armR:find('upperarm_r'), foreL:find('lowerarm_l'), foreR:find('lowerarm_r'),
+            spine:find('spine_03'), head:find('head') };
+  // ---- CHIBI RETARGET -------------------------------------------------
+  // The model is a standard 1.8m UE humanoid (~7.5 heads). Greedrun draws Jo
+  // at a 14px collision radius, where realistic proportions stop reading.
+  // Because the mesh is SKINNED, scaling bones deforms the art with them — so
+  // the whole fix happens here in the baker. The game never learns about it.
+  const RT = window.__RT || {head:2.0, thigh:0.78, foot:1.28, arm:0.86, hand:1.15};
+  const sc=(n,k)=>{ const o=root.getObjectByName(n); if(o) o.scale.setScalar(k); };
+  sc('head',RT.head);
+  sc('thigh_l',RT.thigh); sc('thigh_r',RT.thigh);      // shortens the whole leg chain
+  sc('foot_l',RT.foot);   sc('foot_r',RT.foot);        // ...boots stay chunky
+  sc('upperarm_l',RT.arm); sc('upperarm_r',RT.arm);
+  sc('hand_l',RT.hand);    sc('hand_r',RT.hand);
+  window.__st.info={...(window.__st.info||{}), retarget:RT};
+  // ---------------------------------------------------------------------
+  const rest={}; for(const k in B) if(B[k]) rest[k]=B[k].rotation.clone();
+  window.__st.bones=Object.fromEntries(Object.entries(B).map(([k,v])=>[k,!!v]));
+  const setX=(b,base,a)=>{ if(b) b.rotation.set(base.x+a, base.y, base.z); };
+  // pose + render one frame; returns a transparent PNG
+  window.__bake=(phase, speed01, yaw)=>{
+    const p=solveLocomotion(speed01, phase, phase*0.4);
+    setX(B.upLegL,rest.upLegL,p.hip[0]);   setX(B.upLegR,rest.upLegR,p.hip[1]);
+    setX(B.legL,rest.legL,-p.knee[0]);     setX(B.legR,rest.legR,-p.knee[1]);
+    setX(B.armL,rest.armL,p.shoulder[0]);  setX(B.armR,rest.armR,p.shoulder[1]);
+    setX(B.foreL,rest.foreL,p.elbow[0]+0.25); setX(B.foreR,rest.foreR,p.elbow[1]+0.25);
+    if(B.spine) B.spine.rotation.set(rest.spine.x - p.leanX*0.6, rest.spine.y, rest.spine.z + p.rollZ);
+    pivot.rotation.y=yaw; pivot.position.y=p.bobY*0.5;
+    renderer.render(scene,cam);
+    return renderer.domElement.toDataURL('image/png');
+  };
+  window.__st.ready=true;
+}, undefined, e=>{ window.__st.err=String(e); window.__st.ready=true; });
+</script></body></html>
