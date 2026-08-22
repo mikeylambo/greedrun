@@ -39,3 +39,21 @@ character's on-screen size.
 
 Next knobs if it needs to go further: push `head` toward 2.4, drop `thigh`
 toward 0.65, and compress the spine chain.
+
+## Formats (2026-08-22)
+
+The model never enters the game — the game loads PNGs. It only enters this
+baker, so the format is our choice, not a constraint.
+
+- **OBJ — use this for loot.** `OBJLoader` has zero dependencies and loot is
+  static geometry: no rig, no skinning, no animation. Verified against the
+  vendored three (r128): loads, parses to correct geometry and bounds, renders
+  through the orthographic camera on a transparent background. `MTLLoader` is
+  vendored beside it for materials.
+- **FBX — works, but it's the heavy option.** 100 KB loader, and binary FBX (the
+  usual export) additionally needs `fflate.min.js`, which is not vendored. Its
+  value is rigs and animation. That matters for Jo, not for a coin.
+- **GLB** stays the path for anything rigged.
+
+Swap in `bake.html` is one line:
+`<script src="OBJLoader.js"></script>` → `new THREE.OBJLoader().load('x.obj', …)`.
