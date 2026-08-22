@@ -70,10 +70,12 @@ carry that from across a room.
   the piece reappearing whole at its spawn is arguably wrong, but it is not an
   art problem.
 - **Gilded Fake must read as valuable and be wrong.** It raises Heat like real
-  loot and fences for pennies. Its current tell is a hue nudge off Loose Coin
-  (`#ffd27a` vs `#e9c15a`) — deliberately near-invisible. The Appraiser's Eye
-  capstone adds a small green tick at `(+8, −10)`, drawn by code on top of the
-  art. Keep the deception in the *material*, not the shape.
+  loot and fences for pennies. Today it borrows the same arch as Crown Jewels and
+  the Porcelain Relic and sits one hue-step off the gold family — near-invisible
+  by accident rather than by design. §5.1 makes that deliberate: it is the one
+  slot that *should* clone another (the Golden Idol), with every tell in the
+  material. The Appraiser's Eye capstone adds a small green tick at `(+8, −10)`,
+  drawn by code on top of the art.
 - **Vault Heart is the centrepiece.** Weight 11 — nearly double the next heaviest
   piece in the game — plus the top noise and the top curse on the table. There is
   no hard bag cap; weight is a continuous drag on speed and volume, so carrying
@@ -109,8 +111,11 @@ shadow, no halo, no background.**
   draws around the origin. Put the object's visual centre at pixel `(64, 64)`.
   This is *not* the Jo atlas contract — Jo is feet-baselined at `y = 118`; loot is
   centred. Do not mix them up.
-- Bodies should occupy roughly **40–90 px** of the 128 cell (10–22 world units).
-  Do not fill the frame; the halo needs the room.
+- Bodies should occupy roughly **40–85 px** of the 128 cell (10–21 world units).
+  Do not fill the frame; the halo needs the room. One exception: the artifact's
+  halo ring (slot 10a) is 28 units across and will fill ~112 px. That is fine —
+  it is circular and spins about the cell centre, so it stays inside the frame at
+  every rotation.
 - One hero colour per slot, matching the table. The palette is doing mechanical
   work — teal means valuable, violet means cursed, green means it runs away — so
   a piece that drifts off its hue breaks a read the player has been trained on.
@@ -141,68 +146,210 @@ player learns the language.
 
 ## 5. Prompting Mint.gg
 
-Mint generates 3D; the game needs a flat sprite. The workflow is: generate the
-object, render it orthographically from a fixed camera, export at 128, drop it in.
-Same discipline as `tools/sprite-bake/` — one camera, one light rig, every piece
-baked through it, so eleven assets look like one set.
+Eleven prompts, each complete on its own — paste one, generate, move to the next.
+Nothing here needs a preamble bolted on.
 
-**Camera lock (state this in every prompt):** orthographic, **35° elevation**,
-straight-on azimuth — the shallow 3/4 top-down the rest of the game reads in.
-Every piece from the identical camera; no per-object framing.
+They are **model prompts**: they describe an object, its material and its
+silhouette, and nothing else. Camera, lighting and export are a *render*
+concern, they happen once in the tool rather than eleven times in a prompt, and
+telling a 3D generator about cameras and ground shadows tends to make it model a
+plinth. That part is §5.3, below the prompts.
 
-### Shared style preamble — paste above each prompt
+### 5.1 The silhouette assignment
 
-> Single isolated object on a fully transparent background. Stylised game asset for
-> a dark, luxuriant top-down heist game — near-black stone vaults lit by gold.
-> Bold simplified forms with a heavy near-black outline (`#050404`); high internal
-> contrast; one dominant hero colour per object. Readable as a silhouette at 20
-> pixels. No ground shadow, no glow, no light bloom, no scene, no text, no base or
-> pedestal unless specified. Orthographic camera, 35° elevation, straight-on
-> azimuth. Neutral key light from upper-left, cool fill, one warm gold rim.
+The finding in §0 is that six kinds currently share one shape. So the shapes are
+assigned up front, deliberately, and each prompt states its own. Ten distinct
+silhouettes and one intentional near-clone:
 
-### Per-slot prompts
+| # | Slot | Silhouette family | Identifying feature at 20 px |
+|---|---|---|---|
+| 01 | Loose Coin | wide and low | the flattest thing in the set |
+| 02 | Cut Gem | tall narrow spike | the sharpest point |
+| 03 | Golden Idol | heavy top-wide trapezoid | dense, blocky, no gaps |
+| 04 | Marked Relic | flat oval pierced by voids | you can see through it |
+| 05 | Skitterjewel | round mass, thin legs out | it's a bug |
+| 06 | Crown Jewels | open ring with rising points | the hole in the middle |
+| 07 | Porcelain Relic | curved hourglass profile | the only curves in the set |
+| 08 | Gilded Fake | **deliberately clones 03** | nothing — that's the point |
+| 09 | Offering Shrine | wide block, detached shape above | the gap between them |
+| 10 | Bound Relic | open circle around a gem | ring plus contents |
+| 11 | Vault Heart | broad mass in claws | biggest, heaviest, by a margin |
 
-1. **Loose Coin** — `#e9c15a`. A small heap of three or four struck gold coins,
-   irregular hand-cut edges, one leaning on its side so the stack reads as a
-   silhouette rather than a disc. Wide and low. The cheapest thing in the vault.
-2. **Cut Gem** — `#7fe3d0`. A single brilliant-cut teal gemstone, sharp facets,
-   internal light, standing point-up. Clean, geometric, cold. Nothing ornate.
-3. **Golden Idol** — `#f5c542`. A squat gold votive figure, heavy and top-loud —
-   an object that would *clang*. Broad shoulders, thick base, ceremonial. It
-   should look like it weighs five of the coins above.
-4. **Marked Relic** — `#a98bff`. A ritual mask in dull violet-black metal, hollow
-   eyes, an ownership sigil struck into the brow. Sinister but sober. It is cursed
-   and expensive, and it should look like both.
-5. **Skitterjewel** — `#7fd88a`. A palm-sized live creature made of green gemstone
-   with six thin dark legs and two large forward-facing eyes. Rounded body, alert,
-   caught mid-scuttle. Cute enough to want, quick enough to lose. Front view: the
-   eyes must read clearly, they point where it flees.
-6. **Crown Jewels** — `#ff5da8`. A slim royal circlet set with rose-pink stones,
-   tilted so the band and the stones both read. Regal, not gaudy. Stealing it
-   brings elite guards, so it should look *noticed*.
-7. **Porcelain Relic** — `#dfeaf5`. A pale glazed porcelain vase, narrow neck,
-   fine painted band at the shoulder, cool near-white. Visibly thin-walled — it
-   should look one knock from gone.
-8. **Gilded Fake** — `#ffd27a`. A gilded reproduction of a small treasure: correct
-   shape, over-bright plating, one hairline seam and a chipped corner showing
-   grey base metal. From a distance it must read as real gold. Up close, wrong.
-9. **Offering Shrine** — `#a98bff`. A low dark-stone altar block with a single
-   floating violet crystal above it, faceted, point-up. A set-piece meant to be
-   spotted from across a room. Include the altar base; this is the one object
-   that gets one.
-10. **Bound Relic** — `#a98bff` → `#ffe9a8`. A faceted gem in gold-to-violet
-    gradient held inside an open metal halo ring — two separable layers: the ring
-    spins in-engine, so deliver **ring and gem as separate 128 px PNGs**. Ornate,
-    important, the thing you cross a floor for.
-11. **Vault Heart** — `#ff6b8a`. A large raw crystalline heart, deep rose-pink,
-    faceted and internally lit, held in a heavy gold cradle. The single most
-    valuable object in the game — bigger, denser and more ornate than everything
-    above it, and it should be obvious which one it is with the colour stripped
-    out.
+Colour is carrying meaning alongside shape, so keep the families straight: **gold
+is money** (01, 03, 08), **violet is other** — cursed, sacred, bound (04, 09, 10),
+and the rest are one-offs that own their hue outright.
 
-Ask for **greyscale silhouette thumbnails first**, at 20 px, before any detail
-pass. If the eleven are not separable in greyscale at 20 px, the detail is wasted —
-that is exactly the failure the current vector set has.
+### 5.2 The prompts
+
+**01 · Loose Coin** — `#e9c15a`
+
+> A small loose heap of four hand-struck gold coins resting against each other, one
+> tipped up on its edge against the pile. Irregular hammered edges, worn relief of a
+> face on the topmost coin, soft rounded thickness — struck metal, not machined.
+> Warm antique gold `#e9c15a`, with dark tarnish pooled in the low relief. Stylised
+> low-poly game asset: bold simplified forms, chunky readable geometry, heavy dark
+> edge definition, no fine detail. The silhouette must be WIDE AND LOW — the
+> flattest, most horizontal object in the set. Single isolated object. No base, no
+> plinth, no ground plane, no scene, no text.
+
+**02 · Cut Gem** — `#7fe3d0`
+
+> A single brilliant-cut gemstone standing point-up, cold teal `#7fe3d0`, with large
+> flat facets, sharp clean edges and bright internal refraction. Precise and
+> geometric — cut by a jeweller, not found in a cave. Stylised low-poly game asset:
+> bold simplified faceting, twelve facets or fewer, high contrast between lit and
+> shadowed faces, heavy dark edge definition. The silhouette must be TALL, NARROW
+> AND SHARPLY ANGULAR — a symmetrical spike, the most pointed object in the set.
+> Single isolated object. No setting, no mount, no base, no ground plane, no scene,
+> no text.
+
+**03 · Golden Idol** — `#f5c542`
+
+> A squat ceremonial gold idol: a broad-shouldered seated figure with a wide heavy
+> base, stubby arms folded across its chest, a blank stylised face and a carved
+> geometric headdress. Solid cast metal in bright ceremonial gold `#f5c542`, with
+> dark tarnish pooled in the carved grooves. It should look like it weighs a great
+> deal and would ring like a bell if dropped. Stylised low-poly game asset: bold
+> simplified forms, heavy dark edge definition. The silhouette must be a HEAVY
+> TOP-WIDE TRAPEZOID — wide shoulders over a wide base, dense and blocky, no gaps
+> anywhere in the mass. Single isolated object. No plinth, no ground plane, no
+> scene, no text.
+
+**04 · Marked Relic** — `#a98bff`
+
+> A ceremonial burial mask: a flat vertical face-plate in dull violet-black metal,
+> `#a98bff` catching the light along its raised edges, with two hollow eye sockets
+> and a narrow mouth slit cut clean through the plate so you can see through it. One
+> owner's sigil struck deep into the brow. Sober and sinister rather than ornate —
+> this is a marked object, and someone will come looking for it. Stylised low-poly
+> game asset: bold simplified forms, heavy dark edge definition. The silhouette must
+> be a FLAT VERTICAL OVAL PIERCED BY THREE VOIDS — the holes are the identifying
+> feature and must still read as holes at very small size. Single isolated object.
+> No stand, no ground plane, no scene, no text.
+
+**05 · Skitterjewel** — `#7fd88a`
+
+> A small living creature made of green gemstone: a rounded faceted body like a
+> polished beetle, six thin dark spindly legs splayed wide, and two large
+> forward-facing eyes with dark pupils. Caught mid-scuttle, alert, one instant from
+> bolting. Body in bright jewel green `#7fd88a` with crystalline facets; legs and
+> eye outlines in near-black. Cute enough to want, quick enough to lose. Stylised
+> low-poly game asset: bold simplified forms, heavy dark edge definition. Model it
+> FRONT-FACING with both eyes clearly visible — the eyes point where it flees and
+> must read at very small size. The silhouette must be UNMISTAKABLY A BUG: a round
+> mass with thin legs projecting out to the sides. Single isolated object. No base,
+> no ground plane, no scene, no text.
+
+**06 · Crown Jewels** — `#ff5da8`
+
+> A slim royal circlet: a thin gold band with five tapering points rising from it,
+> each point set with a rose-pink gemstone `#ff5da8`, the largest stone at the
+> centre front. Tilted slightly forward so both the open band and the raised points
+> read. Regal and restrained — a real crown, not a costume one. Stylised low-poly
+> game asset: bold simplified forms, heavy dark edge definition. The silhouette must
+> be an OPEN RING WITH RISING POINTS — the hole through the middle of the band is
+> the identifying feature and must survive at very small size. Single isolated
+> object. No cushion, no stand, no ground plane, no scene, no text.
+
+**07 · Porcelain Relic** — `#dfeaf5`
+
+> A tall porcelain vase: a narrow flared neck, a swelling round body, a small foot.
+> Cool near-white glaze `#dfeaf5` with a fine painted band of pale blue geometric
+> pattern at the shoulder and a faint crackle through the glaze. Visibly thin-walled
+> and delicate — it should look one knock away from gone. Stylised low-poly game
+> asset: bold simplified forms, heavy dark edge definition. The silhouette must be a
+> SMOOTH CURVED HOURGLASS PROFILE — narrow, wide, narrow — the only object in the
+> set built from curves rather than facets or blocks. Single isolated object, intact
+> and unbroken. No base, no ground plane, no scene, no text.
+
+**08 · Gilded Fake** — `#ffd27a`
+
+> A cheap gilded reproduction of a ceremonial idol: the same squat broad-shouldered
+> seated figure with a wide heavy base as a real gold idol, slightly smaller and
+> hollow-feeling. Over-bright yellow plating `#ffd27a`, mirror-smooth where real
+> cast gold would be textured, a visible mould seam running down one side, and one
+> chipped corner at the base exposing dull grey base metal underneath. From across a
+> room it must be mistakable for solid gold; up close it must be obviously wrong.
+> Stylised low-poly game asset: bold simplified forms, heavy dark edge definition.
+> The silhouette must DELIBERATELY MATCH a squat seated idol — this is the one
+> object in the set meant to be confused with another. Every tell lives in the
+> surface, never in the shape. Single isolated object. No plinth, no ground plane,
+> no scene, no text.
+
+**09 · Offering Shrine** — `#a98bff`
+
+> A low dark-stone altar block — a rough-cut rectangular slab with carved channels
+> across its top face — with a single violet crystal floating in the air above it,
+> point-up and unsupported. Crystal in `#a98bff` with sharp facets and bright
+> internal light; stone in near-black, with cool violet light spilling down into the
+> carved channels from above. A set-piece meant to be spotted from across a dark
+> room. Stylised low-poly game asset: bold simplified forms, heavy dark edge
+> definition. The silhouette must be a WIDE BLOCK WITH A DETACHED FLOATING SHAPE
+> ABOVE IT — the gap between altar and crystal is the identifying feature and must
+> stay open at very small size. This is the only object in the set that includes its
+> own base. No ground plane, no scene, no text.
+
+**10a · Bound Relic — the halo ring** — `#a98bff`
+
+> A broken open ring of ornate dark metal, roughly circular, with a gap at each side
+> so it reads as two facing crescent arcs rather than a closed hoop. Etched with
+> fine geometric banding, edges catching violet light `#a98bff`. Nothing inside the
+> ring — the centre is empty and open. Stylised low-poly game asset: bold simplified
+> forms, heavy dark edge definition. Model it flat-on and perfectly centred; this
+> part rotates in-engine, so its centre must sit exactly at the model origin. Single
+> isolated object. No gem, no base, no ground plane, no scene, no text.
+
+**10b · Bound Relic — the bound gem** — `#ffe9a8` → `#a98bff`
+
+> A single large faceted gemstone, pentagonal in profile, with a strong gradient
+> running corner to corner from warm pale gold `#ffe9a8` at the top-left to deep
+> violet `#a98bff` at the bottom-right. Bright, ornate and important — the thing a
+> thief crosses a floor for. Large sharp facets, bold simplified forms, heavy dark
+> edge definition, stylised low-poly game asset. Single isolated object, centred at
+> the origin. No setting, no ring, no mount, no base, no ground plane, no scene, no
+> text.
+
+*Ship 10a and 10b as two separate 128 px PNGs. The engine spins the ring at
+`glow * 0.6` and leaves the gem still — they cannot be one image.*
+
+**11 · Vault Heart** — `#ff6b8a`
+
+> A large raw crystalline heart held in a heavy gold cradle. The heart is a rough
+> faceted mass of deep rose-pink crystal `#ff6b8a`, lit from within, its facets big
+> and irregular like broken quartz rather than cut stone. The cradle is four thick
+> ornate gold claws gripping it from below and behind. This is the single most
+> valuable object in a vault — visibly bigger, denser and more ornate than any other
+> treasure. Stylised low-poly game asset: bold simplified forms, heavy dark edge
+> definition. The silhouette must be the LARGEST AND HEAVIEST MASS IN THE SET by a
+> clear margin — a broad rounded body gripped by claws, unmistakable with all colour
+> stripped out. Single isolated object. No plinth, no ground plane, no scene, no
+> text.
+
+### 5.3 Baking them — set once, not per prompt
+
+Whatever renders the generated models to sprites must use **one camera and one
+light rig for all eleven**, or they will not look like a set:
+
+- **Camera:** orthographic, **35° elevation**, straight-on azimuth — the shallow
+  3/4 top-down the rest of the game reads in. No per-object framing, no
+  perspective, no dolly.
+- **Light:** neutral key from upper-left, cool fill from the right, one warm gold
+  rim from behind. Same intensities every time.
+- **No shadow catcher, no ground plane, no bloom, no ambient occlusion ground
+  contact.** The engine draws the shadow and the halo (§2).
+- **Export:** 128 × 128 PNG, straight alpha, object centred on pixel (64, 64),
+  body occupying 40–90 px (§3).
+- **Outline:** if the render doesn't carry a hard dark edge, add it in post —
+  `#050404`, ~8 px at this scale. It is what keeps a 6.5 pt object legible on a
+  near-black floor, and it is the one thing every piece must share.
+
+### 5.4 Judge in greyscale first
+
+Before any detail pass, render the set as **flat greyscale silhouettes at 20 px**
+and look at them together. If two are not separable — 08 excepted, which is
+*supposed* to clone 03 — the shape is wrong and no amount of material work will
+save it. That is precisely how the current vector set fails, and it is the whole
+reason this document exists.
 
 ---
 
