@@ -5,7 +5,9 @@ import { writeFileSync, copyFileSync, existsSync, readdirSync } from 'fs';
 import { spawn } from 'child_process';
 import { join, basename } from 'path';
 
-const [dir, objName, out='/tmp/loot-bake-raw.png', elev='35', yaw='0'] = process.argv.slice(2);
+const [dir, objName, out='/tmp/loot-bake-raw.png', elev='35', yaw='0', ...rest] = process.argv.slice(2);
+// trailing k=v pairs pass straight through to bake.html (spec, shine, amb, key, rim, fill, hemi)
+const extra = Object.fromEntries(rest.map(s=>s.split('=')));
 if(!dir || !objName){ console.error('usage: bake.mjs <model-dir> <name.obj> [out.png] [elev] [yaw]'); process.exit(1); }
 
 // The loaders need XHR, which Chromium refuses over file:// — serve the dir.
@@ -24,7 +26,7 @@ try{
   const p = await b.newPage();
   p.on('pageerror', e=>console.log('pageerror:', String(e).slice(0,180)));
   const mtl = readdirSync(dir).find(f=>f.toLowerCase().endsWith('.mtl'));
-  const q = new URLSearchParams({ obj:objName, elev, yaw });
+  const q = new URLSearchParams({ obj:objName, elev, yaw, ...extra });
   if(mtl) q.set('mtl', mtl);
   await p.goto(`http://127.0.0.1:${PORT}/bake.html?${q}`);
   await p.waitForFunction('window.BAKE && window.BAKE.ready', null, { timeout: 60000 });
@@ -32,6 +34,6 @@ try{
   if(r.err) throw new Error(r.err);
   if(!r.coverage) throw new Error('render produced an empty frame (coverage 0)');
   writeFileSync(out, Buffer.from(r.png.split(',')[1],'base64'));
-  console.log(JSON.stringify({ out, elev:+elev, yaw:+yaw, coverage:r.coverage, frustum:r.frustum, source_bbox:r.src }));
+  console.log(JSON.stringify({ out, elev:+elev, yaw:+yaw, ...extra, coverage:r.coverage, source_bbox:r.src }));
   await b.close();
 } finally { srv.kill(); }

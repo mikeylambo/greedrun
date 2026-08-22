@@ -46,10 +46,11 @@ function finish(root){
       if(m.emissive) m.emissive.setRGB(0,0,0);
       m.emissiveIntensity = 0; m.emissiveMap = null;
       m.side = THREE.DoubleSide;
-      // Metal wants a highlight. Phong's specular is enough here and costs
-      // nothing; MeshStandard would need an environment map to read as gold.
-      if(m.specular) m.specular.setHex(0xfff2cc);
-      if('shininess' in m) m.shininess = 34;
+      // Metal wants a highlight, but how much depends entirely on the piece:
+      // gold can take a hot specular, dark etched metal turns to chrome under
+      // the same rig. Both overridable per bake.
+      if(m.specular) m.specular.setHex(parseInt(Q.get('spec') || 'fff2cc', 16));
+      if('shininess' in m) m.shininess = +(Q.get('shine') ?? 34);
     }
   }});
 
