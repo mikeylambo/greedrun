@@ -999,6 +999,7 @@ function toggleFullscreen(){
 addEventListener('fullscreenchange', ()=>{ applyView(); });
 const WORLD = { w: 2000, h: 1400 };
 let JO_STYLE='vector';   // 'vector' = code-drawn ink rig (no image assets) · 'atlas' = sprite sheet
+let LOOT_STYLE='vector'; // 'vector' = the shapes in drawLoot() · 'art' = baked sprites in assets/loot/
 
 // ---------- persistent (session) meta ----------
 // §9 — the floor at which a piece is worth the gesture. Below it, giving
@@ -4512,6 +4513,37 @@ function drawPortal(){
   ctx.fillText(sealed?'BOLTED':'EXIT', x, y-portal.r-8);
 }
 
+// ---------- loot art (optional sprite layer) ----------
+// Each slot falls back to its own vector INDEPENDENTLY, so a missing file or a
+// half-delivered set never blanks a pickup — that kind just looks like the build
+// before the art landed. Sprites are 128px cells covering 32 world units
+// (docs/LOOT_SLOTS.md), centre-anchored — NOT Jo's feet-baseline contract.
+const LOOT_ART_CELL = 32;
+const LOOT_ART_SRC = {
+  common:'coin', valuable:'gem', loud:'idol', cursed:'mask', living:'living',
+  royal:'royal', fragile:'fragile', fake:'fake', mythic:'heart',
+  shrine_altar:'shrine_altar', shrine_crystal:'shrine_crystal',
+  artifact_ring:'artifact_ring', artifact_gem:'artifact_gem',
+};
+const lootArt = {};
+function loadLootArt(){
+  for(const k in LOOT_ART_SRC){
+    const im = new Image();
+    im.onload  = ()=>{ lootArt[k] = im; };      // only a decoded image ever lands
+    im.onerror = ()=>{ delete lootArt[k]; };    // …anything else stays on vector
+    im.src = 'assets/loot/' + LOOT_ART_SRC[k] + '.png';
+  }
+}
+if(LOOT_STYLE==='art') loadLootArt();
+function lootImg(k){ return LOOT_STYLE==='art' ? lootArt[k] : null; }
+// Draw a loot sprite centred on the current origin. `sc` scales the whole cell
+// (the idle pulse rides on it); `dy` offsets parts that aren't concentric with
+// the piece, like the shrine's floating crystal.
+function drawLootArt(im, sc, dy){
+  const S = LOOT_ART_CELL*(sc||1);
+  ctx.drawImage(im, -S/2, -S/2 + (dy||0), S, S);
+}
+
 function lootColor(kind){
   return kind==='common'?'#e9c15a':kind==='valuable'?'#7fe3d0':
          kind==='loud'?'#f5c542':kind==='cursed'?'#a98bff':
@@ -4527,9 +4559,15 @@ function drawLoot(l){
     const gl=18+Math.sin(l.glow)*4;
     const rg=ctx.createRadialGradient(0,0,2,0,0,gl); rg.addColorStop(0,'rgba(169,139,255,0.5)'); rg.addColorStop(1,'rgba(169,139,255,0)');
     ctx.fillStyle=rg; ctx.beginPath();ctx.arc(0,0,gl,0,6.28);ctx.fill();
-    ctx.fillStyle='#2a2140'; ctx.fillRect(-9,-2,18,12);                  // altar base
-    ctx.fillStyle='#a98bff'; ctx.beginPath();ctx.moveTo(0,-14*pulse);ctx.lineTo(7,-2);ctx.lineTo(-7,-2);ctx.fill(); // gem
-    ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.lineWidth=1; ctx.stroke();
+    const alt=lootImg('shrine_altar'), cry=lootImg('shrine_crystal');
+    if(alt&&cry){
+      drawLootArt(alt,1,4);              // block sits on the floor line
+      drawLootArt(cry,pulse,-8*pulse);   // crystal floats, and rises as it breathes
+    } else {
+      ctx.fillStyle='#2a2140'; ctx.fillRect(-9,-2,18,12);                  // altar base
+      ctx.fillStyle='#a98bff'; ctx.beginPath();ctx.moveTo(0,-14*pulse);ctx.lineTo(7,-2);ctx.lineTo(-7,-2);ctx.fill(); // gem
+      ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.lineWidth=1; ctx.stroke();
+    }
     ctx.restore(); return;
   }
   // artifact: unmistakable rotating gold-violet relic with a halo ring
@@ -4537,15 +4575,22 @@ function drawLoot(l){
     const gr=ctx.createRadialGradient(0,0,1,0,0,30*pulse);
     gr.addColorStop(0,'rgba(169,139,255,.75)'); gr.addColorStop(0.5,'rgba(245,197,66,.35)'); gr.addColorStop(1,'rgba(169,139,255,0)');
     ctx.fillStyle=gr; ctx.beginPath(); ctx.arc(0,0,30*pulse,0,6.28); ctx.fill();
-    ctx.rotate(l.glow*0.6);
-    ctx.strokeStyle='rgba(169,139,255,.7)'; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.arc(0,0,14,0.6,4.2); ctx.stroke();
-    ctx.beginPath(); ctx.arc(0,0,14,3.8,6.9); ctx.stroke();
-    // faceted gem
-    const g2=ctx.createLinearGradient(-8,-8,8,8); g2.addColorStop(0,'#ffe9a8'); g2.addColorStop(1,'#a98bff');
-    ctx.fillStyle=g2; ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.lineWidth=1.5;
-    ctx.beginPath();ctx.moveTo(0,-9);ctx.lineTo(7,-2);ctx.lineTo(4,8);ctx.lineTo(-4,8);ctx.lineTo(-7,-2);ctx.closePath();
-    ctx.fill();ctx.stroke();
+    const ring=lootImg('artifact_ring'), gem=lootImg('artifact_gem');
+    ctx.save(); ctx.rotate(l.glow*0.6);
+    if(ring){ drawLootArt(ring); }
+    else {
+      ctx.strokeStyle='rgba(169,139,255,.7)'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(0,0,14,0.6,4.2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0,0,14,3.8,6.9); ctx.stroke();
+    }
+    if(!gem){   // vector gem spins with the ring, exactly as it always has
+      const g2=ctx.createLinearGradient(-8,-8,8,8); g2.addColorStop(0,'#ffe9a8'); g2.addColorStop(1,'#a98bff');
+      ctx.fillStyle=g2; ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.moveTo(0,-9);ctx.lineTo(7,-2);ctx.lineTo(4,8);ctx.lineTo(-4,8);ctx.lineTo(-7,-2);ctx.closePath();
+      ctx.fill();ctx.stroke();
+    }
+    ctx.restore();
+    if(gem) drawLootArt(gem);   // art path: the halo sweeps, the relic holds still
     ctx.restore(); return;
   }
   // living loot: a jittery little creature with eyes that looks where it's fleeing
@@ -4555,6 +4600,14 @@ function drawLoot(l){
     gr2.addColorStop(0,'rgba(143,227,154,.7)'); gr2.addColorStop(1,'rgba(143,227,154,0)');
     ctx.fillStyle=gr2; ctx.beginPath(); ctx.arc(0,0,18*pulse,0,6.28); ctx.fill();
     ctx.translate(j,bob);
+    const crit=lootImg('living');
+    if(crit){
+      // One baked facing, so mirror it toward the flee vector. The leg wiggle and
+      // pupil tracking the vector draws below are ~3px of motion at phone size;
+      // facing the wrong way across a whole run is not.
+      ctx.save(); ctx.scale((l.fx||0)<0 ? -1 : 1, 1); drawLootArt(crit); ctx.restore();
+      ctx.restore(); return;
+    }
     // little legs
     ctx.strokeStyle='#3f7a48'; ctx.lineWidth=1.5;
     for(const sgn of [-1,1]){ ctx.beginPath(); ctx.moveTo(sgn*4,4);
@@ -4576,6 +4629,9 @@ function drawLoot(l){
   const gr=ctx.createRadialGradient(0,0,1,0,0,20*pulse);
   gr.addColorStop(0, c+'88'); gr.addColorStop(1, c+'00');
   ctx.fillStyle=gr; ctx.beginPath(); ctx.arc(0,0,20*pulse,0,6.28); ctx.fill();
+  const flat=lootImg(l.kind);
+  if(flat) drawLootArt(flat);
+  else {
   ctx.fillStyle=c; ctx.strokeStyle=INK; ctx.lineWidth=2;
   const s=l.kind==='mythic'?9:l.kind==='loud'?7:l.kind==='cursed'?7:5;
   if(l.kind==='valuable'){ // diamond
@@ -4588,6 +4644,7 @@ function drawLoot(l){
     ctx.fillRect(-s*0.7,-s*0.2,s*1.4,s*1.3); ctx.stroke();
     ctx.strokeRect(-s*0.7,-s*0.2,s*1.4,s*1.3);
     if(l.kind==='mythic'){ ctx.fillStyle='#fff2c6'; ctx.beginPath();ctx.arc(0,0,3,0,6.28);ctx.fill(); }
+  }
   }
   // Appraiser's Eye: a clocked fake wears your quiet green tick
   if(l.spotted){ ctx.fillStyle='#7fc98a'; ctx.beginPath(); ctx.arc(8,-10,2.2,0,6.28); ctx.fill(); }
@@ -6189,6 +6246,11 @@ window.__greed = {
   get breach(){ return breach; }, get chute(){ return chute; },
   get stashedValue(){ return stashedValue; }, get doorPicks(){ return doorPicks; },
   get runPerk(){ return runPerk; }, updateBreach, hunterName, renderLedger,
+  // loot art layer — read the switch, flip it, and see which slots actually decoded
+  get LOOT_STYLE(){ return LOOT_STYLE; },
+  setLootStyle(v){ LOOT_STYLE=v; if(v==='art') loadLootArt(); },
+  get lootArt(){ return Object.keys(lootArt).sort(); },
+  get LOOT_ART_SRC(){ return LOOT_ART_SRC; },
   get DOOR_PERKS(){ return DOOR_PERKS; },
   // the Operation surface
   get OPERATION(){ return OPERATION; }, opTier, opTierForVault, opNext, forfeitOn,

@@ -1,5 +1,32 @@
 # Changelog
 
+## Web build — LOOT ART LAYER: sprites behind a switch, vector underneath (unreleased)
+
+Groundwork for replacing the code-drawn loot with baked 3D art. **Nothing ships
+to players yet** — `LOOT_STYLE` defaults to `'vector'`, which fetches nothing and
+draws exactly what it drew yesterday.
+
+- **`LOOT_STYLE` beside `JO_STYLE`.** `'art'` loads `assets/loot/*.png`; anything
+  else stays on the shapes in `drawLoot()`.
+- **Fallback is per slot, not per set.** Each kind independently uses its sprite
+  only if that one file decoded. A missing file, a typo'd name, a half-delivered
+  set — that kind renders as the build before any art existed, pixel for pixel.
+  The suite measures this rather than asserting it: a slot with art moves ~1.2%
+  of the pixels in frame, a slot without moves 0%.
+- **The engine keeps drawing what the engine should draw.** Glow, ground shadow,
+  the Appraiser's Eye tick and the halo rotation are untouched; art only replaces
+  the body. Sprites are 128px cells covering 32 world units, centre-anchored —
+  deliberately *not* Jo's feet-baseline contract.
+- **Two slots are two files each.** The shrine's crystal floats above its altar
+  and rises with the idle pulse; the artifact's halo spins while the relic inside
+  it does not. Fused into one image, either would breathe or tumble wrongly.
+- **The Skitterjewel mirrors toward the direction it flees.** A sprite has one
+  baked facing, and the creature runs anywhere. Its leg wiggle and pupil tracking
+  are about three device pixels of motion at phone size; facing backwards across
+  a whole run is not. The vector path is unchanged and keeps both.
+- **First two assets in:** `coin.png` and `artifact_ring.png`, baked from Mint
+  models via `tools/loot-bake/`. Nine slots and two splits still to come.
+
 ## Web build — GLANCEABLE: icon tiles, one-tap decisions, a Den that stops narrating (build 2026-08-17.27)
 
 Survivor.io's selection screens carry almost no text: the icon **is** the noun
