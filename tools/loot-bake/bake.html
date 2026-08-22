@@ -1,0 +1,106 @@
+<!doctype html><meta charset="utf-8"><title>loot bake</title>
+<style>html,body{margin:0;background:#111}canvas{display:block}</style>
+<script src="three.min.js"></script>
+<script src="OBJLoader.js"></script>
+<script src="MTLLoader.js"></script>
+<canvas id="c"></canvas>
+<script>
+// Bakes one static loot model to a centred, transparent sprite.
+// Camera and light rig are FIXED here on purpose (docs/LOOT_SLOTS.md §Bake
+// settings) — every piece goes through the identical rig or the set won't match.
+const Q = new URLSearchParams(location.search);
+const OBJ = Q.get('obj'), MTL = Q.get('mtl');
+const SS  = +(Q.get('ss') || 1024);        // supersample; downsampled in post
+const ELEV = +(Q.get('elev') || 35);       // degrees above horizontal
+const YAW  = +(Q.get('yaw')  || 0);        // degrees around Y, 0 = straight on
+const MARGIN = +(Q.get('margin') || 1.06); // fit slack
+
+const cv = document.getElementById('c'); cv.width = cv.height = SS;
+// preserveDrawingBuffer: without it toDataURL() reads a cleared buffer and
+// silently returns a blank PNG — it does not error.
+const renderer = new THREE.WebGLRenderer({ canvas: cv, alpha: true, antialias: true, preserveDrawingBuffer: true });
+renderer.setClearColor(0x000000, 0);
+renderer.outputEncoding = THREE.sRGBEncoding;
+
+const scene = new THREE.Scene();
+// Neutral key upper-left, cool fill right, warm gold rim behind.
+// Kept deliberately dim. Greedrun's floors are near-black; a brightly-lit sprite
+// reads as a sticker on top of the world instead of an object in it. Contrast
+// comes from the key and the specular, not from raising the floor.
+const L = n => +(Q.get(n) ?? NaN);
+scene.add(new THREE.AmbientLight(0xffffff, L('amb')||0.22));
+scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x2a2418, L('hemi')||0.28));
+const key = new THREE.DirectionalLight(0xfff6e8, L('key')||1.15); key.position.set(-3, 4, 2.5); scene.add(key);
+const fill= new THREE.DirectionalLight(0xbcd4ff, L('fill')||0.30); fill.position.set( 3, 1, 2);  scene.add(fill);
+const rim = new THREE.DirectionalLight(0xffd27a, L('rim')||0.80); rim.position.set(  0, 2,-3.5); scene.add(rim);
+
+const camera = new THREE.OrthographicCamera(-1,1,1,-1,0.01,100);
+window.BAKE = { ready:false };
+
+function finish(root){
+  root.traverse(n=>{ if(n.isMesh && n.material){
+    for(const m of [].concat(n.material)){
+      if(m.map) m.map.encoding = THREE.sRGBEncoding;
+      // Mint's GLB->OBJ conversion carries a white emissive on some exports;
+      // it blows the sprite out to flat white. Zero it, same fix as the Jo GLB.
+      if(m.emissive) m.emissive.setRGB(0,0,0);
+      m.emissiveIntensity = 0; m.emissiveMap = null;
+      m.side = THREE.DoubleSide;
+      // Metal wants a highlight. Phong's specular is enough here and costs
+      // nothing; MeshStandard would need an environment map to read as gold.
+      if(m.specular) m.specular.setHex(0xfff2cc);
+      if('shininess' in m) m.shininess = 34;
+    }
+  }});
+
+  // Normalise: centre on the origin, scale the longest axis to 1.
+  const box = new THREE.Box3().setFromObject(root);
+  const size = box.getSize(new THREE.Vector3()), ctr = box.getCenter(new THREE.Vector3());
+  root.position.sub(ctr);
+  const s = 1 / Math.max(size.x, size.y, size.z);
+  root.scale.setScalar(s);
+  scene.add(root);
+
+  const e = ELEV*Math.PI/180, y = YAW*Math.PI/180, dist = 10;
+  camera.position.set(Math.sin(y)*Math.cos(e)*dist, Math.sin(e)*dist, Math.cos(y)*Math.cos(e)*dist);
+  camera.lookAt(0,0,0); camera.updateMatrixWorld(true);
+  camera.matrixWorldInverse.copy(camera.matrixWorld).invert();
+
+  // Fit the frustum to the object's ACTUAL projected extent, so the sprite fills
+  // the cell the same way regardless of the model's own proportions.
+  const b2 = new THREE.Box3().setFromObject(root);
+  const inv = new THREE.Matrix4().copy(camera.matrixWorldInverse);
+  let mx = 0, my = 0;
+  for(const cx of [b2.min.x, b2.max.x]) for(const cy of [b2.min.y, b2.max.y]) for(const cz of [b2.min.z, b2.max.z]){
+    const p = new THREE.Vector3(cx,cy,cz).applyMatrix4(inv);
+    mx = Math.max(mx, Math.abs(p.x)); my = Math.max(my, Math.abs(p.y));
+  }
+  const h = Math.max(mx,my)*MARGIN;
+  camera.left=-h; camera.right=h; camera.top=h; camera.bottom=-h; camera.updateProjectionMatrix();
+
+  renderer.render(scene, camera);
+  // Prove something was actually drawn before declaring success.
+  const probe = document.createElement('canvas'); probe.width=probe.height=SS;
+  const pg = probe.getContext('2d'); pg.drawImage(cv,0,0);
+  const d = pg.getImageData(0,0,SS,SS).data; let lit=0;
+  for(let i=3;i<d.length;i+=4) if(d[i]>8) lit++;
+  window.BAKE = { ready:true, png: cv.toDataURL('image/png'), coverage:+(lit/(SS*SS)).toFixed(4),
+                  frustum:+h.toFixed(4),
+                  src:{ x:+size.x.toFixed(3), y:+size.y.toFixed(3), z:+size.z.toFixed(3) } };
+}
+
+// A LoadingManager is not optional here. Rendering in the OBJ callback fires
+// BEFORE the colour map has decoded (this one is 4.9 MB), and an incomplete
+// sampler makes MeshPhong write alpha 0 — a silently blank sprite, no error.
+// Render only once the manager says everything is in.
+let ROOT = null;
+const manager = new THREE.LoadingManager();
+manager.onLoad = () => { if(ROOT) finish(ROOT); else window.BAKE={ready:true,err:'nothing loaded'}; };
+manager.onError = url => { window.BAKE={ready:true,err:'failed to load '+url}; };
+
+const loader = new THREE.OBJLoader(manager);
+if(MTL){
+  new THREE.MTLLoader(manager).load(MTL, mats=>{ mats.preload();
+    loader.setMaterials(mats).load(OBJ, o=>{ ROOT=o; }); });
+} else loader.load(OBJ, o=>{ ROOT=o; });
+</script>
