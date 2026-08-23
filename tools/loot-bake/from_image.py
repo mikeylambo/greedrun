@@ -25,6 +25,9 @@ ap.add_argument('--tol', type=int, default=32, help='background colour tolerance
 ap.add_argument('--list', action='store_true')
 ap.add_argument('--pick', help='comma-separated part ids to keep (see --list)')
 ap.add_argument('--min-part', type=int, default=200, help='ignore blobs under this many px')
+ap.add_argument('--frame-all', action='store_true',
+                help="crop to the bbox of ALL parts, not just the picked one. Use for a "
+                     "split slot so both halves share one frame and stay in register.")
 a = ap.parse_args()
 
 im = Image.open(a.src).convert('RGBA')
@@ -75,6 +78,11 @@ keep = [int(i) for i in a.pick.split(',')] if a.pick else range(len(info))
 sel = Image.new('L', (W,H), 0)
 for i in keep: sel.paste(info[i][3], (0,0), info[i][3])
 out = im.copy(); out.putalpha(sel)
-out.save(a.out)
 bb = sel.getbbox()
-print(f'{a.out}: parts {list(keep)}  content {bb[2]-bb[0]}x{bb[3]-bb[1]} in {W}x{H}')
+if a.frame_all:
+    allsel = Image.new('L',(W,H),0)
+    for _,_,_,r in info: allsel.paste(r,(0,0),r)
+    out = out.crop(allsel.getbbox())
+out.save(a.out)
+print(f'{a.out}: parts {list(keep)}  content {bb[2]-bb[0]}x{bb[3]-bb[1]}  saved {out.size[0]}x{out.size[1]}'
+      + ('  [shared frame]' if a.frame_all else ''))

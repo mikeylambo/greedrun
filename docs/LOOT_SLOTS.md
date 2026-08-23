@@ -59,6 +59,31 @@ Numbers read from `web/index.html` @ **2026-08-17.27**: `LOOT_TYPES` ~L1472,
 | Artifact rotation | ring spins at `glow * 0.6`; ring and gem are separate layers |
 | Ink outline | `#050404` @ `lineWidth 2` — **bake this one in.** It's what keeps a 6.5 pt object legible on a near-black floor. |
 
+## What shipped
+
+Fourteen of fifteen files are in `web/assets/loot/`. Only `fake.png` is missing —
+the Gilded Fake, which by design clones the Golden Idol's silhouette (§Prompts).
+Its slot falls back to vector on its own until it lands.
+
+| file | source | units | ink |
+|---|---|---|---|
+| `coin` | model | 11 | 4 |
+| `gem` | image | 11 | 2 |
+| `idol` | image | 16 | 2 |
+| `mask` | image | 16 | 2 |
+| `living_down` `living_side` `living_up` | model, 3 yaws in one frame | 26 | 2 |
+| `royal` | image | 13 | 2 |
+| `fragile` | image | 12 | 2 |
+| `fake` | — | 16 | 2 |
+| `shrine_altar` `shrine_crystal` | image, split, shared frame | 24 | 2 |
+| `artifact_ring` | model | 28 | 3 |
+| `artifact_gem` | image | 13 | 2 |
+| `heart` | image | 20 | 2 |
+
+Ink is 2 for everything from an image — the generated art already carries its own
+dark outline, and 4 on top of that reads as a smear. The coin and ring came off
+models with no outline of their own, so they take more.
+
 ## Export
 
 - **128 × 128 PNG**, straight alpha, no matte, no fringe.
