@@ -20,12 +20,15 @@ ap.add_argument('--units', type=float, default=10.0)
 ap.add_argument('--outline', type=int, default=4)
 ap.add_argument('--cell', type=int, default=128)
 ap.add_argument('--ppu', type=float, default=4.0)     # px per world unit inside the cell
+ap.add_argument('--nocrop', action='store_true',
+                help='keep the full frame instead of trimming to the art. Use for parts '
+                     'baked with a shared --frustum so they stay in register with each other.')
 a = ap.parse_args()
 
 im = Image.open(a.raw).convert('RGBA')
 bb = im.split()[-1].getbbox()
 if not bb: sys.exit('raw render is empty')
-im = im.crop(bb)
+if not a.nocrop: im = im.crop(bb)
 
 # Scale so the WIDEST axis spans `units` world units.
 target = max(1, int(round(a.units * a.ppu)))

@@ -55,10 +55,15 @@ function finish(root){
   }});
 
   // Normalise: centre on the origin, scale the longest axis to 1.
+  // A PART of a split model must reuse the WHOLE model's centre and scale, or it
+  // gets re-centred and re-scaled to fill the frame on its own and all register
+  // with its sibling is lost. Bake the whole first, then pass back what it reports.
   const box = new THREE.Box3().setFromObject(root);
-  const size = box.getSize(new THREE.Vector3()), ctr = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const ctr  = Q.get('ctr') ? new THREE.Vector3(...Q.get('ctr').split(',').map(Number))
+                            : box.getCenter(new THREE.Vector3());
+  const s = +(Q.get('scale')) || 1 / Math.max(size.x, size.y, size.z);
   root.position.sub(ctr);
-  const s = 1 / Math.max(size.x, size.y, size.z);
   root.scale.setScalar(s);
   scene.add(root);
 
@@ -76,7 +81,10 @@ function finish(root){
     const p = new THREE.Vector3(cx,cy,cz).applyMatrix4(inv);
     mx = Math.max(mx, Math.abs(p.x)); my = Math.max(my, Math.abs(p.y));
   }
-  const h = Math.max(mx,my)*MARGIN;
+  // Split slots (shrine altar+crystal, artifact ring+gem) must share ONE frustum
+  // or each part gets re-scaled to fill the frame and their relative size and
+  // position are lost. Bake the whole object first, then pass its frustum here.
+  const h = +(Q.get('frustum')) || Math.max(mx,my)*MARGIN;
   camera.left=-h; camera.right=h; camera.top=h; camera.bottom=-h; camera.updateProjectionMatrix();
 
   renderer.render(scene, camera);
@@ -86,7 +94,8 @@ function finish(root){
   const d = pg.getImageData(0,0,SS,SS).data; let lit=0;
   for(let i=3;i<d.length;i+=4) if(d[i]>8) lit++;
   window.BAKE = { ready:true, png: cv.toDataURL('image/png'), coverage:+(lit/(SS*SS)).toFixed(4),
-                  frustum:+h.toFixed(4),
+                  frustum:+h.toFixed(4), scale:+s.toFixed(6),
+                  ctr:[ctr.x,ctr.y,ctr.z].map(v=>+v.toFixed(6)).join(','),
                   src:{ x:+size.x.toFixed(3), y:+size.y.toFixed(3), z:+size.z.toFixed(3) } };
 }
 

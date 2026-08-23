@@ -4561,8 +4561,12 @@ function drawLoot(l){
     ctx.fillStyle=rg; ctx.beginPath();ctx.arc(0,0,gl,0,6.28);ctx.fill();
     const alt=lootImg('shrine_altar'), cry=lootImg('shrine_crystal');
     if(alt&&cry){
-      drawLootArt(alt,1,4);              // block sits on the floor line
-      drawLootArt(cry,pulse,-8*pulse);   // crystal floats, and rises as it breathes
+      // Both halves are baked in the WHOLE shrine's frame (tools/loot-bake/split.py),
+      // so they land in register with no offset — the crystal already sits above
+      // the altar in its own cell. Scaling about the origin is what lifts it as
+      // it breathes, the same read the vector triangle gets from -14*pulse.
+      drawLootArt(alt);
+      ctx.save(); ctx.scale(1,pulse); drawLootArt(cry); ctx.restore();
     } else {
       ctx.fillStyle='#2a2140'; ctx.fillRect(-9,-2,18,12);                  // altar base
       ctx.fillStyle='#a98bff'; ctx.beginPath();ctx.moveTo(0,-14*pulse);ctx.lineTo(7,-2);ctx.lineTo(-7,-2);ctx.fill(); // gem

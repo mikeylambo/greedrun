@@ -32,8 +32,8 @@ try{
   await p.waitForFunction('window.BAKE && window.BAKE.ready', null, { timeout: 60000 });
   const r = await p.evaluate(()=>window.BAKE);
   if(r.err) throw new Error(r.err);
-  if(!r.coverage) throw new Error('render produced an empty frame (coverage 0)');
+  if(!r.coverage) throw new Error('render produced an empty frame (coverage 0) — if this is a split part, check ctr/scale/frustum match the whole');
   writeFileSync(out, Buffer.from(r.png.split(',')[1],'base64'));
-  console.log(JSON.stringify({ out, elev:+elev, yaw:+yaw, ...extra, coverage:r.coverage, source_bbox:r.src }));
+  console.log(JSON.stringify({ out, elev:+elev, yaw:+yaw, ...extra, coverage:r.coverage, frustum:r.frustum, scale:r.scale, ctr:r.ctr, source_bbox:r.src }));
   await b.close();
 } finally { srv.kill(); }
