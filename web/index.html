@@ -953,7 +953,7 @@
 "use strict";
 // Build stamp — bump on every deploy. Shown on the title + hideout so a stale
 // Safari cache is instantly visible ("no report button" == old build).
-const BUILD = '2026-08-17.27';
+const BUILD = '2026-08-17.28';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 // Phones fill the screen in whichever way they're held — PORTRAIT (tall) or
@@ -999,7 +999,7 @@ function toggleFullscreen(){
 addEventListener('fullscreenchange', ()=>{ applyView(); });
 const WORLD = { w: 2000, h: 1400 };
 let JO_STYLE='vector';   // 'vector' = code-drawn ink rig (no image assets) · 'atlas' = sprite sheet
-let LOOT_STYLE='vector'; // 'vector' = the shapes in drawLoot() · 'art' = baked sprites in assets/loot/
+let LOOT_STYLE='art';    // 'art' = baked sprites in assets/loot/ · 'vector' = the shapes in drawLoot()
 
 // ---------- persistent (session) meta ----------
 // §9 — the floor at which a piece is worth the gesture. Below it, giving

@@ -20,10 +20,9 @@ p.on('pageerror', e=>{ console.log('  pageerror:', String(e).slice(0,160)); fail
 await p.goto(`http://127.0.0.1:${PORT}/index.html`);
 await p.waitForTimeout(600);
 
-// --- the switch ships off -----------------------------------------------------
-const boot = await p.evaluate(()=>({ style: window.__greed.LOOT_STYLE, loaded: window.__greed.lootArt }));
-ok(boot.style === 'vector', `ships on the vector path (LOOT_STYLE = '${boot.style}')`);
-ok(boot.loaded.length === 0, 'vector mode fetches nothing — no wasted requests for players');
+// --- the switch ships on ------------------------------------------------------
+const boot = await p.evaluate(()=>window.__greed.LOOT_STYLE);
+ok(boot === 'art', `ships on the art path (LOOT_STYLE = '${boot}')`);
 
 // --- every slot has a filename, including the two that split ------------------
 const src = await p.evaluate(()=>window.__greed.LOOT_ART_SRC);
@@ -34,16 +33,17 @@ ok(need.every(k=>src[k]), `all ${need.length} files mapped`);
 ok(['living_down','living_side','living_up'].every(k=>src[k]),
    'the Skitterjewel is three directions — side is mirrored for right, as Jo is');
 
-// --- flipping loads only what actually exists ---------------------------------
+// --- every declared file actually decodes ------------------------------------
 await p.evaluate(()=>{
   const G=window.__greed;
   G.meta.runs=30; G.meta.tips.move=1; G.activeContract=null; G.startRun(); G.build(7); G.recompute();
   G.guards.length=0; G.sentries.length=0; G.rivals.length=0;
-  G.setLootStyle('art');
 });
-await p.waitForTimeout(1500);
+await p.waitForTimeout(1800);
 const have = await p.evaluate(()=>window.__greed.lootArt);
-ok(have.length > 0, `art mode decoded ${have.length} of ${need.length} slots: ${have.join(', ')}`);
+ok(have.length === need.length, `all ${need.length} files decoded — no slot silently on vector`);
+const missing = need.filter(k=>!have.includes(k));
+ok(missing.length === 0, missing.length ? `missing: ${missing.join(', ')}` : 'nothing declared is absent');
 ok(have.every(k=>need.includes(k)), 'nothing decoded that is not a declared slot');
 
 // --- draw one kind on each path and measure the difference -------------------
@@ -74,21 +74,24 @@ async function diffPct(kind){
     return +(100*moved/(N*N)).toFixed(2);
   }, {kind});
 }
-const withArt = have.includes('common') ? 'common' : have[0];
-const noArt   = need.find(k=>!have.includes(k) && !k.includes('_'));
-
 // A loot body is a few hundred pixels inside a ~99-world-unit crop, so a real
 // swap lands around 1%, not 50%. Anything above half a percent is the sprite.
-const dArt = await diffPct(withArt);
-ok(dArt > 0.5, `'${withArt}' has a file — flipping to art moves ${dArt}% of pixels`);
+const dArt = await diffPct('common');
+ok(dArt > 0.5, `art is genuinely in use — switching to vector moves ${dArt}% of pixels`);
 
-if(noArt){
-  const dNone = await diffPct(noArt);
-  // The whole promise of the fallback: a slot with no file is not merely "still
-  // visible", it is the build before any art existed. The tolerance is only
-  // there for a drifting dust mote; today it comes back at exactly zero.
-  ok(dNone < 0.1, `'${noArt}' has no file — flipping moves ${dNone}% of pixels`);
-}
+// --- a slot whose file goes missing drops to vector, alone --------------------
+// Now that every file exists, break one on purpose. onerror deletes the entry,
+// so this is the real half-delivered-set path, not a simulation of it.
+await p.evaluate(()=>{ window.__greed.LOOT_ART_SRC.valuable = 'nope-not-here';
+                       window.__greed.setLootStyle('art'); });
+await p.waitForTimeout(1200);
+const after = await p.evaluate(()=>window.__greed.lootArt);
+ok(!after.includes('valuable'), 'a 404 drops that one slot out of the art set');
+ok(after.length === need.length-1, `and takes nothing else with it (${after.length} left of ${need.length})`);
+const dBroken = await diffPct('valuable');
+ok(dBroken < 0.1, `the broken slot is pixel-identical to vector (${dBroken}%)`);
+const dStillArt = await diffPct('common');
+ok(dStillArt > 0.5, `its neighbours keep their art (${dStillArt}%)`);
 
 // --- a broken file must not take a slot down ----------------------------------
 const survived = await p.evaluate(()=>new Promise(res=>{
@@ -98,7 +101,7 @@ const survived = await p.evaluate(()=>new Promise(res=>{
 }));
 ok(survived === 'errored', 'a missing file errors quietly rather than resolving empty');
 const stillOk = await p.evaluate(()=>window.__greed.lootArt);
-ok(stillOk.length === have.length, 'a failed load leaves the decoded slots untouched');
+ok(stillOk.length === after.length, 'a stray failed load changes nothing at all');
 
 await p.evaluate(()=>window.__greed.setLootStyle('vector'));
 await b.close(); srv.kill();

@@ -1,13 +1,14 @@
 # Changelog
 
-## Web build — LOOT ART LAYER: sprites behind a switch, vector underneath (unreleased)
+## Web build — LOOT ART: eleven kinds, eleven silhouettes (build 2026-08-17.28)
 
-Groundwork for replacing the code-drawn loot with baked 3D art. **Nothing ships
-to players yet** — `LOOT_STYLE` defaults to `'vector'`, which fetches nothing and
-draws exactly what it drew yesterday.
+The code-drawn loot is replaced by baked 3D art. The old set had **six of eleven
+kinds sharing one arch silhouette**, separated only by hue and three sizes — at
+6–13 pt on a phone that is one object in six colours. Every kind now has its own
+shape, and that is the whole point of the pass.
 
-- **`LOOT_STYLE` beside `JO_STYLE`.** `'art'` loads `assets/loot/*.png`; anything
-  else stays on the shapes in `drawLoot()`.
+- **`LOOT_STYLE` beside `JO_STYLE`, now defaulting to `'art'`.** 15 PNGs,
+  144 KB total. Set it to `'vector'` to get the old shapes back verbatim.
 - **Fallback is per slot, not per set.** Each kind independently uses its sprite
   only if that one file decoded. A missing file, a typo'd name, a half-delivered
   set — that kind renders as the build before any art existed, pixel for pixel.
