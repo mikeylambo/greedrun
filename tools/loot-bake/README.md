@@ -117,3 +117,34 @@ than the vector it replaces. It went in at **26**.
 Ink scales with the thinnest feature, not the object. Legs about 2px wide
 disappear inside a 4px outline — they merge into one black blob. Two pixels is
 right for limbs; four is right for a solid mass like the coin heap.
+
+## Working from a preview image instead of a model
+
+`from_image.py` turns a flat render into a transparent sprite source that
+`post.py` consumes exactly like a bake:
+
+```bash
+python3 tools/loot-bake/from_image.py shot.png --list                 # separable parts?
+python3 tools/loot-bake/from_image.py shot.png --out /tmp/cut.png
+python3 tools/loot-bake/post.py /tmp/cut.png web/assets/loot/mask.png --units 16 --outline 4
+```
+
+**The background is removed by flood fill from the corners, never by a global
+colour key.** A global key punches every pixel that happens to match the
+backdrop — which is exactly how `web/assets/jo/atlas.png` ended up 13% filled
+when `build_atlas.py` keyed out the near-black outfit along with the checker.
+Flood fill only eats pixels connected to the edge, so interior highlights and
+white specular survive. Verified three ways:
+
+- a known sprite flattened onto white and keyed back differs by **1 px of 16384**
+  (edge antialiasing);
+- a deliberately trapped case — a pure-white highlight *inside* dark art, on a
+  white background — comes back at **alpha 255** where a global key would zero it;
+- two disconnected blobs report as two parts, which is the shrine.
+
+`--pick` selects parts, so a fused shrine preview splits into altar and crystal
+without regenerating it — the same job `split.py` does on a mesh. Parts keep the
+source frame, so they stay in register; run `post.py --nocrop` on each.
+
+What an image cannot give you is a second camera. Facing is baked in, so a
+directional slot (the Skitterjewel) still wants the model.
