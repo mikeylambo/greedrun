@@ -4520,7 +4520,8 @@ function drawPortal(){
 // (docs/LOOT_SLOTS.md), centre-anchored — NOT Jo's feet-baseline contract.
 const LOOT_ART_CELL = 32;
 const LOOT_ART_SRC = {
-  common:'coin', valuable:'gem', loud:'idol', cursed:'mask', living:'living',
+  common:'coin', valuable:'gem', loud:'idol', cursed:'mask',
+  living_down:'living_down', living_side:'living_side', living_up:'living_up',
   royal:'royal', fragile:'fragile', fake:'fake', mythic:'heart',
   shrine_altar:'shrine_altar', shrine_crystal:'shrine_crystal',
   artifact_ring:'artifact_ring', artifact_gem:'artifact_gem',
@@ -4604,12 +4605,18 @@ function drawLoot(l){
     gr2.addColorStop(0,'rgba(143,227,154,.7)'); gr2.addColorStop(1,'rgba(143,227,154,0)');
     ctx.fillStyle=gr2; ctx.beginPath(); ctx.arc(0,0,18*pulse,0,6.28); ctx.fill();
     ctx.translate(j,bob);
-    const crit=lootImg('living');
+    // Three bakes and a mirror, the same contract as Jo's atlas: the side art
+    // genuinely faces LEFT and flips for rightward flight, so there is no
+    // fourth sheet. The leg wiggle and pupil tracking the vector draws below
+    // are ~3px of motion at phone size; facing backwards for a run is not.
+    const fx=l.fx||0, fy=l.fy||-1;
+    const dir = Math.abs(fx) > Math.abs(fy) ? 'side' : (fy < 0 ? 'up' : 'down');
+    const side = dir==='side' ? lootImg('living_side') : null;
+    const crit = side || lootImg('living_'+dir) || lootImg('living_down');
     if(crit){
-      // One baked facing, so mirror it toward the flee vector. The leg wiggle and
-      // pupil tracking the vector draws below are ~3px of motion at phone size;
-      // facing the wrong way across a whole run is not.
-      ctx.save(); ctx.scale((l.fx||0)<0 ? -1 : 1, 1); drawLootArt(crit); ctx.restore();
+      ctx.save();
+      if(side && fx>0) ctx.scale(-1,1);   // only the real side art is mirrorable
+      drawLootArt(crit); ctx.restore();
       ctx.restore(); return;
     }
     // little legs

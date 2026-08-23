@@ -25,7 +25,7 @@ Numbers read from `web/index.html` @ **2026-08-17.27**: `LOOT_TYPES` ~L1472,
 | 02 | `valuable` | `gem` | Cut Gem | 170 | 2 | 1 | 0 | `#7fe3d0` | 10 × 10 | 20 |
 | 03 | `loud` | `idol` | Golden Idol | 460 | 5 | 4 | 0 | `#f5c542` | 9.8 × 16.1 | 20 |
 | 04 | `cursed` | `mask` | Marked Relic | 900 | 6 | 2 | 3 | `#a98bff` | 9.8 × 16.1 | 20 |
-| 05 | `living` | `living` | Skitterjewel | 380 | 3 | 2 | 0 | `#7fd88a` | 16 × 13 | 18 |
+| 05 | `living` | `living` | Skitterjewel | 380 | 3 | 2 | 0 | `#7fd88a` | 16 × 13 body | 18 |
 | 06 | `royal` | `royal` | Crown Jewels | 720 | 5 | 3 | 0 | `#ff5da8` | 7 × 11.5 | 20 |
 | 07 | `fragile` | `fragile` | Porcelain Relic | 560 | 2 | 0 | 0 | `#dfeaf5` | 7 × 11.5 | 20 |
 | 08 | `fake` | `fake` | Gilded Fake | 520 | 2 | 0 | 0 | `#ffd27a` | 7 × 11.5 | 20 |
@@ -35,8 +35,13 @@ Numbers read from `web/index.html` @ **2026-08-17.27**: `LOOT_TYPES` ~L1472,
 
 - **09 and 10 aren't in `LOOT_TYPES`** — `build()` places them directly. Both are
   destinations the player crosses a floor for; the art should carry that.
-- **Skitterjewel moves.** It scuttles and flees, and its pupils point along the
-  flee vector — keep a readable front and eyes.
+- **Skitterjewel moves, and it is three sprites.** `living_down` / `living_side`
+  / `living_up`, with side mirrored for rightward flight — the same contract as
+  Jo's atlas, and the one slot where having the model rather than a preview
+  actually pays. Bake at **26 units, ink 2**: `--units` scales the whole
+  footprint, so the 16×13 in the table above (which is the *body*) would make a
+  model with legs come out smaller than the vector it replaces, and 4px of ink
+  fills in legs only ~2px wide.
 - **Porcelain Relic needs no shattered sprite.** A hit sets `got=false` and the
   piece returns to its spawn intact. (`ASSET_MANIFEST.md` §2 says otherwise; stale.)
 - **Vault Heart** is weight 11, top noise, top curse — the run's biggest decision.

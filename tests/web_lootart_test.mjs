@@ -27,9 +27,12 @@ ok(boot.loaded.length === 0, 'vector mode fetches nothing — no wasted requests
 
 // --- every slot has a filename, including the two that split ------------------
 const src = await p.evaluate(()=>window.__greed.LOOT_ART_SRC);
-const need = ['common','valuable','loud','cursed','living','royal','fragile','fake','mythic',
+const need = ['common','valuable','loud','cursed','royal','fragile','fake','mythic',
+              'living_down','living_side','living_up',
               'shrine_altar','shrine_crystal','artifact_ring','artifact_gem'];
-ok(need.every(k=>src[k]), `all ${need.length} slots mapped, shrine and artifact split in two`);
+ok(need.every(k=>src[k]), `all ${need.length} files mapped`);
+ok(['living_down','living_side','living_up'].every(k=>src[k]),
+   'the Skitterjewel is three directions — side is mirrored for right, as Jo is');
 
 // --- flipping loads only what actually exists ---------------------------------
 await p.evaluate(()=>{
