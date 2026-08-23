@@ -24,8 +24,13 @@ draws exactly what it drew yesterday.
   baked facing, and the creature runs anywhere. Its leg wiggle and pupil tracking
   are about three device pixels of motion at phone size; facing backwards across
   a whole run is not. The vector path is unchanged and keeps both.
-- **First two assets in:** `coin.png` and `artifact_ring.png`, baked from Mint
-  models via `tools/loot-bake/`. Nine slots and two splits still to come.
+- **All fifteen files in.** Nine kinds from flat preview renders, two from
+  models. The vector set had six of eleven kinds sharing one arch silhouette;
+  every kind now has its own shape, which was the point.
+- **The Gilded Fake ships facing backwards, deliberately.** At ~26 px on a phone
+  it is the same gold lump as the Golden Idol it imitates, which is precisely
+  what the slot needs. Its material tells are ~2 px and do not survive; the
+  Appraiser's Eye tick, drawn by code, is what actually tells the player.
 
 ## Web build — GLANCEABLE: icon tiles, one-tap decisions, a Den that stops narrating (build 2026-08-17.27)
 

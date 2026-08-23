@@ -61,9 +61,8 @@ Numbers read from `web/index.html` @ **2026-08-17.27**: `LOOT_TYPES` ~L1472,
 
 ## What shipped
 
-Fourteen of fifteen files are in `web/assets/loot/`. Only `fake.png` is missing —
-the Gilded Fake, which by design clones the Golden Idol's silhouette (§Prompts).
-Its slot falls back to vector on its own until it lands.
+All fifteen files are in `web/assets/loot/`. Nine of eleven kinds came from flat
+preview renders (`from_image.py`), two from models (`bake.mjs`).
 
 | file | source | units | ink |
 |---|---|---|---|
@@ -74,11 +73,17 @@ Its slot falls back to vector on its own until it lands.
 | `living_down` `living_side` `living_up` | model, 3 yaws in one frame | 26 | 2 |
 | `royal` | image | 13 | 2 |
 | `fragile` | image | 12 | 2 |
-| `fake` | — | 16 | 2 |
+| `fake` | image | 16 | 2 |
 | `shrine_altar` `shrine_crystal` | image, split, shared frame | 24 | 2 |
 | `artifact_ring` | model | 28 | 3 |
 | `artifact_gem` | image | 13 | 2 |
 | `heart` | image | 20 | 2 |
+
+The Gilded Fake came out of the generator facing backwards, and it shipped that
+way on purpose. At the size this renders — ~26 px on a phone — front and back are
+the same gold lump, which is exactly what slot 08 needs. Its material tells
+(mould seam, chipped corner) are ~2 px and do not survive either; what actually
+tells the player is the Appraiser's Eye tick, and that is code-drawn on top.
 
 Ink is 2 for everything from an image — the generated art already carries its own
 dark outline, and 4 on top of that reads as a smear. The coin and ring came off
