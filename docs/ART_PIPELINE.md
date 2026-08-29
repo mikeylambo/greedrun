@@ -70,19 +70,133 @@ Known nits: Thief's Luck rendered a 3-leaf shamrock (fine, or re-roll for
 Known nit: Cliffside Fortress has a small light artifact at the middle-right
 edge — patch with clone stamp or re-roll before shipping.
 
-## Remaining queue (in priority order)
+### Loot icons (10/10, incl. shattered porcelain) — seed / asset ID
 
-1. Loot icons ×9 (same icon LoRA; world-pickup variants can reuse icon art
-   initially).
-2. Trophy icons ×5, contract icons ×9 (same LoRA + template).
-3. Wall textures ×4 themes (Scenario Texture, same theme prompts with "wall").
-4. Decorative props, 3–6 per theme ("Environment Sprites 2.0"
-   `model_uM7q4Ms6Y5X2PXie6oA9ygRa`, alpha sprites).
-5. HUD chrome (frames/panels: "Human Interface 2.0"
-   `model_2CrDSJ7FsBZckLpakS4JyS6A`); meter states (Heat 0–6, hearts) are
-   engine-composited from single art elements — do not generate per-state art.
-6. Extraction portal + staircase/edge pieces: hand-built or engine-drawn over
+| Loot | Seed | Asset ID |
+|---|---|---|
+| Loose Coin | 411013 | `asset_Q8uXF94vHP8rKWQDnGFHN4u7` |
+| Cut Gem | 411014 | `asset_jUTrRpspFfY2XVobT1Xs3aZB` |
+| Golden Idol | 411015 | `asset_gjkLRhW9D7AyKw7vEMNu1FKb` |
+| Marked Relic | 411016 | `asset_cdkzWc62Ny2TfUYkWm78CL6V` |
+| Skitterjewel | 411017 | `asset_CX7aHjozk2Vh8ecBow6nrhNe` |
+| Crown Jewels | 411018 | `asset_CnY2H1Q5dZiFoEhYAJPdWPuU` |
+| Porcelain Relic (intact) | 411019 | `asset_icxebWTEjoUhkMJ4FXTJ1J9v` |
+| Porcelain Relic (shattered) | 411019 | `asset_Xwdj8wLxyYTCEtVksgbtQWEJ` |
+| Decision Artifact | 411020 | `asset_yi87jQDwJpVPzPMauUq2XvpV` |
+| Vault Heart | 411021 | `asset_58PuoKxDYV2t7MQPkmiRyh5A` |
+
+Nit: shattered porcelain reads "cracked" rather than fully shattered, and its
+silhouette differs from the intact vase (handles) — re-roll or inpaint from the
+intact asset if the state swap must match 1:1.
+
+### Trophy icons (5/5)
+
+| Trophy | Seed | Asset ID |
+|---|---|---|
+| Golden Idol | 411055 | `asset_AzHo93tiFdLVVqPHyHLXZWdK` (re-roll) |
+| Marked Relic | 411023 | `asset_FTXoFAzd4ATFhX1rxmTkVxXJ` |
+| Skitterjewel | 411024 | `asset_WsbQeqM362nQD1mPYd9qYqav` |
+| Bound Relic | 411056 | `asset_ZR91BJc3vVhjMmCKYsvMPAPi` (re-roll) |
+| Vault Heart | 411026 | `asset_a8c64B7WF6p65PzUEDEYx77n` |
+
+Prompting lesson: the word "trophy" makes this LoRA draw a generic trophy cup —
+two first-pass misses (`asset_GrKgcz3BnDhC3dqWLthgTN2g`,
+`asset_VJyQP1K44385VJVcJW4ee32W`); describe the subject on a pedestal instead.
+
+### Contract icons (9/9)
+
+| Contract | Seed | Asset ID |
+|---|---|---|
+| Smuggling Run | 411027 | `asset_xPpKjyBkYc9eioftqBVb2R9H` |
+| Silent Job | 411028 | `asset_HEdXHf6Uu643MPrGxkWuAe1v` |
+| Contract Theft | 411029 | `asset_p4HoHYGMFm9b7aLtnJqPvJu9` |
+| Clean Sweep | 411030 | `asset_H35c3Cvx52jdyjt64aeZwMZk` |
+| Timed Raid | 411031 | `asset_HsMtz4oRo4MCLBSNt3Y1evJU` |
+| Recovery Job | 411032 | `asset_aVHVyDHZBhzRU3qYNScSxD5e` |
+| Legendary Heist | 411033 | `asset_zhj4ZGvgz56z44LKXouAcKgK` |
+| Ghost Job | 411034 | `asset_KqebFhBhgz2hP2kmTVUMAPk7` |
+| Bounty Run | 411035 | `asset_EqpxnKf2Bb2AnJCCEjjhcqB6` |
+
+Nit: Smuggling Run and Bounty Run rendered "$" symbols — modern for the
+setting; re-roll with "coin emblem, no letters or currency symbols" if desired.
+
+### Buyer avatars (5/5) and boon icons (3/3)
+
+| Icon | Seed | Asset ID |
+|---|---|---|
+| Black Market | 411036 | `asset_syTp7W5GDGMZBPeYrM7DaQCZ` |
+| Noble Collector | 411037 | `asset_HknCRcJ6NDDfu4KxJ38Bg3NK` |
+| The Syndicate | 411038 | `asset_fy4D8aDpd2pyckWTyFsVjhqU` |
+| Return it | 411039 | `asset_ZGFtdCr2c92r95WvF7C6N614` |
+| Keep it | 411040 | `asset_3Vw8nvzQsYyzBQqdtoHz6V5s` |
+| Greed Sense | 411041 | `asset_S9oYCUP1mWZJv1CorYr8qLwQ` |
+| Smoke Step | 411042 | `asset_tatokAZ7MFr1DmE3g1kiT4DZ` |
+| Silence | 411043 | `asset_Q1DJCihED5gE3cE36TFytexs` |
+
+### Enemy sprites (3 + palette swap)
+
+Single static sprites for the "one sprite rotated to face movement" animation
+model (the manifest's cheap option). Elite Guard = engine palette swap of Guard.
+
+| Enemy | Seed | Asset ID |
+|---|---|---|
+| Guard | 411044 | `asset_VK24xWEtxJMEev1o2QLhCX2a` |
+| Bounty Hunter | 411045 | `asset_KvYXwzw7U5zJH46hknvNPNiD` |
+| Sentry | 411046 | `asset_fUXNadPapLHzLgbPyQQmCpT2` |
+
+Note: these are 3/4 *front-facing* full-body sprites, not true top-down —
+usable for the vertical slice at small scale and for portraits/codex; commit to
+either rotation-sprite or re-source directional sheets before animation work.
+
+### Wall textures (4/4, seamless)
+
+| Theme | Asset ID |
+|---|---|
+| Sunken Treasury | `asset_2to9kaxu9y3niragDoKcL9Ag` |
+| Cliffside Fortress | `asset_GZ7921BDMxEUArUF3mzvnFjj` |
+| Undercity Vaults | `asset_f83atK9VWUZzaGkrpimLS4By` |
+| Old Mint | `asset_b6dNGckka6LvroV7fvtppf7s` |
+
+Old Mint wall lesson: `eraseSeam` smears regular panel grids (two attempts,
+`asset_izoFSR6JHZDVfRX9ubnUxa8f` and `asset_m1omR6LSUAfFDwPYCmutjYra`, both
+ghosted); the keeper was generated with `eraseSeam: false` — a uniform grid
+pattern tiles on its own.
+
+### HUD chrome (Human Interface 2.0 LoRA `model_2CrDSJ7FsBZckLpakS4JyS6A`)
+
+| Element | Seed | Asset ID |
+|---|---|---|
+| Ornate panel frame | 411047 | `asset_dfa4bB35jcq2ZTN41aRXQMsg` |
+| Button set (state grid) | 411048 | `asset_A4BptrN6vDd2oiVDJ79dEPWw` |
+| Meter frames + flame gauge | 411049 | `asset_b4Qh9b28yaSbNcRMVEFTGFuN` |
+| HUD pictogram sheet (heart, pouch, flame, pack…) | 411050 | `asset_K6TV5TBy3uBKqntfyumtS2ZV` |
+
+Panel/buttons need 9-slice cutting in Godot; pictogram sheet needs manual
+cutting into individual icons.
+
+### Theme prop sheets (Environment Sprites 2.0 LoRA `model_uM7q4Ms6Y5X2PXie6oA9ygRa`)
+
+One sheet per theme, ~4 props each, cut apart + background-removed for use:
+
+| Theme | Seed | Asset ID |
+|---|---|---|
+| Sunken Treasury | 411051 | `asset_mAuVKamoHHL96M7zGUEShuWr` |
+| Cliffside Fortress | 411052 | `asset_s48WKBua5sZ8PQH4f9NV6v2H` |
+| Undercity Vaults | 411053 | `asset_q3MGHzYkHp62ZrZNVxTTHTFD` |
+| Old Mint | 411054 | `asset_kvggfizpReNpctAqR4k9b1wQ` |
+
+Props render with grass/ground bases — fine as freestanding decor; mask the
+base off for props that must sit flush on interior floors.
+
+## Still open (not generated here)
+
+1. **Jo (player)** with load-tier variants — needs the character-animation-model
+   lock first; same icon LoRA can produce the base sprite when decided.
+2. Extraction portal + staircase/edge pieces: hand-built or engine-drawn over
    base textures (diffusion can't do edge-matching autotiles reliably).
+3. Heat meter per-state art: engine-composite from the flame gauge + pictogram.
+4. Tier-3 identity work: title logo, screen backdrops, app icon, key art.
+5. VFX and all audio (out of scope for image generation).
 
 ## Environment note
 
