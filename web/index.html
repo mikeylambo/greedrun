@@ -61,8 +61,10 @@
     letter-spacing:.04em;padding:5px 12px;border-radius:20px;width:fit-content;
     box-shadow:0 0 0 1px currentColor inset;text-shadow:0 1px 2px rgba(0,0,0,.6);}
   #dropRisk.on{display:block;}
-  .heart{color:var(--heat);}
-  .heart.gone{color:#3a2b22;}
+  .heart{width:22px;height:20px;font-size:0;
+    background:url(assets/ui/heart.png) center/contain no-repeat;
+    filter:drop-shadow(0 2px 3px rgba(0,0,0,.55));}
+  .heart.gone{filter:grayscale(1) brightness(.42);opacity:.55;}
   .value-tag{text-align:right;line-height:1;}
   .value-tag .lbl{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);}
   #secured{transition:opacity .4s ease;}   /* §13 — the count speaks when it changes */
@@ -81,9 +83,17 @@
   .meter .row{display:flex;justify-content:space-between;font-size:11px;
     letter-spacing:.14em;text-transform:uppercase;margin-bottom:3px;}
   .meter .row b{font-weight:700;}
-  .meter .track{height:9px;border-radius:6px;background:#0c0a06;
-    box-shadow:0 0 0 1px rgba(255,255,255,.05) inset;overflow:hidden;}
-  .meter .fill{height:100%;width:0;border-radius:6px;transition:width .18s ease-out;}
+  .meter .track{height:24px;background:#0c0a06;background-clip:padding-box;
+    border-style:solid;border-width:5px 26px;border-color:transparent;
+    border-image:url(assets/ui/meter.png) 34 150 / 5px 26px / 0 stretch;
+    overflow:hidden;}
+  .meter .fill{height:100%;width:0;transition:width .18s ease-out;}
+  /* ---------- HUD chrome (generated art) ---------- */
+  .stat-ic{width:22px;height:22px;object-fit:contain;flex:0 0 auto;
+    filter:drop-shadow(0 2px 3px rgba(0,0,0,.6));}
+  .stat-ic.sm{width:15px;height:15px;vertical-align:-3px;margin-right:5px;}
+  .heat-emblem{position:absolute;right:calc(100% + 9px);bottom:-3px;width:36px;height:36px;
+    object-fit:contain;filter:drop-shadow(0 2px 5px rgba(0,0,0,.6));}
   #greedFill{background:linear-gradient(90deg,var(--ok),var(--gold),var(--heat));}
   #noiseFill{background:linear-gradient(90deg,#6a7f9c,#c9d3e0);}
 
@@ -704,7 +714,10 @@
       <div style="display:flex;gap:12px;align-items:flex-start">
         <div class="value-tag">
           <div class="lbl">Haul in bag</div>
-          <div class="amt" id="haul">$0</div>
+          <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end">
+            <img class="stat-ic" src="assets/ui/pouch.png" alt="">
+            <div class="amt" id="haul">$0</div>
+          </div>
           <div class="lbl" id="secured" style="margin-top:4px">0 / 0 secured</div>
         </div>
         <div class="iconbtn" id="fsBtn" title="Fullscreen (F)">⛶</div>
@@ -716,7 +729,7 @@
     </div>
     <div class="meters">
       <div class="meter">
-        <div class="row"><span>Greed Load</span><b id="greedTxt">Light</b></div>
+        <div class="row"><span><img class="stat-ic sm" src="assets/ui/pack.png" alt="">Greed Load</span><b id="greedTxt">Light</b></div>
         <div class="track"><div class="fill" id="greedFill"></div></div>
       </div>
       <!-- §13 — Noise is contextual: it appears when it is actually costing you
@@ -730,6 +743,7 @@
       <div id="keyHints" style="display:none;margin-top:4px;font-size:11px;letter-spacing:.06em;color:var(--muted);text-shadow:0 1px 3px rgba(0,0,0,.7)"><b style="color:var(--bone)">Q</b> drop heaviest &nbsp;·&nbsp; <b style="color:var(--bone)">Space</b> tool &nbsp;·&nbsp; <b style="color:var(--bone)">P</b> pause</div>
     </div>
     <div class="heat-pips">
+      <img class="heat-emblem" src="assets/ui/heat.png" alt="">
       <div class="lbl" id="heatLbl">Heat</div>
       <div class="pips" id="pips"></div>
     </div>
