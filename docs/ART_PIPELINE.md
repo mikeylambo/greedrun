@@ -188,6 +188,32 @@ One sheet per theme, ~4 props each, cut apart + background-removed for use:
 Props render with grass/ground bases — fine as freestanding decor; mask the
 base off for props that must sit flush on interior floors.
 
+## Tier 1 slice — in-engine wiring (treasury)
+
+The generated art is wired into the procedural `_draw()` renderers, texture-first
+with a fallback to the original vector/flat drawing when a texture is missing:
+
+- `scripts/art.gd` (`Art`) — cached `load()` + `ResourceLoader.exists()` texture
+  loader and tiled-surface painter. `scripts/themes.gd` (`Themes.DATA`) — the
+  theme palette table, moved out of `vault.gd`.
+- `vault.gd` tiles `assets/textures/<theme>/{floor,wall}.png` for floor / walls /
+  raised platforms (384px on-screen period). `FORCE_THEME := "treasury"` locks the
+  theme; set `""` to restore per-contract/random.
+- `loot_item.gd` draws `assets/icons/loot/<loot_type>.png`; `guard.gd` draws
+  `enemies/guard.png` (Elite = gold modulate); `sentry.gd` draws `enemies/sentry.png`
+  under its vision cone. Gameplay tells (facing line, chase ring, cone) are kept.
+
+### Background cutouts
+
+Scenario rendered the icons/sprites on dark grounds, so in-world sprites needed
+alpha. `assets/icons/loot/*.png` and `assets/enemies/{guard,sentry}.png` were
+processed to RGBA by removing only the **border-connected** dark background
+(preserving dark areas inside a subject); the pre-cutout masters remain in git
+history. `enemies/bounty_hunter.png` is a dark-on-dark subject that did not cut
+out cleanly and is left as its master (not used in-world; the Hunter keeps its
+vector token). The other icon families (upgrades/trophies/contracts/buyers/boons)
+were left with their backgrounds — they render on UI cards.
+
 ## Still open (not generated here)
 
 1. **Jo (player)** with load-tier variants — needs the character-animation-model

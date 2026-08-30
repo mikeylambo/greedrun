@@ -13,6 +13,10 @@ const GUARD_SCENE := preload("res://scenes/Guard.tscn")
 const SENTRY_SCENE := preload("res://scenes/Sentry.tscn")
 const PORTAL_SCENE := preload("res://scenes/Portal.tscn")
 
+# Tier 1 art slice: lock every run to one theme so the wired art is easy to see.
+# Set to "" to restore normal per-contract / random theme selection.
+const FORCE_THEME := "treasury"
+
 const LOOT_TYPES := {
 	"coin":
 	{
@@ -96,47 +100,13 @@ const ARTIFACTS: Array[Dictionary] = [
 	{"name": "The Empty Throne", "flavor": "Whoever sat here always wanted one more thing."},
 ]
 const BOONS := ["sense", "ghost", "muffle"]
-const THEMES := {
-	"treasury":
-	{
-		"name": "Sunken Treasury",
-		"floor": Color("#17150f"),
-		"wall": Color("#534323"),
-		"grid": Color("#292318"),
-		"platform": Color("#302919")
-	},
-	"fortress":
-	{
-		"name": "Cliffside Fortress",
-		"floor": Color("#15171a"),
-		"wall": Color("#4d5159"),
-		"grid": Color("#23272d"),
-		"platform": Color("#2b3037")
-	},
-	"undercity":
-	{
-		"name": "Undercity Vaults",
-		"floor": Color("#111719"),
-		"wall": Color("#31505a"),
-		"grid": Color("#1b2a2f"),
-		"platform": Color("#20363c")
-	},
-	"mint":
-	{
-		"name": "Old Mint",
-		"floor": Color("#181510"),
-		"wall": Color("#61513a"),
-		"grid": Color("#2b2419"),
-		"platform": Color("#382e20")
-	},
-}
-
 var rng := RandomNumberGenerator.new()
 var run_seed := 0
 var active_contract: Dictionary = {}
 var world_size := Vector2(2400, 1700)
 var world_bounds := Rect2()
-var current_theme: Dictionary = THEMES.treasury
+var current_theme: Dictionary = Themes.DATA.treasury
+var current_theme_key := "treasury"
 var walls: Array[Rect2] = []
 var platforms: Array[Dictionary] = []
 var loot_items: Array[GreedrunLoot] = []
@@ -171,8 +141,11 @@ var hunter_spawned := false
 var pending_artifact: GreedrunLoot
 var finished := false
 
+
 func _ready() -> void:
 	z_as_relative = false
+	# Required so draw_texture_rect(..., tile=true) repeats instead of clamping.
+	texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 
 
 func start_run(contract: Dictionary = {}, seed_value: int = 0) -> void:
@@ -184,10 +157,13 @@ func start_run(contract: Dictionary = {}, seed_value: int = 0) -> void:
 	world_size = Vector2(rng.randi_range(2300, 3200), rng.randi_range(1550, 2200))
 	world_bounds = Rect2(Vector2.ZERO, world_size)
 	var theme_key := str(active_contract.get("theme_key", ""))
-	if theme_key.is_empty() or not THEMES.has(theme_key):
-		var keys := THEMES.keys()
+	if theme_key.is_empty() or not Themes.DATA.has(theme_key):
+		var keys := Themes.DATA.keys()
 		theme_key = str(keys[rng.randi_range(0, keys.size() - 1)])
-	current_theme = THEMES[theme_key]
+	if not FORCE_THEME.is_empty() and Themes.DATA.has(FORCE_THEME):
+		theme_key = FORCE_THEME
+	current_theme = Themes.DATA[theme_key]
+	current_theme_key = theme_key
 	run_time_limit = float(active_contract.get("time_limit", 0.0))
 	heat_seed = clampi(floori(MetaSave.notoriety() / 2.0) - MetaSave.upgrade_level("cool"), 0, 3)
 	_generate_world()
@@ -454,6 +430,7 @@ func _spawn_guards() -> void:
 		for j in range(2):
 			points.append(_open_spot(14, [], 0, 0.18))
 		_spawn_guard(start, points)
+
 
 func _spawn_guard(
 	point: Vector2, points: Array[Vector2], elite: bool = false, hunter: bool = false
@@ -974,17 +951,16 @@ func _emit_hud() -> void:
 
 
 func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, world_size), current_theme.floor, true)
-	var grid_color: Color = current_theme.grid
-	for x in range(0, int(world_size.x), 64):
-		draw_line(Vector2(x, 0), Vector2(x, world_size.y), grid_color, 1)
-	for y in range(0, int(world_size.y), 64):
-		draw_line(Vector2(0, y), Vector2(world_size.x, y), grid_color, 1)
+	var floor_tex := _theme_texture("floor")
+	var wall_tex := _theme_texture("wall")
+	Art.paint_surface(self, floor_tex, Rect2(Vector2.ZERO, world_size), current_theme.floor)
 	for platform: Dictionary in platforms:
 		var rect: Rect2 = platform.rect
 		var stair: Rect2 = platform.stair
 		draw_rect(Rect2(rect.position + Vector2(0, 12), rect.size), Color(0, 0, 0, 0.35), true)
-		draw_rect(rect, current_theme.platform, true)
+		# Raised platforms reuse the brightened floor texture; the shadow + border
+		# still read the elevation change.
+		Art.paint_surface(self, floor_tex, rect, current_theme.platform, Color(1.28, 1.28, 1.28))
 		draw_rect(rect, current_theme.wall, false, 4)
 		draw_rect(stair, current_theme.platform.lightened(0.13), true)
 		for step in range(5):
@@ -996,5 +972,12 @@ func _draw() -> void:
 				1
 			)
 	for wall: Rect2 in walls:
-		draw_rect(wall, current_theme.wall, true)
-		draw_rect(wall, current_theme.wall.lightened(0.18), false, 2)
+		Art.paint_surface(self, wall_tex, wall, current_theme.wall)
+		var edge: Color = (
+			Color(0, 0, 0, 0.30) if wall_tex != null else current_theme.wall.lightened(0.18)
+		)
+		draw_rect(wall, edge, false, 2)
+
+
+func _theme_texture(kind: String) -> Texture2D:
+	return Art.texture("res://assets/textures/%s/%s.png" % [current_theme_key, kind])

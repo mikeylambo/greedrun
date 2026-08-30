@@ -15,9 +15,13 @@ own `assets/textures/README.md`.
 - `enemies/<name>`, `ui/<name>`, `props/<theme>` - theme keys match `THEMES` in `scripts/vault.gd`
 
 All source PNGs are 1024x1024, generated with Scenario (see ART_PIPELINE for the
-per-family model/LoRA). Icons and enemies have transparent/dark grounds; `ui/` and
-`props/` sheets contain multiple elements and need cutting (9-slice for panels/
-buttons, sprite extraction for pictograms and props).
+per-family model/LoRA). `ui/` and `props/` sheets contain multiple elements and
+need cutting (9-slice for panels/buttons, sprite extraction for pictograms/props).
+
+**Alpha cutouts:** `icons/loot/*.png` and `enemies/{guard,sentry}.png` were
+processed to RGBA (dark background removed) so they render in-world; the
+pre-cutout masters are in git history. `enemies/bounty_hunter.png` and the other
+icon families keep their dark grounds (they render on UI cards / not in-world).
 
 ## File -> Scenario asset ID
 

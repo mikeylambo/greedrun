@@ -46,5 +46,11 @@ func _draw() -> void:
 	draw_colored_polygon(
 		PackedVector2Array([Vector2.ZERO, p1, p2]), Color(color.r, color.g, color.b, 0.08)
 	)
-	draw_circle(Vector2.ZERO, 10.0, color)
+	var sprite := Art.texture("res://assets/enemies/sentry.png")
+	if sprite != null:
+		var h := 42.0
+		var mod := Color(1.0, 0.55, 0.45) if hot > 0.0 else Color.WHITE
+		draw_texture_rect(sprite, Rect2(-h * 0.5, -h * 0.62, h, h), false, mod)
+	else:
+		draw_circle(Vector2.ZERO, 10.0, color)
 	draw_line(Vector2.ZERO, Vector2.from_angle(angle) * 18.0, Color.WHITE, 2.0)
