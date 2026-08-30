@@ -4242,24 +4242,30 @@ function drawPlatforms(){
     // south cliff face (implies height)
     ctx.fillStyle='rgba(0,0,0,.45)';
     ctx.fillRect(p.x, p.y+p.h, p.w, ELEV);
-    // raised top surface
+    // raised top surface — some platforms textured, some flat (seeded coin flip
+    // per platform, so a map mixes both). Textured tops read as raised stone.
     ctx.fillStyle=T.plat;
     ctx.fillRect(p.x, p.y, p.w, p.h);
+    const fp=floorPattern();
+    if(fp && hashXY(Math.round(p.x),Math.round(p.y))%2===0){
+      ctx.save(); ctx.globalAlpha=0.62; ctx.fillStyle=fp; ctx.fillRect(p.x,p.y,p.w,p.h);
+      ctx.globalAlpha=1; ctx.fillStyle='rgba(255,240,205,0.10)'; ctx.fillRect(p.x,p.y,p.w,p.h); ctx.restore();
+    }
     // top-left highlight, edges
     ctx.fillStyle='rgba(255,255,255,.07)'; ctx.fillRect(p.x,p.y,p.w,3); ctx.fillRect(p.x,p.y,3,p.h);
     ctx.strokeStyle=INK; ctx.lineWidth=2.5; ctx.lineJoin='miter'; ctx.strokeRect(p.x,p.y,p.w,p.h);
     // ledge warning line (warm dashes) — reads as "drop here"
     ctx.strokeStyle='rgba(245,197,66,.28)'; ctx.lineWidth=2; ctx.setLineDash([9,7]);
     ctx.strokeRect(p.x+4,p.y+4,p.w-8,p.h-8); ctx.setLineDash([]);
-    // staircase ramp
+    // staircase ramp — the way up, made to read at a glance: a distinct warm
+    // fill, a bright thick gold border, and high-contrast dark treads (steps).
     const s=p.stair, horiz=s.w>s.h;
-    ctx.fillStyle='rgba(255,255,255,.05)'; ctx.fillRect(s.x,s.y,s.w,s.h);
-    ctx.strokeStyle='rgba(245,197,66,.5)'; ctx.lineWidth=2;
-    ctx.strokeRect(s.x,s.y,s.w,s.h);
-    ctx.strokeStyle='rgba(255,255,255,.18)'; ctx.lineWidth=1.5;
+    ctx.fillStyle='rgba(240,196,84,.24)'; ctx.fillRect(s.x,s.y,s.w,s.h);
+    ctx.strokeStyle='rgba(255,216,124,.95)'; ctx.lineWidth=3; ctx.strokeRect(s.x,s.y,s.w,s.h);
+    ctx.strokeStyle='rgba(52,34,12,.75)'; ctx.lineWidth=2.4;
     for(let k=1;k<4;k++){ ctx.beginPath();
-      if(horiz){ ctx.moveTo(s.x+s.w*k/4,s.y); ctx.lineTo(s.x+s.w*k/4,s.y+s.h); }
-      else { ctx.moveTo(s.x,s.y+s.h*k/4); ctx.lineTo(s.x+s.w,s.y+s.h*k/4); }
+      if(horiz){ ctx.moveTo(s.x+s.w*k/4,s.y+2); ctx.lineTo(s.x+s.w*k/4,s.y+s.h-2); }
+      else { ctx.moveTo(s.x+2,s.y+s.h*k/4); ctx.lineTo(s.x+s.w-2,s.y+s.h*k/4); }
       ctx.stroke(); }
   }
 }
@@ -4272,7 +4278,11 @@ function drawFloorPattern(){
   // Textured floor (world-anchored tiling) over the dark base; the alpha keeps
   // the stealth mood while the stone reads. Falls back to the procedural grid.
   const fpat=floorPattern();
-  if(fpat){ ctx.save(); ctx.globalAlpha=0.40; ctx.fillStyle=fpat; ctx.fillRect(L,Tp,VIEW.w,VIEW.h);
+  if(fpat){ ctx.save();
+    // per-run opacity, deterministic on the vault seed — proc-gen variety in the
+    // 0.42..0.58 range the mockups landed on.
+    ctx.globalAlpha = 0.42 + (hashXY(vaultSeed,151)%17)/100;
+    ctx.fillStyle=fpat; ctx.fillRect(L,Tp,VIEW.w,VIEW.h);
     ctx.globalAlpha=1; ctx.fillStyle='rgba(8,7,5,0.34)'; ctx.fillRect(L,Tp,VIEW.w,VIEW.h);  // keep the stealth mood
     ctx.restore(); return; }
   ctx.lineWidth=1;
