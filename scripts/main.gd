@@ -698,12 +698,12 @@ func _generate_contracts(count: int) -> Array[Dictionary]:
 	)
 	pool.shuffle()
 	var result: Array[Dictionary] = []
-	var theme_keys := GreedrunVault.THEMES.keys()
+	var theme_keys := Themes.DATA.keys()
 	for i in range(count):
 		var contract: Dictionary = pool[i].duplicate(true)
 		var theme_key := str(theme_keys[contract_rng.randi_range(0, theme_keys.size() - 1)])
 		contract.theme_key = theme_key
-		contract.location = GreedrunVault.THEMES[theme_key].name
+		contract.location = Themes.DATA[theme_key].name
 		result.append(contract)
 	return result
 

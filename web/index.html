@@ -61,8 +61,10 @@
     letter-spacing:.04em;padding:5px 12px;border-radius:20px;width:fit-content;
     box-shadow:0 0 0 1px currentColor inset;text-shadow:0 1px 2px rgba(0,0,0,.6);}
   #dropRisk.on{display:block;}
-  .heart{color:var(--heat);}
-  .heart.gone{color:#3a2b22;}
+  .heart{width:22px;height:20px;font-size:0;
+    background:url(assets/ui/heart.png) center/contain no-repeat;
+    filter:drop-shadow(0 2px 3px rgba(0,0,0,.55));}
+  .heart.gone{filter:grayscale(1) brightness(.42);opacity:.55;}
   .value-tag{text-align:right;line-height:1;}
   .value-tag .lbl{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);}
   #secured{transition:opacity .4s ease;}   /* §13 — the count speaks when it changes */
@@ -81,9 +83,17 @@
   .meter .row{display:flex;justify-content:space-between;font-size:11px;
     letter-spacing:.14em;text-transform:uppercase;margin-bottom:3px;}
   .meter .row b{font-weight:700;}
-  .meter .track{height:9px;border-radius:6px;background:#0c0a06;
-    box-shadow:0 0 0 1px rgba(255,255,255,.05) inset;overflow:hidden;}
-  .meter .fill{height:100%;width:0;border-radius:6px;transition:width .18s ease-out;}
+  .meter .track{height:24px;background:#0c0a06;background-clip:padding-box;
+    border-style:solid;border-width:5px 26px;border-color:transparent;
+    border-image:url(assets/ui/meter.png) 34 150 / 5px 26px / 0 stretch;
+    overflow:hidden;}
+  .meter .fill{height:100%;width:0;transition:width .18s ease-out;}
+  /* ---------- HUD chrome (generated art) ---------- */
+  .stat-ic{width:22px;height:22px;object-fit:contain;flex:0 0 auto;
+    filter:drop-shadow(0 2px 3px rgba(0,0,0,.6));}
+  .stat-ic.sm{width:15px;height:15px;vertical-align:-3px;margin-right:5px;}
+  .heat-emblem{position:absolute;right:calc(100% + 9px);bottom:-3px;width:36px;height:36px;
+    object-fit:contain;filter:drop-shadow(0 2px 5px rgba(0,0,0,.6));}
   #greedFill{background:linear-gradient(90deg,var(--ok),var(--gold),var(--heat));}
   #noiseFill{background:linear-gradient(90deg,#6a7f9c,#c9d3e0);}
 
@@ -122,6 +132,12 @@
                bottom:calc(30cqmin + env(safe-area-inset-bottom));}
     .heat-pips .lbl{font-size:3.1cqmin;margin-bottom:1.2cqmin;}
     .pip{width:5cqmin;height:1.9cqmin;}
+    /* the generated HUD chrome scales with the stage on touch, like the rest */
+    .heart{width:6.6cqmin;height:6cqmin;}
+    .stat-ic{width:5.8cqmin;height:5.8cqmin;}
+    .stat-ic.sm{width:4cqmin;height:4cqmin;margin-right:1.2cqmin;}
+    .heat-emblem{width:9cqmin;height:9cqmin;right:calc(100% + 2cqmin);bottom:-0.6cqmin;}
+    .meter .track{height:6cqmin;border-width:1.3cqmin 6cqmin;border-image-width:1.3cqmin 6cqmin;}
     /* Touch-control sizing lives AFTER the base #stick/#eBtn/#dropBtn rules (search
        "--ctl") so it actually wins on source order — these ID rules can't be
        overridden from here because the base defs come later in the file. */
@@ -453,16 +469,21 @@
     background:radial-gradient(120% 70% at 50% -10%,rgba(255,200,90,.09),transparent 62%),linear-gradient(180deg,#241a10,#150e07);
     box-shadow:inset 0 1px 0 rgba(255,215,130,.10),inset 0 0 0 1px #3a2a17,0 12px 24px rgba(0,0,0,.55);}
   .niche.empty{filter:saturate(.5) brightness(.82);}
-  .niche .gem{width:58px;height:58px;margin:2px auto 0;border-radius:50%;
+  .niche .gem{position:relative;width:58px;height:58px;margin:2px auto 0;border-radius:50%;
     background:radial-gradient(circle at 38% 30%,#ffffffcc,var(--gemc,#f5c542) 52%,#00000088 100%);
     box-shadow:0 0 30px -3px var(--gemglow,rgba(245,197,66,.6)),inset 0 -7px 13px rgba(0,0,0,.45);}
   .niche.owned .gem{animation:gemPulse 2.8s ease-in-out infinite;}
+  .niche .gem-ic{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;
+    box-shadow:inset 0 0 0 1px rgba(255,215,130,.28),inset 0 -6px 12px rgba(0,0,0,.4);}
   @keyframes gemPulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.28)}}
   .niche.empty .gem{background:radial-gradient(circle at 40% 35%,#2b2318,#100b06);box-shadow:inset 0 -5px 11px rgba(0,0,0,.65);}
   .niche.empty .gem::after{content:'?';position:absolute;inset:0;display:grid;place-items:center;
     font:700 22px "Cinzel",serif;color:#5a4a2e;transform:translateY(24px);}
   .niche .plinth{height:13px;margin:6px 30px 11px;border-radius:0 0 6px 6px;
     background:linear-gradient(180deg,#5a4225,#2a1d10);box-shadow:inset 0 2px 0 rgba(255,215,140,.18),0 7px 11px rgba(0,0,0,.55);}
+  .niche .tname{font-family:"Cinzel",serif;font-weight:600;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+    color:#caa668;margin:0 0 5px;opacity:.9;}
+  .niche.empty .tname{color:#6f5f43;}
   .niche .plate{font-family:"Cinzel",serif;font-weight:700;font-size:13px;letter-spacing:.01em;color:#3a2a0e;
     padding:3px 10px;border-radius:4px;display:inline-block;
     background:linear-gradient(180deg,#f8da7e,#c69a34);box-shadow:0 1px 2px rgba(0,0,0,.45),inset 0 1px 0 #ffffffaa;}
@@ -557,7 +578,12 @@
   .job{pointer-events:auto;cursor:pointer;background:var(--panel);border-radius:11px;padding:15px 16px;
     box-shadow:0 0 0 1px var(--panel-line) inset;border-left:3px solid var(--gold-deep);
     transition:transform .12s, box-shadow .12s;}
+  .job{display:flex;gap:14px;align-items:center;}
+  .job-ic{width:54px;height:54px;flex:0 0 auto;border-radius:9px;object-fit:cover;
+    background:#161109;box-shadow:0 0 0 1px var(--panel-line) inset;}
+  .job-body{flex:1 1 auto;min-width:0;}
   .job:hover{transform:translateY(-2px);box-shadow:0 0 0 1px var(--gold) inset;}
+  .job:hover .job-ic{box-shadow:0 0 0 1px var(--gold-deep) inset;}
   .job .jt{font-family:"Cinzel",serif;font-weight:700;font-size:16px;color:var(--scarf);line-height:1.25;}
   .job .jc{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:5px;}
   .job .jloc{font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:3px 0 0;}
@@ -704,7 +730,10 @@
       <div style="display:flex;gap:12px;align-items:flex-start">
         <div class="value-tag">
           <div class="lbl">Haul in bag</div>
-          <div class="amt" id="haul">$0</div>
+          <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end">
+            <img class="stat-ic" src="assets/ui/pouch.png" alt="">
+            <div class="amt" id="haul">$0</div>
+          </div>
           <div class="lbl" id="secured" style="margin-top:4px">0 / 0 secured</div>
         </div>
         <div class="iconbtn" id="fsBtn" title="Fullscreen (F)">⛶</div>
@@ -716,7 +745,7 @@
     </div>
     <div class="meters">
       <div class="meter">
-        <div class="row"><span>Greed Load</span><b id="greedTxt">Light</b></div>
+        <div class="row"><span><img class="stat-ic sm" src="assets/ui/pack.png" alt="">Greed Load</span><b id="greedTxt">Light</b></div>
         <div class="track"><div class="fill" id="greedFill"></div></div>
       </div>
       <!-- §13 — Noise is contextual: it appears when it is actually costing you
@@ -730,6 +759,7 @@
       <div id="keyHints" style="display:none;margin-top:4px;font-size:11px;letter-spacing:.06em;color:var(--muted);text-shadow:0 1px 3px rgba(0,0,0,.7)"><b style="color:var(--bone)">Q</b> drop heaviest &nbsp;·&nbsp; <b style="color:var(--bone)">Space</b> tool &nbsp;·&nbsp; <b style="color:var(--bone)">P</b> pause</div>
     </div>
     <div class="heat-pips">
+      <img class="heat-emblem" src="assets/ui/heat.png" alt="">
       <div class="lbl" id="heatLbl">Heat</div>
       <div class="pips" id="pips"></div>
     </div>
@@ -1613,7 +1643,7 @@ const THEME_DECOR={
   treasury:{ ground:['pillarbase','urn','crate','puddle'],  wall:['banner'] },
   fortress:{ ground:['crate','barrel','rubble'],            wall:['banner','chain'] },
   undercity:{ground:['rubble','beam','puddle'],             wall:['torch'] },
-  mint:     { ground:['coinpile','gear','barrel','crate'],  wall:['banner'] },
+  mint:     { ground:['gear','barrel','crate']       ,  wall:['banner'] },
 };
 const THEME_LANDMARK={ treasury:'basin', fortress:'compass', undercity:'well', mint:'die' };
 const BANNER_COL={ treasury:'#c9a24a', fortress:'#6f89a1', undercity:'#8a6b3a', mint:'#c9b37a' };
@@ -4228,24 +4258,30 @@ function drawPlatforms(){
     // south cliff face (implies height)
     ctx.fillStyle='rgba(0,0,0,.45)';
     ctx.fillRect(p.x, p.y+p.h, p.w, ELEV);
-    // raised top surface
+    // raised top surface — some platforms textured, some flat (seeded coin flip
+    // per platform, so a map mixes both). Textured tops read as raised stone.
     ctx.fillStyle=T.plat;
     ctx.fillRect(p.x, p.y, p.w, p.h);
+    const fp=floorPattern();
+    if(fp && hashXY(Math.round(p.x),Math.round(p.y))%2===0){
+      ctx.save(); ctx.globalAlpha=0.62; ctx.fillStyle=fp; ctx.fillRect(p.x,p.y,p.w,p.h);
+      ctx.globalAlpha=1; ctx.fillStyle='rgba(255,240,205,0.10)'; ctx.fillRect(p.x,p.y,p.w,p.h); ctx.restore();
+    }
     // top-left highlight, edges
     ctx.fillStyle='rgba(255,255,255,.07)'; ctx.fillRect(p.x,p.y,p.w,3); ctx.fillRect(p.x,p.y,3,p.h);
     ctx.strokeStyle=INK; ctx.lineWidth=2.5; ctx.lineJoin='miter'; ctx.strokeRect(p.x,p.y,p.w,p.h);
     // ledge warning line (warm dashes) — reads as "drop here"
     ctx.strokeStyle='rgba(245,197,66,.28)'; ctx.lineWidth=2; ctx.setLineDash([9,7]);
     ctx.strokeRect(p.x+4,p.y+4,p.w-8,p.h-8); ctx.setLineDash([]);
-    // staircase ramp
+    // staircase ramp — the way up, made to read at a glance: a distinct warm
+    // fill, a bright thick gold border, and high-contrast dark treads (steps).
     const s=p.stair, horiz=s.w>s.h;
-    ctx.fillStyle='rgba(255,255,255,.05)'; ctx.fillRect(s.x,s.y,s.w,s.h);
-    ctx.strokeStyle='rgba(245,197,66,.5)'; ctx.lineWidth=2;
-    ctx.strokeRect(s.x,s.y,s.w,s.h);
-    ctx.strokeStyle='rgba(255,255,255,.18)'; ctx.lineWidth=1.5;
+    ctx.fillStyle='rgba(240,196,84,.24)'; ctx.fillRect(s.x,s.y,s.w,s.h);
+    ctx.strokeStyle='rgba(255,216,124,.95)'; ctx.lineWidth=3; ctx.strokeRect(s.x,s.y,s.w,s.h);
+    ctx.strokeStyle='rgba(52,34,12,.75)'; ctx.lineWidth=2.4;
     for(let k=1;k<4;k++){ ctx.beginPath();
-      if(horiz){ ctx.moveTo(s.x+s.w*k/4,s.y); ctx.lineTo(s.x+s.w*k/4,s.y+s.h); }
-      else { ctx.moveTo(s.x,s.y+s.h*k/4); ctx.lineTo(s.x+s.w,s.y+s.h*k/4); }
+      if(horiz){ ctx.moveTo(s.x+s.w*k/4,s.y+2); ctx.lineTo(s.x+s.w*k/4,s.y+s.h-2); }
+      else { ctx.moveTo(s.x+2,s.y+s.h*k/4); ctx.lineTo(s.x+s.w-2,s.y+s.h*k/4); }
       ctx.stroke(); }
   }
 }
@@ -4255,6 +4291,16 @@ const hashXY=(ix,iy)=>(((ix*73856093)^(iy*19349663))>>>0);
 function drawFloorPattern(){
   const T=currentTheme, L=cam.x, R=cam.x+VIEW.w, Tp=cam.y, B=cam.y+VIEW.h;
   ctx.fillStyle=T.floor; ctx.fillRect(L,Tp,VIEW.w,VIEW.h);
+  // Textured floor (world-anchored tiling) over the dark base; the alpha keeps
+  // the stealth mood while the stone reads. Falls back to the procedural grid.
+  const fpat=floorPattern();
+  if(fpat){ ctx.save();
+    // per-run opacity, deterministic on the vault seed — proc-gen variety in the
+    // 0.42..0.58 range the mockups landed on.
+    ctx.globalAlpha = 0.42 + (hashXY(vaultSeed,151)%17)/100;
+    ctx.fillStyle=fpat; ctx.fillRect(L,Tp,VIEW.w,VIEW.h);
+    ctx.globalAlpha=1; ctx.fillStyle='rgba(8,7,5,0.34)'; ctx.fillRect(L,Tp,VIEW.w,VIEW.h);  // keep the stealth mood
+    ctx.restore(); return; }
   ctx.lineWidth=1;
   if(currentThemeKey==='treasury'){
     // broad flagstones with the odd tinted slab
@@ -4446,10 +4492,12 @@ function drawFloor(){
   }
   drawDecor(false);   // ground pieces under the walls
   // walls — with a per-layout-family accent so vault bones read differently
+  const wpat=wallPattern();
   for(const w of walls){
     if(w.x+w.w<cam.x||w.x>cam.x+VIEW.w||w.y+w.h<cam.y||w.y>cam.y+VIEW.h) continue;
-    ctx.fillStyle=T.wall;
+    ctx.fillStyle=wpat||T.wall;
     ctx.fillRect(w.x,w.y,w.w,w.h);
+    if(wpat){ ctx.fillStyle='rgba(8,7,5,0.30)'; ctx.fillRect(w.x,w.y,w.w,w.h); }  // sit walls into the mood
     ctx.fillStyle=T.top;
     ctx.fillRect(w.x,w.y,w.w,4);
     ctx.strokeStyle=INK; ctx.lineWidth=2.5; ctx.lineJoin='miter';
@@ -4537,6 +4585,20 @@ function loadLootArt(){
 }
 if(LOOT_STYLE==='art') loadLootArt();
 function lootImg(k){ return LOOT_STYLE==='art' ? lootArt[k] : null; }
+
+// ---------- surface textures (floor + wall) ----------
+// Same graceful pattern as loot art: only a decoded image is ever used, so a
+// missing/half-delivered set just falls back to the procedural floor + flat walls.
+const floorTex={}, wallTex={}, _floorPat={}, _wallPat={};
+function loadSurfaceTex(){
+  for(const k of ['treasury','fortress','undercity','mint']){
+    const f=new Image(); f.onload=()=>{ floorTex[k]=f; }; f.onerror=()=>{ delete floorTex[k]; }; f.src='assets/textures/'+k+'/floor.png';
+    const w=new Image(); w.onload=()=>{ wallTex[k]=w; };  w.onerror=()=>{ delete wallTex[k]; };  w.src='assets/textures/'+k+'/wall.png';
+  }
+}
+loadSurfaceTex();
+function floorPattern(){ const k=currentThemeKey; if(!floorTex[k]) return null; if(!_floorPat[k]) _floorPat[k]=ctx.createPattern(floorTex[k],'repeat'); return _floorPat[k]; }
+function wallPattern(){ const k=currentThemeKey; if(!wallTex[k]) return null; if(!_wallPat[k]) _wallPat[k]=ctx.createPattern(wallTex[k],'repeat'); return _wallPat[k]; }
 // Draw a loot sprite centred on the current origin. `sc` scales the whole cell
 // (the idle pulse rides on it); `dy` offsets parts that aren't concentric with
 // the piece, like the shrine's floating crystal.
@@ -5501,7 +5563,8 @@ function renderCollection(){
     const el=document.createElement('div');
     el.className='niche '+(owned?'owned':'empty');
     el.style.setProperty('--gemc',gc); el.style.setProperty('--gemglow',gg);
-    el.innerHTML=`<div class="gem"></div><div class="plinth"></div>
+    el.innerHTML=`<div class="gem">${owned?`<img class="gem-ic" src="assets/icons/trophies/${t.id}.png" alt="">`:''}</div><div class="plinth"></div>
+      <div class="tname">${t.nm}</div>
       <div class="plate">${t.passive}</div>
       <div class="eff">${owned?t.eff(lvl)+' \u2014 every run':`escape with a ${t.nm}, then choose \u201cKeep it\u201d at the fence`}</div>
       <div class="pips">${pips}</div>
@@ -5580,10 +5643,13 @@ function renderContracts(){
     if(c.repJob) el.style.borderLeftColor='var(--gold)';
     const chips=(c.repJob?`<span class="jchip on">★ asked for by name · +25%</span>`:'')
       +(c.makingGood?`<span class="jchip bad">making good · −20%</span>`:'');
-    el.innerHTML=`<div class="jc">${c.client}</div>
+    el.innerHTML=`<img class="job-ic" src="assets/icons/contracts/${c.type}.png" alt="">
+      <div class="job-body">
+      <div class="jc">${c.client}</div>
       <div class="jt">${c.obj||c.desc}</div>
       <div class="jloc">${c.location}${c.tag?` \u00b7 ${c.tag}`:''}</div>
-      <div class="jr">$${c.reward.toLocaleString()}${c.notoDown?` \u00b7 \u2212${c.notoDown} notoriety`:''}${chips}</div>`;
+      <div class="jr">$${c.reward.toLocaleString()}${c.notoDown?` \u00b7 \u2212${c.notoDown} notoriety`:''}${chips}</div>
+      </div>`;
     el.onclick=()=>{ activeContract=c; startRun(); };
     g.appendChild(el);
   });

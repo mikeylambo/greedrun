@@ -24,7 +24,11 @@ func configure(points: Array[Vector2], is_elite: bool = false, is_hunter: bool =
 
 
 func update_ai(
-	delta: float, player: GreedrunPlayer, vault: GreedrunVault, detect_radius: float, base_speed: float
+	delta: float,
+	player: GreedrunPlayer,
+	vault: GreedrunVault,
+	detect_radius: float,
+	base_speed: float
 ) -> void:
 	hit_cooldown = maxf(0.0, hit_cooldown - delta)
 	var own_detect: float = detect_radius * (1.25 if hunter else 1.2 if elite else 1.0)
@@ -80,12 +84,21 @@ func update_ai(
 
 
 func _draw() -> void:
-	var color: Color = (
-		Color(0.82, 0.25, 0.18)
-		if hunter
-		else Color(0.78, 0.60, 0.24) if elite else Color(0.52, 0.45, 0.33)
-	)
-	draw_circle(Vector2.ZERO, radius, color)
+	# Guard + Elite use the cutout sprite (Elite is a gold palette swap).
+	# The Hunter has no clean cutout yet, so it keeps the vector token.
+	var sprite: Texture2D = Art.texture("res://assets/enemies/guard.png") if not hunter else null
+	if sprite != null:
+		var h := 68.0
+		var mod := Color(1.0, 0.85, 0.5) if elite else Color.WHITE
+		draw_texture_rect(sprite, Rect2(-h * 0.5, -h * 0.78, h, h), false, mod)
+	else:
+		var color: Color = (
+			Color(0.82, 0.25, 0.18)
+			if hunter
+			else Color(0.78, 0.60, 0.24) if elite else Color(0.52, 0.45, 0.33)
+		)
+		draw_circle(Vector2.ZERO, radius, color)
+	# Gameplay tells, drawn on top in both modes.
 	draw_line(Vector2.ZERO, Vector2.from_angle(facing) * 18.0, Color(1, 0.86, 0.58), 3.0)
 	if state == "chase":
 		draw_arc(Vector2.ZERO, radius + 5.0, 0, TAU, 24, Color(0.95, 0.25, 0.17), 2.0)

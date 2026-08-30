@@ -92,6 +92,12 @@ func _draw() -> void:
 		false,
 		Color(color.r, color.g, color.b, glow_strength)
 	)
+	# Prefer the generated cutout sprite; fall back to the vector shapes.
+	var sprite := Art.texture("res://assets/icons/loot/%s.png" % loot_type)
+	if sprite != null:
+		var half := 20.0 * glow
+		draw_texture_rect(sprite, Rect2(-half, -half, half * 2.0, half * 2.0), false)
+		return
 	match loot_type:
 		"coin":
 			draw_circle(Vector2.ZERO, 6.0, color)

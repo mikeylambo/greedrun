@@ -52,10 +52,10 @@ The project has no external asset dependencies. Current presentation is drawn wi
 
 ## Validation status
 
-All twelve GDScript files pass `gdformat` parsing and `gdlint` with no reported problems. Every `res://` resource reference has also been checked against the packaged project.
+The GDScript files pass `gdformat` and `gdparse`; the files added or edited for the art wiring (`scripts/art.gd`, `scripts/themes.gd`, `scripts/vault.gd`, `scripts/loot_item.gd`, `scripts/guard.gd`, `scripts/sentry.gd`) pass `gdlint` with no reported problems. Every `res://` resource reference has also been checked against the packaged project.
 
 A Godot executable was not installed in the build sandbox, and the sandbox could not download one, so the project could not receive an engine-level F5 runtime certification here. The first local F5 in Godot 4.7 should therefore be treated as the final boot smoke test; use `docs/PLAYTEST_CHECKLIST.md` for the intended sequence.
 
 ## Current presentation boundary
 
-This is a system-complete graybox/vertical-slice port. It deliberately uses replaceable primitive art and has no final animation, sound, music, authored rooms, dialogue, controller action mapping, or production-grade mobile layout pass yet.
+This is a system-complete graybox/vertical-slice port. A **Tier 1 art slice** is now wired: environment floor/wall/platform textures, loot pickups, and the Guard/Sentry enemies draw generated Scenario art (see `docs/ART_PIPELINE.md`), with a clean fallback to the original primitives when a texture is absent. `FORCE_THEME` in `scripts/vault.gd` locks every run to the wired **treasury** theme — set it to `""` to restore per-contract/random themes (all four themes have textures). Jo (pending a character-animation model), the HUD chrome, decorative props, and all audio/animation are still primitive/absent.

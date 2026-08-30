@@ -10,6 +10,11 @@ audio gets wired to the existing signals (`alarm_tripped`, pickups, extraction, 
 
 ## 0. Locks that gate everything (decide first)
 
+> **Decided 2026-08-29** (see `docs/ART_PIPELINE.md`): orientation is **3/4
+> top-down**; tiles are **64 px** (1024 px seamless textures = 16×16 cells);
+> icons authored at 1024 px and downscaled. Character animation model remains
+> open.
+
 - **Orientation:** true bird's-eye vs. 3/4 top-down (Hades/Zelda-style). Affects every
   character, enemy, and top-down loot asset. 3/4 is more expressive and easier to source.
 - **Character animation model:** single sprite rotated to face movement (cheap, few assets)
