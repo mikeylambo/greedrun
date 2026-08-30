@@ -132,6 +132,12 @@
                bottom:calc(30cqmin + env(safe-area-inset-bottom));}
     .heat-pips .lbl{font-size:3.1cqmin;margin-bottom:1.2cqmin;}
     .pip{width:5cqmin;height:1.9cqmin;}
+    /* the generated HUD chrome scales with the stage on touch, like the rest */
+    .heart{width:6.6cqmin;height:6cqmin;}
+    .stat-ic{width:5.8cqmin;height:5.8cqmin;}
+    .stat-ic.sm{width:4cqmin;height:4cqmin;margin-right:1.2cqmin;}
+    .heat-emblem{width:9cqmin;height:9cqmin;right:calc(100% + 2cqmin);bottom:-0.6cqmin;}
+    .meter .track{height:6cqmin;border-width:1.3cqmin 6cqmin;border-image-width:1.3cqmin 6cqmin;}
     /* Touch-control sizing lives AFTER the base #stick/#eBtn/#dropBtn rules (search
        "--ctl") so it actually wins on source order — these ID rules can't be
        overridden from here because the base defs come later in the file. */
