@@ -469,10 +469,12 @@
     background:radial-gradient(120% 70% at 50% -10%,rgba(255,200,90,.09),transparent 62%),linear-gradient(180deg,#241a10,#150e07);
     box-shadow:inset 0 1px 0 rgba(255,215,130,.10),inset 0 0 0 1px #3a2a17,0 12px 24px rgba(0,0,0,.55);}
   .niche.empty{filter:saturate(.5) brightness(.82);}
-  .niche .gem{width:58px;height:58px;margin:2px auto 0;border-radius:50%;
+  .niche .gem{position:relative;width:58px;height:58px;margin:2px auto 0;border-radius:50%;
     background:radial-gradient(circle at 38% 30%,#ffffffcc,var(--gemc,#f5c542) 52%,#00000088 100%);
     box-shadow:0 0 30px -3px var(--gemglow,rgba(245,197,66,.6)),inset 0 -7px 13px rgba(0,0,0,.45);}
   .niche.owned .gem{animation:gemPulse 2.8s ease-in-out infinite;}
+  .niche .gem-ic{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;
+    box-shadow:inset 0 0 0 1px rgba(255,215,130,.28),inset 0 -6px 12px rgba(0,0,0,.4);}
   @keyframes gemPulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.28)}}
   .niche.empty .gem{background:radial-gradient(circle at 40% 35%,#2b2318,#100b06);box-shadow:inset 0 -5px 11px rgba(0,0,0,.65);}
   .niche.empty .gem::after{content:'?';position:absolute;inset:0;display:grid;place-items:center;
@@ -573,7 +575,12 @@
   .job{pointer-events:auto;cursor:pointer;background:var(--panel);border-radius:11px;padding:15px 16px;
     box-shadow:0 0 0 1px var(--panel-line) inset;border-left:3px solid var(--gold-deep);
     transition:transform .12s, box-shadow .12s;}
+  .job{display:flex;gap:14px;align-items:center;}
+  .job-ic{width:54px;height:54px;flex:0 0 auto;border-radius:9px;object-fit:cover;
+    background:#161109;box-shadow:0 0 0 1px var(--panel-line) inset;}
+  .job-body{flex:1 1 auto;min-width:0;}
   .job:hover{transform:translateY(-2px);box-shadow:0 0 0 1px var(--gold) inset;}
+  .job:hover .job-ic{box-shadow:0 0 0 1px var(--gold-deep) inset;}
   .job .jt{font-family:"Cinzel",serif;font-weight:700;font-size:16px;color:var(--scarf);line-height:1.25;}
   .job .jc{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:5px;}
   .job .jloc{font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:3px 0 0;}
@@ -5553,7 +5560,7 @@ function renderCollection(){
     const el=document.createElement('div');
     el.className='niche '+(owned?'owned':'empty');
     el.style.setProperty('--gemc',gc); el.style.setProperty('--gemglow',gg);
-    el.innerHTML=`<div class="gem"></div><div class="plinth"></div>
+    el.innerHTML=`<div class="gem">${owned?`<img class="gem-ic" src="assets/icons/trophies/${t.id}.png" alt="">`:''}</div><div class="plinth"></div>
       <div class="plate">${t.passive}</div>
       <div class="eff">${owned?t.eff(lvl)+' \u2014 every run':`escape with a ${t.nm}, then choose \u201cKeep it\u201d at the fence`}</div>
       <div class="pips">${pips}</div>
@@ -5632,10 +5639,13 @@ function renderContracts(){
     if(c.repJob) el.style.borderLeftColor='var(--gold)';
     const chips=(c.repJob?`<span class="jchip on">★ asked for by name · +25%</span>`:'')
       +(c.makingGood?`<span class="jchip bad">making good · −20%</span>`:'');
-    el.innerHTML=`<div class="jc">${c.client}</div>
+    el.innerHTML=`<img class="job-ic" src="assets/icons/contracts/${c.type}.png" alt="">
+      <div class="job-body">
+      <div class="jc">${c.client}</div>
       <div class="jt">${c.obj||c.desc}</div>
       <div class="jloc">${c.location}${c.tag?` \u00b7 ${c.tag}`:''}</div>
-      <div class="jr">$${c.reward.toLocaleString()}${c.notoDown?` \u00b7 \u2212${c.notoDown} notoriety`:''}${chips}</div>`;
+      <div class="jr">$${c.reward.toLocaleString()}${c.notoDown?` \u00b7 \u2212${c.notoDown} notoriety`:''}${chips}</div>
+      </div>`;
     el.onclick=()=>{ activeContract=c; startRun(); };
     g.appendChild(el);
   });
