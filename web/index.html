@@ -1627,7 +1627,7 @@ const THEME_DECOR={
   treasury:{ ground:['pillarbase','urn','crate','puddle'],  wall:['banner'] },
   fortress:{ ground:['crate','barrel','rubble'],            wall:['banner','chain'] },
   undercity:{ground:['rubble','beam','puddle'],             wall:['torch'] },
-  mint:     { ground:['coinpile','gear','barrel','crate'],  wall:['banner'] },
+  mint:     { ground:['gear','barrel','crate']       ,  wall:['banner'] },
 };
 const THEME_LANDMARK={ treasury:'basin', fortress:'compass', undercity:'well', mint:'die' };
 const BANNER_COL={ treasury:'#c9a24a', fortress:'#6f89a1', undercity:'#8a6b3a', mint:'#c9b37a' };
@@ -4269,6 +4269,12 @@ const hashXY=(ix,iy)=>(((ix*73856093)^(iy*19349663))>>>0);
 function drawFloorPattern(){
   const T=currentTheme, L=cam.x, R=cam.x+VIEW.w, Tp=cam.y, B=cam.y+VIEW.h;
   ctx.fillStyle=T.floor; ctx.fillRect(L,Tp,VIEW.w,VIEW.h);
+  // Textured floor (world-anchored tiling) over the dark base; the alpha keeps
+  // the stealth mood while the stone reads. Falls back to the procedural grid.
+  const fpat=floorPattern();
+  if(fpat){ ctx.save(); ctx.globalAlpha=0.40; ctx.fillStyle=fpat; ctx.fillRect(L,Tp,VIEW.w,VIEW.h);
+    ctx.globalAlpha=1; ctx.fillStyle='rgba(8,7,5,0.34)'; ctx.fillRect(L,Tp,VIEW.w,VIEW.h);  // keep the stealth mood
+    ctx.restore(); return; }
   ctx.lineWidth=1;
   if(currentThemeKey==='treasury'){
     // broad flagstones with the odd tinted slab
@@ -4460,10 +4466,12 @@ function drawFloor(){
   }
   drawDecor(false);   // ground pieces under the walls
   // walls — with a per-layout-family accent so vault bones read differently
+  const wpat=wallPattern();
   for(const w of walls){
     if(w.x+w.w<cam.x||w.x>cam.x+VIEW.w||w.y+w.h<cam.y||w.y>cam.y+VIEW.h) continue;
-    ctx.fillStyle=T.wall;
+    ctx.fillStyle=wpat||T.wall;
     ctx.fillRect(w.x,w.y,w.w,w.h);
+    if(wpat){ ctx.fillStyle='rgba(8,7,5,0.30)'; ctx.fillRect(w.x,w.y,w.w,w.h); }  // sit walls into the mood
     ctx.fillStyle=T.top;
     ctx.fillRect(w.x,w.y,w.w,4);
     ctx.strokeStyle=INK; ctx.lineWidth=2.5; ctx.lineJoin='miter';
@@ -4551,6 +4559,20 @@ function loadLootArt(){
 }
 if(LOOT_STYLE==='art') loadLootArt();
 function lootImg(k){ return LOOT_STYLE==='art' ? lootArt[k] : null; }
+
+// ---------- surface textures (floor + wall) ----------
+// Same graceful pattern as loot art: only a decoded image is ever used, so a
+// missing/half-delivered set just falls back to the procedural floor + flat walls.
+const floorTex={}, wallTex={}, _floorPat={}, _wallPat={};
+function loadSurfaceTex(){
+  for(const k of ['treasury','fortress','undercity','mint']){
+    const f=new Image(); f.onload=()=>{ floorTex[k]=f; }; f.onerror=()=>{ delete floorTex[k]; }; f.src='assets/textures/'+k+'/floor.png';
+    const w=new Image(); w.onload=()=>{ wallTex[k]=w; };  w.onerror=()=>{ delete wallTex[k]; };  w.src='assets/textures/'+k+'/wall.png';
+  }
+}
+loadSurfaceTex();
+function floorPattern(){ const k=currentThemeKey; if(!floorTex[k]) return null; if(!_floorPat[k]) _floorPat[k]=ctx.createPattern(floorTex[k],'repeat'); return _floorPat[k]; }
+function wallPattern(){ const k=currentThemeKey; if(!wallTex[k]) return null; if(!_wallPat[k]) _wallPat[k]=ctx.createPattern(wallTex[k],'repeat'); return _wallPat[k]; }
 // Draw a loot sprite centred on the current origin. `sc` scales the whole cell
 // (the idle pulse rides on it); `dy` offsets parts that aren't concentric with
 // the piece, like the shrine's floating crystal.
