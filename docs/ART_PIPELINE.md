@@ -201,5 +201,12 @@ base off for props that must sit flush on interior floors.
 ## Environment note
 
 The Claude Code remote session's egress proxy blocks `cdn.cloud.scenario.com`,
-so generated PNGs could not be committed directly from the session. Download
-from app.scenario.com and place under `assets/` per ASSET_MANIFEST.md formats.
+so generated PNGs could not be downloaded directly from the session. Workaround:
+export the assets from app.scenario.com and hand the zip to the session, which
+places them under `assets/`.
+
+**In-repo status:** the 8 keeper environment textures (4 floors + 4 walls) are
+committed under `assets/textures/<theme>/{floor,wall}.png` — theme folders match
+the `vault.gd` `THEMES` keys. See `assets/textures/README.md` for the file→asset
+map. Still to import (larger second export): icons, enemy sprites, prop sheets,
+HUD chrome.
