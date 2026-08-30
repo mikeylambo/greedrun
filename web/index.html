@@ -481,6 +481,9 @@
     font:700 22px "Cinzel",serif;color:#5a4a2e;transform:translateY(24px);}
   .niche .plinth{height:13px;margin:6px 30px 11px;border-radius:0 0 6px 6px;
     background:linear-gradient(180deg,#5a4225,#2a1d10);box-shadow:inset 0 2px 0 rgba(255,215,140,.18),0 7px 11px rgba(0,0,0,.55);}
+  .niche .tname{font-family:"Cinzel",serif;font-weight:600;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+    color:#caa668;margin:0 0 5px;opacity:.9;}
+  .niche.empty .tname{color:#6f5f43;}
   .niche .plate{font-family:"Cinzel",serif;font-weight:700;font-size:13px;letter-spacing:.01em;color:#3a2a0e;
     padding:3px 10px;border-radius:4px;display:inline-block;
     background:linear-gradient(180deg,#f8da7e,#c69a34);box-shadow:0 1px 2px rgba(0,0,0,.45),inset 0 1px 0 #ffffffaa;}
@@ -5561,6 +5564,7 @@ function renderCollection(){
     el.className='niche '+(owned?'owned':'empty');
     el.style.setProperty('--gemc',gc); el.style.setProperty('--gemglow',gg);
     el.innerHTML=`<div class="gem">${owned?`<img class="gem-ic" src="assets/icons/trophies/${t.id}.png" alt="">`:''}</div><div class="plinth"></div>
+      <div class="tname">${t.nm}</div>
       <div class="plate">${t.passive}</div>
       <div class="eff">${owned?t.eff(lvl)+' \u2014 every run':`escape with a ${t.nm}, then choose \u201cKeep it\u201d at the fence`}</div>
       <div class="pips">${pips}</div>

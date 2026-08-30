@@ -328,7 +328,10 @@ const BUDGET = 7;
   const card = await page.evaluate(() => {
     const j = document.querySelector('#jobGrid .job');
     if (!j) return null;
-    return { lines: j.children.length,
+    // the four info lines live in .job-body beside the contract icon; count them
+    // there (a fifth prose line would still trip this) rather than on .job itself
+    const body = j.querySelector('.job-body') || j;
+    return { lines: body.children.length,
       client: (j.querySelector('.jc') || {}).textContent || '',
       obj: (j.querySelector('.jt') || {}).textContent || '',
       loc: (j.querySelector('.jloc') || {}).textContent || '',
@@ -342,7 +345,7 @@ const BUDGET = 7;
     if (card.lore || card.quote || card.cond) fails.push('lore/quote/condition line is back on the card');
     if (!/^\$/.test(card.fee.trim())) fails.push('the fee should lead with the number: ' + card.fee);
     if (card.chars > 90) fails.push('commission card is ' + card.chars + ' chars — too much to glance at');
-    else log.push('commission card: 4 lines, ' + card.chars + ' chars — "' + card.client + ' / ' + card.obj.trim() + '"');
+    else log.push('commission card: ' + card.lines + ' lines, ' + card.chars + ' chars — "' + card.client + ' / ' + card.obj.trim() + '"');
   }
   await page.click('#jobsBack'); await page.waitForTimeout(120);
 }
