@@ -205,8 +205,12 @@ so generated PNGs could not be downloaded directly from the session. Workaround:
 export the assets from app.scenario.com and hand the zip to the session, which
 places them under `assets/`.
 
-**In-repo status:** the 8 keeper environment textures (4 floors + 4 walls) are
-committed under `assets/textures/<theme>/{floor,wall}.png` — theme folders match
-the `vault.gd` `THEMES` keys. See `assets/textures/README.md` for the file→asset
-map. Still to import (larger second export): icons, enemy sprites, prop sheets,
-HUD chrome.
+**In-repo status:** all generated art is now committed.
+- Environment textures (4 floors + 4 walls) under `assets/textures/<theme>/{floor,wall}.png`.
+- Icons, enemies, HUD chrome, and prop sheets under `assets/{icons,enemies,ui,props}/`.
+- Filenames match the game's own identifier keys (upgrade/trophy `id`, loot
+  `LOOT_TYPES` key, contract `type`, buyer `id`, boon key, `THEMES` key), so
+  wiring is a 1:1 lookup. See `assets/README.md` and `assets/textures/README.md`
+  for the full file→asset-ID provenance maps.
+- The 2 rejected trophy misses and 2 rejected Old Mint wall attempts are not
+  committed.
