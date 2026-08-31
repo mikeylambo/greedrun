@@ -4295,11 +4295,26 @@ function drawFloorPattern(){
   // the stealth mood while the stone reads. Falls back to the procedural grid.
   const fpat=floorPattern();
   if(fpat){ ctx.save();
-    // per-run opacity, deterministic on the vault seed — proc-gen variety in the
-    // 0.42..0.58 range the mockups landed on.
-    ctx.globalAlpha = 0.42 + (hashXY(vaultSeed,151)%17)/100;
-    ctx.fillStyle=fpat; ctx.fillRect(L,Tp,VIEW.w,VIEW.h);
-    ctx.globalAlpha=1; ctx.fillStyle='rgba(8,7,5,0.34)'; ctx.fillRect(L,Tp,VIEW.w,VIEW.h);  // keep the stealth mood
+    // Floor treatment, deterministic on the vault seed, so the tile recedes and
+    // Jo/loot/guards (drawn on top, untouched) read as the foreground. Three
+    // dark treatments rotate run to run for variety; the bright untreated floor
+    // (A) shows up only seldom:
+    //   B dim+desaturated · C dim+vignette · D dim+desat+vignette · A bright.
+    const roll=hashXY(vaultSeed,151);
+    const treat = roll%10===0 ? 'A' : 'BCD'[(roll>>3)%3];
+    const jit=(roll%8)/100;                                   // 0..0.07 per-run
+    const tex=(alpha,sat)=>{ if(sat!=null) ctx.filter='saturate('+sat+')';
+      ctx.globalAlpha=alpha; ctx.fillStyle=fpat; ctx.fillRect(L,Tp,VIEW.w,VIEW.h);
+      ctx.filter='none'; ctx.globalAlpha=1; };
+    const wash=a=>{ ctx.fillStyle='rgba(8,7,5,'+a+')'; ctx.fillRect(L,Tp,VIEW.w,VIEW.h); };
+    const vign=a=>{ const cx=L+VIEW.w/2, cy=Tp+VIEW.h/2, rad=Math.max(VIEW.w,VIEW.h)*0.72;
+      const g=ctx.createRadialGradient(cx,cy,rad*0.34,cx,cy,rad);
+      g.addColorStop(0,'rgba(6,5,3,0)'); g.addColorStop(1,'rgba(6,5,3,'+a+')');
+      ctx.fillStyle=g; ctx.fillRect(L,Tp,VIEW.w,VIEW.h); };
+    if(treat==='A'){ tex(0.42+jit,null); wash(0.32); }
+    else if(treat==='B'){ tex(0.30+jit,0.5); wash(0.50); }
+    else if(treat==='C'){ tex(0.32+jit,null); wash(0.42); vign(0.62); }
+    else { tex(0.26+jit,0.55); wash(0.48); vign(0.55); }      // D
     ctx.restore(); return; }
   ctx.lineWidth=1;
   if(currentThemeKey==='treasury'){
