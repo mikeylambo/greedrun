@@ -240,3 +240,20 @@ places them under `assets/`.
   for the full file→asset-ID provenance maps.
 - The 2 rejected trophy misses and 2 rejected Old Mint wall attempts are not
   committed.
+
+## Web build integration (greedrun.vercel.app)
+
+The generated art is wired into the deployed web build (`web/index.html`), not
+just the Godot port:
+
+- **HUD chrome** — gold hearts, coin-pouch haul, ornate `border-image` greed/
+  noise meters, circular flame heat-gauge; scales on mobile via `cqmin`.
+- **Map textures** — theme floor/wall textures tiled world-anchored (downscaled
+  384px into `web/assets/textures/`), with the loot-art image-load fallback.
+- **Menu icons** — contract-type icons on the jobs board; trophy art in the
+  collection niches, each under a placard naming the object (the gold plate
+  keeps the passive-buff name).
+- **Floor treatment** — the tiled floor recedes so Jo/loot/guards read as the
+  foreground: three dark treatments (dim+desat, dim+vignette, dim+desat+vignette)
+  rotate per run on the vault seed, with the bright untreated floor turning up
+  only seldom (~1 run in 10).
